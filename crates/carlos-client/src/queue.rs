@@ -22,6 +22,17 @@ impl Replica {
 impl Client {
     /// Accept a queue header through the same sequence fences and byte budget as numbered facts.
     pub fn merge_queue(&mut self, page: &QueuePage) -> Result<Effects, ClientError> {
+        let mut effects = Effects::default();
+        self.apply_queue_header(page, &mut effects)?;
+        self.drive(&mut effects);
+        Ok(effects)
+    }
+
+    pub(crate) fn apply_queue_header(
+        &mut self,
+        page: &QueuePage,
+        effects: &mut Effects,
+    ) -> Result<(), ClientError> {
         let session = page.session.clone();
         let replica = self
             .sessions
@@ -29,9 +40,6 @@ impl Client {
             .and_then(|slot| slot.replica.as_mut())
             .ok_or(ClientError::ForeignSession)?;
         let changes = replica.merge_queue(page)?;
-        let mut effects = Effects::default();
-        self.changed(&session, changes, &mut effects)?;
-        self.drive(&mut effects);
-        Ok(effects)
+        self.changed(&session, changes, effects)
     }
 }

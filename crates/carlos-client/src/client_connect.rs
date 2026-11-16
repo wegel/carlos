@@ -46,6 +46,9 @@ impl Client {
         for slot in self.sessions.values_mut() {
             slot.syncing = None;
             slot.subscribed = None;
+            if let Some(panel) = &mut slot.panels.queue {
+                panel.disconnected();
+            }
         }
     }
 
@@ -161,5 +164,6 @@ impl Client {
         self.restore_watches(effects);
         self.restore_goal_watches(effects);
         self.restore_task_watches(effects);
+        self.drive_queue_panels(effects);
     }
 }

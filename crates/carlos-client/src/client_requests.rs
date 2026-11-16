@@ -138,6 +138,7 @@ impl Client {
                     subscribed: None,
                     refresh: false,
                     since: None,
+                    panels: Default::default(),
                 });
                 slot.wanted = true;
                 slot.syncing = Some(outgoing.id);
@@ -145,6 +146,7 @@ impl Client {
                 slot.refresh = false;
             }
             Kind::Unsubscribe(session) => {
+                self.cancel_queue_reads(&session);
                 self.sessions.remove(&session);
                 self.goals.forget(&session);
                 self.task_watches.forget(&session);

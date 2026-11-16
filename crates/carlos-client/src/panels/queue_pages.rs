@@ -26,6 +26,26 @@ pub struct QueuePageWindow {
 }
 
 impl QueuePageWindow {
+    pub(crate) fn retained_bytes(&self) -> usize {
+        self.entries
+            .iter()
+            .map(|entry| {
+                entry.id.as_str().len()
+                    + entry.client_message.len()
+                    + entry.preview.len()
+                    + entry.display_id.as_ref().map_or(0, String::len)
+                    + 128
+            })
+            .sum::<usize>()
+            + self
+                .cursors
+                .iter()
+                .flatten()
+                .map(|id| id.as_str().len() + 32)
+                .sum::<usize>()
+            + 512
+    }
+
     /// Borrow the revision that proves this window's rows.
     pub fn revision(&self) -> Option<&QueueRevision> {
         self.revision.as_ref()

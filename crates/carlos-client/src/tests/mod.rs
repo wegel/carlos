@@ -21,6 +21,8 @@ mod lifecycle;
 mod operations;
 mod prompts;
 mod queue;
+mod queue_panel;
+mod queue_panel_input;
 mod queue_ranges;
 mod replica;
 mod rewind_progress;

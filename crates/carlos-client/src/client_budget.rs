@@ -17,19 +17,26 @@ impl Client {
         let bytes: usize = self
             .sessions
             .values()
-            .filter_map(|slot| slot.replica.as_ref())
-            .map(|replica| replica.retained_bytes())
+            .map(|slot| {
+                slot.replica
+                    .as_ref()
+                    .map_or(0, |replica| replica.retained_bytes())
+                    + slot.panels.retained_bytes()
+            })
             .sum();
         if bytes <= MAX_FACT_BYTES {
             return true;
         }
+        self.cancel_queue_reads(session);
         if let Some(slot) = self.sessions.get_mut(session) {
+            slot.panels = Default::default();
             slot.replica = None;
             slot.wanted = false;
             slot.syncing = None;
             slot.refresh = false;
         }
         self.bodies.forget_session(session);
+        effects.panel_changed(session, crate::panels::PanelKind::Queue);
         if !self.detach.contains(session) {
             self.detach.push_back(session.clone());
         }

@@ -74,9 +74,23 @@ pub struct Effects {
     pub failures: Vec<RequestFailure>,
     pub catalog: bool,
     pub welcome: Option<Welcome>,
+    pub panels: Vec<crate::panels::PanelChange>,
 }
 
 impl Effects {
+    pub(crate) fn panel_changed(&mut self, session: &SessionId, kind: crate::panels::PanelKind) {
+        if !self
+            .panels
+            .iter()
+            .any(|change| &change.session == session && change.kind == kind)
+        {
+            self.panels.push(crate::panels::PanelChange {
+                session: session.clone(),
+                kind,
+            });
+        }
+    }
+
     pub(crate) fn read_reply(&mut self, serial: i64, reply: ReadReply) {
         self.replies.push(ReadResult {
             id: Some(RequestId::Integer(serial)),
@@ -92,6 +106,7 @@ pub(crate) struct Slot {
     pub syncing: Option<i64>,
     pub subscribed: Option<ConnectionId>,
     pub refresh: bool,
+    pub panels: crate::panels::Panels,
 }
 
 /// One device's checked session copies, private rights, request tracker and bounded body windows.
@@ -227,6 +242,7 @@ impl Client {
                 effects.failures.push(RequestFailure { id, error });
             }
         }
+        self.accept_panel_replies(&mut effects);
         self.drive(&mut effects);
         Ok(effects)
     }
@@ -244,6 +260,7 @@ impl Client {
         changes: ChangeSet,
         effects: &mut Effects,
     ) -> Result<(), ClientError> {
+        self.wake_queue_panel(session, &changes);
         if changes == ChangeSet::default() {
             return Ok(());
         }
