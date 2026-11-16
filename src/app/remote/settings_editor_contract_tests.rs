@@ -4,7 +4,7 @@ use carlos_proto::ids::Sequence;
 use carlos_proto::session::{Backend, Snapshot};
 use carlos_proto::settings::{ModelInfo, RuntimeChoices, SettingValue, SettingsFacts};
 
-use super::Catalog;
+use super::{catalog_runtime, Catalog};
 use crate::app::remote::settings_changes;
 use crate::app::remote::widget_fixture::{device_with_snapshot, info};
 use crate::app::remote::Device;
@@ -69,7 +69,7 @@ fn unknown_summary_stays_inherited_across_two_editor_openings() {
             device
                 .view
                 .runtime_settings
-                .model_settings_summary_value(accepted.runtime()),
+                .model_settings_summary_value(catalog_runtime(accepted)),
             "Use thread setting"
         );
         assert!(change(&device).summary.is_none());
@@ -119,7 +119,7 @@ fn explicitly_choosing_a_summary_publishes_only_that_private_choice() {
         device
             .view
             .runtime_settings
-            .model_settings_summary_value(catalog.runtime()),
+            .model_settings_summary_value(catalog_runtime(catalog)),
         "auto"
     );
     assert_eq!(
@@ -153,7 +153,7 @@ fn a_native_model_without_effort_choices_hides_the_effort_field() {
     assert!(!device
         .view
         .runtime_settings
-        .model_settings_fields(catalog.runtime())
+        .model_settings_fields(catalog_runtime(catalog))
         .contains(&ModelSettingsField::Effort));
     assert_eq!(change(&device).effort, None);
     assert!(device.client.operations().iter().next().is_none());
@@ -180,7 +180,7 @@ fn rejected_model_and_effort_survive_a_catalog_refresh_without_becoming_native_f
         device
             .view
             .runtime_settings
-            .model_settings_model_value(accepted.runtime()),
+            .model_settings_model_value(catalog_runtime(accepted)),
         "rejected"
     );
     assert_eq!(
@@ -261,7 +261,7 @@ fn catalog_reordering_preserves_the_private_model_by_value() {
         device
             .view
             .runtime_settings
-            .model_settings_model_value(accepted.runtime()),
+            .model_settings_model_value(catalog_runtime(accepted)),
         "b"
     );
     assert_eq!(accepted.facts.current.model.as_deref(), Some("a"));

@@ -5,12 +5,12 @@ use carlos_core::session::runtime_settings::RuntimeDefaults;
 use carlos_proto::session::Backend;
 use carlos_proto::settings::{SettingValue, SettingsChange};
 
-use super::settings::Catalog;
+use super::settings::{catalog_runtime, Catalog};
 use crate::app::runtime_settings_state::RuntimeSettingsView;
 
 pub(super) fn choices(editor: &RuntimeSettingsView, catalog: &Catalog) -> RuntimeDefaults {
-    let mut choices = editor.saved_choices(catalog.runtime());
-    editor.normalize_native_choices(catalog.runtime(), &mut choices);
+    let mut choices = editor.saved_choices(catalog_runtime(catalog));
+    editor.normalize_native_choices(catalog_runtime(catalog), &mut choices);
     choices
 }
 
@@ -85,7 +85,7 @@ pub(super) fn restore(editor: &mut RuntimeSettingsView, catalog: &Catalog, chang
             .unwrap_or(usize::MAX);
         editor.model_settings_model_input = model;
         if editor.model_settings_model_index != usize::MAX {
-            editor.model_settings_cycle_model(catalog.runtime(), 0);
+            editor.model_settings_cycle_model(catalog_runtime(catalog), 0);
         }
     }
     if let Some(effort) = change.effort {
@@ -100,7 +100,7 @@ pub(super) fn restore(editor: &mut RuntimeSettingsView, catalog: &Catalog, chang
         editor.model_settings_summary_index =
             choose(&mut editor.model_settings_summary_options, summary);
     }
-    editor.refresh_native_editor(catalog.runtime(), false);
+    editor.refresh_native_editor(catalog_runtime(catalog), false);
 }
 
 fn choose(options: &mut Vec<String>, value: String) -> usize {

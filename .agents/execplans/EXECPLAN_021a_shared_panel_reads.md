@@ -13,6 +13,7 @@ EP021 is split at a natural boundary. This plan shares existing read behavior an
 
 ## Progress
 
+- [x] (2026-11-16) Replace the terminal model Catalog/Fetch driver with SettingsCatalog transfer and SettingsPanel read status/error access. Remove160 lines from settings.rs, retain private RuntimeDefaults conversion and save/draft state, and close the shared point reader on explicit close or accepted Save. All22 actual settings/command-directory workflows pass16.168s at /tmp/carlos-ep021a/settings-shared.log. Default1680 cases pass18.75s, strict lint and400/60 audit pass; the shared core commit is709a961. The small host context-size request tracker is next; goal/tasks and final full gates remain unfinished.
 - [ ] (2026-11-16) Add SettingsPanel/SettingsCatalog and typed open/refresh/close/take APIs to Client, with one owned request, one future page, exact model intervals, the existing eight MiB list ceiling and cached combined-budget charges. Five pure-client workflows pass with all140 client cases:65-model traversal/future facts, changed-revision failure, unowned reads/retired failures/offline close, oversized list refusal and partial-versus-transferred reconnect. Common reply routing now serves both queue and settings; unknown retired error ids are ignored just like unknown success ids. Default1680 workspace cases pass18.85s, strict lint and400/60 audit pass. Commit this buildable reader, then replace and delete the terminal Catalog/Fetch driver. The host context-size reader remains a separate later step in this milestone.
 - [x] (2026-11-16) All51 actual queue/settings/command-directory workflows pass37.773s at /tmp/carlos-ep021a/queue-settings-corrections.log after the cached-mode/exact-input fixes and queued explicit Save fix. Default1675 tests pass18.87s, strict lint and400/60 audit pass, and72 helper tests/build pass. Preserve the first full debug failure; the final complete corrected release/terminal/native gate still follows all remaining reader migrations.
 
@@ -92,6 +93,8 @@ EP020's focused Fable follow-up approves closure with three MINORs. A reader tha
 - Decision: prototype the queue family first, then use the demonstrated pattern for the other families. Rationale: it exercises cursor walks, long text, future replies and editor independence without inventing abstractions for every panel before one works. Date/author: 2026-11-16, Root.
 
 ## Outcomes & Retrospective
+
+The terminal now uses both shared queue reads and shared complete model-list reads. It transfers SettingsCatalog into its private editor and no longer owns model-page ids, accumulated pages or future settings pages. The22 real settings/directory cases pass with the adapter, alongside1680 default Rust cases and strict lint. Move the host context-default reader next, keeping context edits/save baseline local, then complete goal/task readers and the final end-only checks/reviews.
 
 Queue corrections are committed as81b8022 and the minimal explicit-Save ordering fix as5718d94 after all51 affected real terminal cases pass. The first complete debug run remains a recorded failure with concrete corrections, not a passing final gate. The shared settings controller now passes140 client cases; remove its terminal reader next. The complete final release/native/performance gates and end-only reviews remain unfinished.
 

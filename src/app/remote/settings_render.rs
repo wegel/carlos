@@ -1,5 +1,6 @@
 //! Borrow private settings rows for the same painter used by the embedded terminal.
 
+use super::settings::catalog_runtime;
 use super::Device;
 use crate::app::overlay_render::SettingsFrame;
 use crate::app::overlay_render::{draw_settings_frame, settings_cursor_position};
@@ -27,26 +28,20 @@ impl Device {
             return SettingsFrame {
                 fields: Vec::new(),
                 selected,
-                help: self
-                    .settings
-                    .error
-                    .as_deref()
-                    .unwrap_or("Reading model catalog…"),
+                help: self.settings_error().unwrap_or("Reading model catalog…"),
             };
         };
         SettingsFrame {
             fields: self
                 .view
                 .runtime_settings
-                .model_settings_fields(catalog.runtime())
+                .model_settings_fields(catalog_runtime(catalog))
                 .into_iter()
                 .map(|field| (field, self.settings_field_value(field)))
                 .collect(),
             selected,
             help: self
-                .settings
-                .error
-                .as_deref()
+                .settings_error()
                 .unwrap_or(if self.settings_refreshing() {
                     "Refreshing backend facts; edited fields stay private"
                 } else {
@@ -69,9 +64,13 @@ impl Device {
             .as_ref()
             .expect("captured editor catalog");
         match field {
-            ModelSettingsField::Model => editor.model_settings_model_value(catalog.runtime()),
+            ModelSettingsField::Model => {
+                editor.model_settings_model_value(catalog_runtime(catalog))
+            }
             ModelSettingsField::Effort => editor.model_settings_effort_value(),
-            ModelSettingsField::Summary => editor.model_settings_summary_value(catalog.runtime()),
+            ModelSettingsField::Summary => {
+                editor.model_settings_summary_value(catalog_runtime(catalog))
+            }
             ModelSettingsField::Context if editor.context.attached => "Server default",
             ModelSettingsField::Context => &editor.context.draft,
             ModelSettingsField::DictationEndpoint => self.view.dictation_endpoint_mode_label(),

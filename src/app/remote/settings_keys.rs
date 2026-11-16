@@ -3,6 +3,7 @@
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
+use super::settings::catalog_runtime;
 use super::transport::Transport;
 use super::Device;
 use crate::app::notifications::is_ctrl_char;
@@ -62,11 +63,11 @@ impl Device {
             KeyCode::Tab | KeyCode::Down => self
                 .view
                 .runtime_settings
-                .model_settings_move_field(catalog.runtime(), true),
+                .model_settings_move_field(catalog_runtime(catalog), true),
             KeyCode::BackTab | KeyCode::Up => self
                 .view
                 .runtime_settings
-                .model_settings_move_field(catalog.runtime(), false),
+                .model_settings_move_field(catalog_runtime(catalog), false),
             KeyCode::Left => self.cycle_settings(-1),
             KeyCode::Right => self.cycle_settings(1),
             KeyCode::Enter
@@ -100,7 +101,7 @@ impl Device {
         let editor = &mut self.view.runtime_settings;
         match editor.model_settings_field {
             ModelSettingsField::Model => {
-                let runtime = self.settings.catalog.as_ref().expect("catalog").runtime();
+                let runtime = catalog_runtime(self.settings.catalog.as_ref().expect("catalog"));
                 editor.model_settings_cycle_model(runtime, direction);
                 editor.refresh_native_editor(runtime, false);
             }
