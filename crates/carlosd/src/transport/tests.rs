@@ -8,6 +8,7 @@ use std::time::Duration;
 use carlos_proto::commands::{Command, Request, RequestId, RpcVersion};
 use carlos_proto::context_defaults::ContextChoice;
 use carlos_proto::ids::{SessionId, SettingsRevision};
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 
 use super::ingress::Ingress;
 use super::outbox::{Frame, Kind, Outbox};
@@ -212,10 +213,12 @@ fn settings_writes_share_the_ordinary_budget_and_leave_reads_available() {
                 id,
                 Command::ToolLabelsSet {
                     session: session(),
-                    operation: operation.clone(),
-                    expected: expected.clone(),
-                    enabled: false,
-                    save_default: true,
+                    request: SetToolLabels {
+                        operation: operation.clone(),
+                        expected: expected.clone(),
+                        enabled: false,
+                        save_default: true
+                    }
                 }
             ),
             100
@@ -227,10 +230,12 @@ fn settings_writes_share_the_ordinary_budget_and_leave_reads_available() {
             64,
             Command::SettingsSet {
                 session: session(),
-                operation,
-                expected,
-                change: Default::default(),
-                save_default: true,
+                request: SetSettings {
+                    operation,
+                    expected,
+                    change: Default::default(),
+                    save_default: true
+                }
             }
         ),
         100
@@ -265,8 +270,10 @@ fn context_writes_cannot_consume_the_reserved_read_budget() {
                 id,
                 Command::ContextSet {
                     session: session(),
-                    operation: operation.clone(),
-                    choice: ContextChoice::Tokens(500_000),
+                    request: SetContext {
+                        operation: operation.clone(),
+                        choice: ContextChoice::Tokens(500_000),
+                    },
                 },
             ),
             100,

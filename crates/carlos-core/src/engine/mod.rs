@@ -45,6 +45,7 @@ use carlos_proto::commands::{ApprovalAnswer, RpcError, SendPolicy};
 use carlos_proto::ids::{EntryId, Sequence, TurnId};
 use carlos_proto::output::{OutputChunk, OutputCursor};
 use carlos_proto::session::{History, SessionInfo, Snapshot};
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use carlos_proto::submissions::{ClientOperation, OperationResult};
 
 use self::mailbox::Mailbox;
@@ -62,23 +63,10 @@ pub enum EngineCommand {
     },
     Prompts(crate::session::prompt_reads::PromptCommand),
     ContextRead,
-    ContextSet {
-        operation: ClientOperation,
-        choice: carlos_proto::context_defaults::ContextChoice,
-    },
-    ToolLabelsSet {
-        operation: ClientOperation,
-        expected: carlos_proto::ids::SettingsRevision,
-        enabled: bool,
-        save_default: bool,
-    },
+    ContextSet(SetContext),
+    ToolLabelsSet(SetToolLabels),
     TaskActivity(crate::session::task_activity::ActivityCommand),
-    SettingsSet {
-        operation: ClientOperation,
-        expected: carlos_proto::ids::SettingsRevision,
-        change: carlos_proto::settings::SettingsChange,
-        save_default: bool,
-    },
+    SettingsSet(SetSettings),
     TaskWindow(crate::session::task_windows::WindowCommand),
     TaskSnapshot,
     TaskOverview {
@@ -320,8 +308,8 @@ impl EngineCommand {
             Self::Rename { name, .. } => name.len(),
             Self::GoalSet { change, .. } => change.objective.as_ref().map_or(0, String::len),
             Self::QueueChange { change, .. } => change.text().map_or(0, str::len),
-            Self::SettingsSet { change, .. } => {
-                serde_json::to_vec(change).map_or(usize::MAX - 256, |bytes| bytes.len())
+            Self::SettingsSet(request) => {
+                serde_json::to_vec(&request.change).map_or(usize::MAX - 256, |bytes| bytes.len())
             }
             Self::Approve { answer, .. } => {
                 serde_json::to_vec(answer).map_or(usize::MAX - 256, |bytes| bytes.len())

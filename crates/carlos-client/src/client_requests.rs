@@ -2,6 +2,7 @@
 
 use carlos_proto::commands::{Command, SessionOperation};
 use carlos_proto::ids::SessionId;
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use carlos_proto::submissions::{ClientOperation, RecoveryKind};
 
 use crate::client::{Client, Slot};
@@ -200,13 +201,16 @@ fn mutation(command: &Command) -> Option<(&ClientOperation, Option<&SessionId>)>
             operation, session, ..
         }
         | Command::ToolLabelsSet {
-            operation, session, ..
+            session,
+            request: SetToolLabels { operation, .. },
         }
         | Command::ContextSet {
-            operation, session, ..
+            session,
+            request: SetContext { operation, .. },
         }
         | Command::SettingsSet {
-            operation, session, ..
+            session,
+            request: SetSettings { operation, .. },
         }
         | Command::QueueChange {
             operation, session, ..

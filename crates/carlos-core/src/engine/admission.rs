@@ -1,5 +1,7 @@
 //! Admit private operations once and capture reopen scope before ordinary FIFO delays.
 
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
+
 use super::mailbox::Envelope;
 use super::owner::{failure, Owner};
 use super::{EngineCommand, EngineReply};
@@ -16,9 +18,9 @@ impl Owner {
             | EngineCommand::GoalSet { operation, .. }
             | EngineCommand::GoalClear { operation, .. }
             | EngineCommand::QueueChange { operation, .. }
-            | EngineCommand::ContextSet { operation, .. }
-            | EngineCommand::SettingsSet { operation, .. }
-            | EngineCommand::ToolLabelsSet { operation, .. }
+            | EngineCommand::ContextSet(SetContext { operation, .. })
+            | EngineCommand::SettingsSet(SetSettings { operation, .. })
+            | EngineCommand::ToolLabelsSet(SetToolLabels { operation, .. })
             | EngineCommand::TaskStop { operation, .. }
             | EngineCommand::Approve { operation, .. }
             | EngineCommand::Interrupt { operation, .. } => operation,

@@ -3,6 +3,7 @@
 use carlos_proto::commands::Command;
 use carlos_proto::context_defaults::ContextChoice;
 use carlos_proto::ids::{SessionId, SettingsRevision};
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use carlos_proto::settings::{SettingsChange, SettingsFacts};
 use carlos_proto::submissions::ClientOperation;
 
@@ -87,22 +88,25 @@ impl Write {
         match self {
             Self::Context(choice) => Command::ContextSet {
                 session,
-                operation,
-                choice,
+                request: SetContext { operation, choice },
             },
             Self::Native(native) => Command::SettingsSet {
                 session,
-                operation,
-                expected: native.expected,
-                change: native.change,
-                save_default: true,
+                request: SetSettings {
+                    operation,
+                    expected: native.expected,
+                    change: native.change,
+                    save_default: true,
+                },
             },
             Self::Labels { expected, enabled } => Command::ToolLabelsSet {
                 session,
-                operation,
-                expected,
-                enabled,
-                save_default: true,
+                request: SetToolLabels {
+                    operation,
+                    expected,
+                    enabled,
+                    save_default: true,
+                },
             },
         }
     }

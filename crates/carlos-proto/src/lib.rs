@@ -18,6 +18,9 @@ pub mod queue;
 pub mod ralph;
 pub mod rpc;
 pub mod session;
+pub mod setting_commands;
+#[cfg(test)]
+mod setting_commands_tests;
 pub mod settings;
 pub mod source;
 pub mod startup;

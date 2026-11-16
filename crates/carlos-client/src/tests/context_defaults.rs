@@ -2,6 +2,7 @@
 
 use carlos_proto::commands::Command;
 use carlos_proto::context_defaults::{ContextChoice, ContextDefaults, ContextPolicy};
+use carlos_proto::setting_commands::SetContext;
 use carlos_proto::submissions::OperationState;
 use serde_json::json;
 
@@ -32,12 +33,17 @@ fn context_writes_use_existing_private_operations_without_capturing_composer_tex
     let outgoing = client
         .submit(connection, |operation| Command::ContextSet {
             session: session(),
-            operation,
-            choice: ContextChoice::Tokens(500_000),
+            request: SetContext {
+                operation,
+                choice: ContextChoice::Tokens(500_000),
+            },
         })
         .expect("explicit host write");
     let Command::ContextSet {
-        operation, choice, ..
+        request: SetContext {
+            operation, choice, ..
+        },
+        ..
     } = command(&outgoing).command
     else {
         panic!("typed context write");

@@ -2,6 +2,7 @@
 
 use carlos_core::engine::EngineCommand;
 use carlos_proto::commands::Command;
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use serde_json::{json, Value};
 
 use super::{prepare, Prepared};
@@ -34,28 +35,28 @@ fn context_native_and_label_settings_reach_their_own_ordinary_work() {
         assert!(matches!(class, Class::Ordinary));
         assert!(recovery.is_none());
         match (index, work) {
-            (0, EngineCommand::ContextSet { choice, .. }) => {
+            (0, EngineCommand::ContextSet(SetContext { choice, .. })) => {
                 assert_eq!(Option::<u64>::from(choice), Some(500_000))
             }
             (
                 1,
-                EngineCommand::SettingsSet {
+                EngineCommand::SettingsSet(SetSettings {
                     expected,
                     save_default,
                     ..
-                },
+                }),
             ) => {
                 assert_eq!(expected.to_string(), "a".repeat(64));
                 assert!(save_default);
             }
             (
                 2,
-                EngineCommand::ToolLabelsSet {
+                EngineCommand::ToolLabelsSet(SetToolLabels {
                     expected,
                     enabled,
                     save_default,
                     ..
-                },
+                }),
             ) => {
                 assert_eq!(expected.to_string(), "b".repeat(64));
                 assert!(!enabled);

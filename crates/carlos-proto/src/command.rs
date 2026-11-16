@@ -6,6 +6,7 @@ use crate::command_types::{ApprovalAnswer, Hello, SendPolicy};
 use crate::ids::{EntryId, Sequence, SessionId, TurnId};
 use crate::output::OutputCursor;
 use crate::session::Backend;
+use crate::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use crate::startup::NativeLaunchOptions;
 use crate::submissions::{ClientOperation, SessionOperation};
 
@@ -80,26 +81,20 @@ pub enum Command {
     #[serde(rename = "settings/context/set")]
     ContextSet {
         session: SessionId,
-        operation: ClientOperation,
-        choice: crate::context_defaults::ContextChoice,
+        #[serde(flatten)]
+        request: SetContext,
     },
     #[serde(rename = "settings/tool-labels/set")]
     ToolLabelsSet {
         session: SessionId,
-        operation: ClientOperation,
-        expected: crate::ids::SettingsRevision,
-        enabled: bool,
-        #[serde(default)]
-        save_default: bool,
+        #[serde(flatten)]
+        request: SetToolLabels,
     },
     #[serde(rename = "settings/set")]
     SettingsSet {
         session: SessionId,
-        operation: ClientOperation,
-        expected: crate::ids::SettingsRevision,
-        change: crate::settings::SettingsChange,
-        #[serde(default)]
-        save_default: bool,
+        #[serde(flatten)]
+        request: SetSettings,
     },
     #[serde(rename = "settings/read")]
     SettingsRead {

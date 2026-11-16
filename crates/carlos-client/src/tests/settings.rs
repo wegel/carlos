@@ -1,6 +1,7 @@
 //! Numbered settings obey the same gap and replacement rules as transcript facts.
 
 use carlos_proto::events::Event;
+use carlos_proto::setting_commands::SetToolLabels;
 use carlos_proto::settings::{RuntimeChoices, SettingsFacts};
 
 use super::{event, snapshot};
@@ -132,19 +133,25 @@ fn tool_label_mutations_keep_private_outcomes_separate_from_shared_facts() {
         .submit(connection, |operation| {
             carlos_proto::commands::Command::ToolLabelsSet {
                 session: super::session(),
-                operation,
-                expected: facts('a').revision,
-                enabled: false,
-                save_default: true,
+                request: SetToolLabels {
+                    operation,
+                    expected: facts('a').revision,
+                    enabled: false,
+                    save_default: true,
+                },
             }
         })
         .expect("typed label mutation");
     let request: carlos_proto::commands::Request =
         serde_json::from_slice(outgoing.bytes()).expect("wire request");
     let carlos_proto::commands::Command::ToolLabelsSet {
-        operation,
-        enabled,
-        save_default,
+        request:
+            SetToolLabels {
+                operation,
+                enabled,
+                save_default,
+                ..
+            },
         ..
     } = request.command
     else {

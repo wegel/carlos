@@ -263,66 +263,37 @@ fn prepare_control(command: Command) -> Work {
 }
 
 fn prepare_context(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
-    let Command::ContextSet {
-        session,
-        operation,
-        choice,
-    } = command
-    else {
-        unreachable!("typed context change");
+    let Command::ContextSet { session, request } = command else {
+        unreachable!("typed context change")
     };
     Ok((
         session,
-        operation.clone(),
-        EngineCommand::ContextSet { operation, choice },
+        request.operation.clone(),
+        EngineCommand::ContextSet(request),
         None,
     ))
 }
 
 fn prepare_settings(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
-    let Command::SettingsSet {
-        session,
-        operation,
-        expected,
-        change,
-        save_default,
-    } = command
-    else {
+    let Command::SettingsSet { session, request } = command else {
         unreachable!("typed settings change")
     };
     Ok((
         session,
-        operation.clone(),
-        EngineCommand::SettingsSet {
-            operation,
-            expected,
-            change,
-            save_default,
-        },
+        request.operation.clone(),
+        EngineCommand::SettingsSet(request),
         None,
     ))
 }
 
 fn prepare_tool_labels(command: Command) -> Result<Work, carlos_proto::commands::RpcError> {
-    let Command::ToolLabelsSet {
-        session,
-        operation,
-        expected,
-        enabled,
-        save_default,
-    } = command
-    else {
-        unreachable!("typed tool-label change");
+    let Command::ToolLabelsSet { session, request } = command else {
+        unreachable!("typed tool-label change")
     };
     Ok((
         session,
-        operation.clone(),
-        EngineCommand::ToolLabelsSet {
-            operation,
-            expected,
-            enabled,
-            save_default,
-        },
+        request.operation.clone(),
+        EngineCommand::ToolLabelsSet(request),
         None,
     ))
 }

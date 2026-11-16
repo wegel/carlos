@@ -3,6 +3,7 @@
 use std::time::Instant;
 
 use carlos_proto::commands::SendPolicy;
+use carlos_proto::setting_commands::{SetContext, SetSettings, SetToolLabels};
 use carlos_proto::submissions::{ClientOperation, OperationState, SubmittedText};
 
 use super::owner::Owner;
@@ -167,21 +168,21 @@ impl Owner {
             EngineCommand::ToggleRalph { operation, options } => {
                 self.toggle_ralph(operation, options)
             }
-            EngineCommand::ToolLabelsSet {
+            EngineCommand::ToolLabelsSet(SetToolLabels {
                 operation,
                 expected,
                 enabled,
                 save_default,
-            } => self.change_tool_labels(operation, expected, enabled, save_default),
-            EngineCommand::ContextSet { operation, choice } => {
+            }) => self.change_tool_labels(operation, expected, enabled, save_default),
+            EngineCommand::ContextSet(SetContext { operation, choice }) => {
                 self.save_context_default(operation, choice)
             }
-            EngineCommand::SettingsSet {
+            EngineCommand::SettingsSet(SetSettings {
                 operation,
                 expected,
                 change,
                 save_default,
-            } => self.change_settings(operation, expected, change, save_default),
+            }) => self.change_settings(operation, expected, change, save_default),
             EngineCommand::QueueChange {
                 operation,
                 expected,

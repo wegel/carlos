@@ -20,9 +20,9 @@ impl EngineHandle {
             | EngineCommand::Rewind { .. } => &self.0.ordinary,
             EngineCommand::GoalSet { .. } | EngineCommand::GoalClear { .. } => &self.0.ordinary,
             EngineCommand::QueueChange { .. }
-            | EngineCommand::ContextSet { .. }
-            | EngineCommand::SettingsSet { .. }
-            | EngineCommand::ToolLabelsSet { .. } => &self.0.ordinary,
+            | EngineCommand::ContextSet(..)
+            | EngineCommand::SettingsSet(..)
+            | EngineCommand::ToolLabelsSet(..) => &self.0.ordinary,
             EngineCommand::TaskStop { .. }
             | EngineCommand::Reconnect { .. }
             | EngineCommand::Interrupt { .. }
