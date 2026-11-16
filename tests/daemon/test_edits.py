@@ -19,7 +19,8 @@ class EditTests:
         self.assertEqual(first.outcome(create)["state"]["kind"], "accepted")
         for counter, text in ((2, "first original"), (3, "second original")):
             operation = first.operation(counter)
-            first.call("session/send", session=session, operation=operation, text=text)
+            # These are separate originals; the last answer chunk can precede turn completion.
+            first.call("session/send", session=session, operation=operation, text=text, policy="queue")
             self.assertEqual(first.outcome(operation)["state"]["kind"], "accepted")
             wait_for(lambda: any(entry["text"] == "Answer: " + text for entry in observer.call("session/subscribe", session=session, since=None)["snapshot"]["entries"]), "native answer complete")
         wait_for(lambda: observer.call("sessions/watch")["sessions"][0]["phase"] == "idle", "native turn idle")
