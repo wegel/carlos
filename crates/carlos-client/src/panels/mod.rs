@@ -7,6 +7,8 @@ pub(crate) mod queue_input;
 mod queue_pages;
 pub(crate) mod queue_reads;
 pub(crate) mod settings;
+mod task_move;
+mod task_pages;
 
 pub use context::ContextPanel;
 pub use goal::GoalPanel;
@@ -14,6 +16,7 @@ pub use queue::{QueuePanel, QueueReadMode};
 pub use queue_input::QueueInput;
 pub use queue_pages::QueuePageWindow;
 pub use settings::{SettingsCatalog, SettingsPanel};
+pub use task_pages::TaskPageWindow;
 
 use carlos_proto::ids::SessionId;
 

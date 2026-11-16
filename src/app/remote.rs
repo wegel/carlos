@@ -59,9 +59,7 @@ mod tasks_activity_reads;
 mod tasks_activity_render;
 mod tasks_details;
 mod tasks_incoming;
-mod tasks_move;
 mod tasks_overview;
-mod tasks_pages;
 mod tasks_reads;
 mod tasks_render;
 #[cfg(test)]

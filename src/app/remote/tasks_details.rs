@@ -119,8 +119,8 @@ impl Device {
         let revision = self
             .tasks
             .pages
-            .revision
-            .clone()
+            .revision()
+            .cloned()
             .expect("accepted task page");
         if self
             .tasks

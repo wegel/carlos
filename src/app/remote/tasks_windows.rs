@@ -55,12 +55,11 @@ impl Device {
 
     pub(super) fn task_view_is_current(&self) -> bool {
         if self.tasks.windows.current.is_some() {
-            !self.tasks.windows.stale
-                && self.tasks.pages.revision.as_ref() == self.task_view_revision()
+            !self.tasks.windows.stale && self.tasks.pages.revision() == self.task_view_revision()
         } else {
             self.task_facts()
                 .is_some_and(|facts| facts.known && !facts.reading && !facts.closed)
-                && self.tasks.pages.revision.as_ref() == self.task_view_revision()
+                && self.tasks.pages.revision() == self.task_view_revision()
         }
     }
 
@@ -85,8 +84,8 @@ impl Device {
         let expected = self
             .tasks
             .pages
-            .revision
-            .clone()
+            .revision()
+            .cloned()
             .ok_or_else(|| anyhow::anyhow!("Wait for the current task page"))?;
         let outgoing = self.client.read(
             link.connection,

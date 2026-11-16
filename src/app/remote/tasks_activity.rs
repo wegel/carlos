@@ -82,8 +82,8 @@ impl Device {
         let expected = self
             .tasks
             .pages
-            .revision
-            .clone()
+            .revision()
+            .cloned()
             .expect("accepted task revision");
         self.flush_activity_outgoing(link)?;
         self.prepare_activity_display(&task);

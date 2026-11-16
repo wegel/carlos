@@ -8,6 +8,9 @@ use crate::ids::{Sequence, SessionId, TaskId, TaskRevision, TaskRun};
 /// Keep escaped task pages within the existing half-MiB read reservation.
 pub const MAX_PAGE_TASKS: usize = 32;
 
+/// Preserve the existing view of 256 retained records plus 4,096 live native task identities.
+pub const MAX_TASK_ROWS: usize = 4352;
+
 /// Distinguish native child agents, background processes and Claude tasks.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

@@ -1,7 +1,6 @@
 //! Compose pending task arrows for every fresh row count allowed by the existing native ceiling.
 
-/// Claude retains at most 256 task records plus 4,096 live task identities.
-pub(super) const MAX_TASK_ROWS: usize = 4352;
+use carlos_proto::tasks::MAX_TASK_ROWS;
 
 /// Keep exact per-key saturation without retaining an unbounded list of keyboard actions.
 pub(super) struct Move {
@@ -45,5 +44,5 @@ impl Move {
 }
 
 #[cfg(test)]
-#[path = "tasks_move_tests.rs"]
+#[path = "task_move_tests.rs"]
 mod tests;

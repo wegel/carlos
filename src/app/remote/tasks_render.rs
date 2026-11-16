@@ -18,7 +18,7 @@ impl Device {
         let title = if claude {
             format!(
                 "Tasks {}/{} · {} active",
-                self.tasks.pages.position.map_or(0, |index| index + 1),
+                self.tasks.pages.position().map_or(0, |index| index + 1),
                 self.task_count(),
                 self.task_facts().map_or(0, |facts| facts.counts.active)
             )
@@ -62,7 +62,7 @@ impl Device {
 
     fn task_caption(&self, selected: Option<&Task>) -> String {
         let Some(task) = selected else {
-            return if !self.tasks.pages.settled {
+            return if !self.tasks.pages.is_settled() {
                 "Reading native task page; selected id kept"
             } else if self.tasks.view.selected.is_some() {
                 "Selected row unavailable; use arrows"
@@ -102,7 +102,7 @@ impl Device {
         if current {
             match selected {
                 Some(task) => self.selected_task_body(task, &mut lines),
-                None if self.tasks.pages.settled => {
+                None if self.tasks.pages.is_settled() => {
                     lines.push(if self.tasks.view.selected.is_some() {
                         "Selected row unavailable; use arrows to choose another".into()
                     } else {
@@ -123,7 +123,7 @@ impl Device {
 
     fn selected_task_body(&self, task: &Task, lines: &mut Vec<String>) {
         if self.tasks.details.value.as_ref().is_some_and(|value| {
-            value.task.id == task.id && Some(&value.revision) == self.tasks.pages.revision.as_ref()
+            value.task.id == task.id && Some(&value.revision) == self.tasks.pages.revision()
         }) {
             lines.extend(super::tasks_text::detail(&self.tasks.details, task.kind));
         } else {

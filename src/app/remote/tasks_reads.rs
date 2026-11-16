@@ -168,7 +168,7 @@ impl Device {
         if self.tasks.reads.error().is_some() {
             return Ok(changed);
         }
-        if self.tasks.pages.revision.as_ref() != Some(&revision) {
+        if self.tasks.pages.revision() != Some(&revision) {
             self.tasks
                 .pages
                 .reset(revision.clone(), self.tasks.view.selected.is_some());
@@ -287,7 +287,7 @@ impl Device {
                     self.tasks.reads.future = Some((read, page));
                     return Ok(false);
                 }
-                self.tasks.pages.revision = None;
+                self.tasks.pages.invalidate();
                 return Ok(true);
             }
             Err(error) => return Err(error.into()),
@@ -296,7 +296,7 @@ impl Device {
             return Ok(true);
         }
         let count = self.task_count();
-        if self.tasks.pages.revision.as_ref() != Some(&page.revision) {
+        if self.tasks.pages.revision() != Some(&page.revision) {
             self.tasks
                 .pages
                 .reset(page.revision.clone(), self.tasks.view.selected.is_some());

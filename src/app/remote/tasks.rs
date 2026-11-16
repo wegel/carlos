@@ -4,6 +4,7 @@ use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
+use carlos_client::panels::TaskPageWindow;
 use carlos_proto::commands::SendPolicy;
 use carlos_proto::ids::{Sequence, TaskId};
 use carlos_proto::session::Backend;
@@ -12,7 +13,6 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use super::tasks_details::Details;
 use super::tasks_overview::Overview;
-use super::tasks_pages::Pages;
 use super::tasks_reads::Reads;
 use super::tasks_stops::Stops;
 use super::transport::Transport;
@@ -34,7 +34,7 @@ pub(super) struct Tasks {
     pub(super) activity: super::tasks_activity::ChildActivity,
     pub(super) windows: super::tasks_windows::Windows,
     pub(super) view: TaskView,
-    pub(super) pages: Pages,
+    pub(super) pages: TaskPageWindow,
     pub(super) reads: Reads,
     pub(super) details: Details,
     pub(super) overview: Overview,
@@ -190,9 +190,14 @@ impl Device {
         self.tasks.paint_dirty.set(true);
         let count = self.task_count();
         self.tasks.reads.page_changed();
-        self.tasks
-            .pages
-            .navigate(direction, count, &mut self.tasks.view.selected);
+        if let Err(error) =
+            self.tasks
+                .pages
+                .navigate(direction, count, &mut self.tasks.view.selected)
+        {
+            self.tasks.view.error = Some(error.to_string());
+            return;
+        }
         self.tasks.view.scroll = 0;
         self.tasks.view.error = None;
         self.clear_task_details();
