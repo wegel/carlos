@@ -1,12 +1,13 @@
-//! Move bounded Unix frames without making the manager wait for a device socket.
+//! Move bounded Unix and WebSocket frames without making the manager wait for a device socket.
 
 pub(crate) mod ingress;
 pub(crate) mod outbox;
 mod reader;
+mod websocket;
 pub(crate) mod wire;
 
 use std::io::{self, Write};
-use std::net::Shutdown;
+use std::net::{Shutdown, TcpStream};
 use std::os::fd::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,11 +18,26 @@ use std::time::{Duration, Instant};
 use self::ingress::Ingress;
 use self::outbox::Outbox;
 
+enum CloseHandle {
+    Unix(UnixStream),
+    Tcp(TcpStream),
+}
+
+impl CloseHandle {
+    fn close(&self) {
+        let _ = match self {
+            Self::Unix(stream) => stream.shutdown(Shutdown::Both),
+            Self::Tcp(stream) => stream.shutdown(Shutdown::Both),
+        };
+    }
+}
+
 pub(crate) struct PeerSocket {
     pub outbox: Outbox,
     pub closed: Arc<AtomicBool>,
-    stream: UnixStream,
+    stream: CloseHandle,
     threads: Vec<JoinHandle<()>>,
+    network: Option<Arc<crate::network::Admission>>,
 }
 
 impl PeerSocket {
@@ -60,15 +76,42 @@ impl PeerSocket {
         Ok(Self {
             outbox,
             closed,
-            stream,
+            stream: CloseHandle::Unix(stream),
             threads: vec![reader, writer],
+            network: None,
         })
     }
 
     pub(crate) fn close(&self) {
         self.closed.store(true, Ordering::SeqCst);
         self.outbox.close();
-        let _ = self.stream.shutdown(Shutdown::Both);
+        self.stream.close();
+    }
+
+    pub(crate) fn start_network(
+        id: u64,
+        accepted: crate::network::Accepted,
+        ingress: Ingress,
+        wake: mpsc::SyncSender<()>,
+    ) -> io::Result<Self> {
+        websocket::start(id, accepted, ingress, wake)
+    }
+
+    pub(crate) fn is_network(&self) -> bool {
+        self.network.is_some()
+    }
+
+    pub(crate) fn network_login_expired(&self) -> bool {
+        self.network.as_ref().is_some_and(|admission| {
+            !admission.is_authenticated() && Instant::now() >= admission.deadline
+        })
+    }
+
+    pub(crate) fn authorize_network(&self) {
+        if let Some(admission) = &self.network {
+            admission.authorize();
+            self.outbox.wake();
+        }
     }
 }
 

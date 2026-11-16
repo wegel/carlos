@@ -15,7 +15,7 @@ pub(crate) struct Incoming {
 #[derive(Default)]
 struct State {
     queue: VecDeque<Incoming>,
-    used: [(usize, usize); 5],
+    used: [(usize, usize); 10],
 }
 
 #[derive(Clone)]
@@ -33,7 +33,15 @@ impl Ingress {
     }
 
     pub(crate) fn push(&self, peer: u64, request: Request, bytes: usize) -> bool {
-        let class = match request.command {
+        self.push_in(peer, request, bytes, false)
+    }
+
+    pub(crate) fn push_network(&self, peer: u64, request: Request, bytes: usize) -> bool {
+        self.push_in(peer, request, bytes, true)
+    }
+
+    fn push_in(&self, peer: u64, request: Request, bytes: usize, network: bool) -> bool {
+        let kind = match request.command {
             Command::DeviceAdd(_) | Command::DeviceRevoke(_) | Command::DeviceList {} => 4,
             Command::Reopen(_)
             | Command::Create { .. }
@@ -64,9 +72,11 @@ impl Ingress {
             (16, 64 * 1024),
             (16, 64 * 1024),
         ];
+        let class = kind + usize::from(network) * 5;
+        let limit = limits[kind];
         let mut state = self.state.lock().expect("incoming commands");
         let used = &mut state.used[class];
-        if used.0 == limits[class].0 || bytes > limits[class].1 - used.1 {
+        if used.0 == limit.0 || bytes > limit.1 - used.1 {
             return false;
         }
         used.0 += 1;

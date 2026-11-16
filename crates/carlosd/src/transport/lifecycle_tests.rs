@@ -120,3 +120,27 @@ fn full_other_ingress_classes_leave_a_bounded_local_operator_reserve() {
     }
     assert!(ingress.is_empty());
 }
+
+#[test]
+fn network_reads_and_operator_attempts_cannot_consume_local_greeting_or_operator_ingress() {
+    let (wake, _) = mpsc::sync_channel(1);
+    let ingress = Ingress::new(wake);
+    for _ in 0..128 {
+        assert!(ingress.push_network(1, request(1, Command::Watch {}), 100));
+    }
+    assert!(!ingress.push_network(1, request(1, Command::Watch {}), 100));
+    for _ in 0..16 {
+        assert!(ingress.push_network(1, request(1, Command::DeviceList {}), 100));
+    }
+    assert!(!ingress.push_network(1, request(1, Command::DeviceList {}), 100));
+    let hello = carlos_proto::commands::Hello {
+        protocol: 1,
+        client: "local operator".into(),
+        token: Default::default(),
+        resume: None,
+        resume_token: None,
+        instance: None,
+    };
+    assert!(ingress.push(2, request(2, Command::Hello(hello)), 100));
+    assert!(ingress.push(2, request(3, Command::DeviceList {}), 100));
+}

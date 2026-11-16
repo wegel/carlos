@@ -99,7 +99,7 @@ impl Manager {
             self.fail(peer, id, reason);
             return;
         }
-        if client.len() > 256 || !token.is_empty() {
+        if client.len() > 256 {
             self.fail(
                 peer,
                 id,
@@ -110,27 +110,22 @@ impl Manager {
             );
             return;
         }
-        let resume = match (resume, resume_token, instance) {
-            (None, None, None) => None,
-            (Some(client), Some(secret), Some(instance)) => Some(Resume {
-                client,
-                secret,
-                instance,
-            }),
-            _ => {
-                self.fail(
-                    peer,
-                    id,
-                    error(
-                        -32602,
-                        "resume requires client, private token and daemon instance",
-                    ),
-                );
+        let scope = match self.greeting_scope(peer, &token) {
+            Ok(scope) => scope,
+            Err(reason) => {
+                self.fail(peer, id, reason);
                 return;
             }
         };
-        match self.retry.hello(resume, Instant::now()) {
-            Ok(hello) => self.accept_hello(peer, id, hello),
+        let resume = match resume_offer(resume, resume_token, instance) {
+            Ok(resume) => resume,
+            Err(reason) => {
+                self.fail(peer, id, reason);
+                return;
+            }
+        };
+        match self.retry.hello_in(scope.clone(), resume, Instant::now()) {
+            Ok(hello) => self.accept_hello(peer, id, hello, scope),
             Err(reason) => self.fail(peer, id, reason),
         }
     }
@@ -140,11 +135,18 @@ impl Manager {
         peer: u64,
         id: RequestId,
         mut hello: carlos_proto::commands::HelloResult,
+        scope: crate::retry::ClientScope,
     ) {
         hello.identity = Some(self.daemon_identity());
         let connection = self.peers.get_mut(&peer).expect("peer");
         connection.client = Some(hello.client.clone());
-        connection.scope = Some(crate::retry::ClientScope::Local);
+        connection.scope = Some(scope);
+        if matches!(
+            connection.scope.as_ref(),
+            Some(crate::retry::ClientScope::Device(_))
+        ) {
+            connection.socket.authorize_network();
+        }
         connection.replay_allowed = hello.resumed;
         self.reply(peer, id, hello);
     }
@@ -158,6 +160,28 @@ impl Manager {
                 .as_ref()
                 .map(|path| path.as_os_str().as_bytes().to_vec()),
         }
+    }
+
+    fn greeting_scope(
+        &self,
+        peer: u64,
+        token: &carlos_proto::devices::AccessToken,
+    ) -> Result<crate::retry::ClientScope, carlos_proto::commands::RpcError> {
+        if self.peers[&peer].socket.is_network() {
+            if self.peers[&peer].socket.network_login_expired() {
+                return Err(error(-32002, "device greeting deadline expired"));
+            }
+            return self
+                .authenticate_device(token)
+                .map(crate::retry::ClientScope::Device);
+        }
+        if !token.is_empty() {
+            return Err(error(
+                -32602,
+                "Unix greetings use peer credentials, not a device token",
+            ));
+        }
+        Ok(crate::retry::ClientScope::Local)
     }
 
     fn mutate(
@@ -229,5 +253,24 @@ impl Manager {
             *target = window;
         }
         Ok(prepared)
+    }
+}
+
+fn resume_offer(
+    client: Option<carlos_proto::ids::ClientId>,
+    secret: Option<carlos_proto::ids::ResumeToken>,
+    instance: Option<carlos_proto::ids::DaemonId>,
+) -> Result<Option<Resume>, carlos_proto::commands::RpcError> {
+    match (client, secret, instance) {
+        (None, None, None) => Ok(None),
+        (Some(client), Some(secret), Some(instance)) => Ok(Some(Resume {
+            client,
+            secret,
+            instance,
+        })),
+        _ => Err(error(
+            -32602,
+            "resume requires client, private token and daemon instance",
+        )),
     }
 }

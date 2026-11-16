@@ -1,17 +1,14 @@
-# Local daemon contract
+# Daemon contract
 
-EP019a implements this local contract on `iphone-spike`. The executable and
-all three native factories passed sixteen deterministic process workflows, including
-failure, pressure and shutdown checks. EP019a's final feature/release checks and
-measurements passed; `.agents/reports/exec019a-final-report.md` records that evidence.
+EP019a established one shared session owner; EP019b moved the terminal onto
+that owner and added exact original source reads and watches. EP020 adds explicit
+session stop/reopen, local device controls and an optional WebSocket listener.
+The archived plans and `.agents/reports/` retain their checked release evidence.
 
-The owner accepted EP019a on 2026-11-14. EP019b is active and adds exact original
-source through `entry/source` reads/watches. Each chunk consumes at most 64 KiB,
-preserves controls/UTF-8, and uses a format-specific entry/revision cursor. Both
-formats share the existing watch count, reply-byte and socket limits. A large
-plain row has an explicit source descriptor rather than inline body text; newest
-and older pages shrink before cloning to stay within the encoded frame budget.
-The terminal remains embedded while the rest of EP019b is being implemented.
+Each `entry/source` chunk consumes at most 64 KiB, preserves controls/UTF-8 and
+uses an entry/revision cursor. Plain text and tool output share watch, reply-byte
+and socket limits. Large rows carry a source descriptor rather than an inline
+body; newest and older pages shrink to fit the encoded frame budget.
 
 EP019b also promotes typed rename and earlier-prompt edit commands. Both use the
 existing ordered lane and private retry identity. The owner keeps a fork/send
@@ -24,8 +21,26 @@ and mutation calls. No arbitrary native method enters the public protocol.
 ## Clients and commands
 
 The daemon serves newline-delimited JSON-RPC on a private Unix socket. It checks
-that each peer belongs to the same OS user. It opens no TCP listener. A client
-must finish `hello` before sending another command.
+that each peer belongs to the same OS user. It opens no TCP listener by default.
+The operator may supply `--listen IP:PORT` for loopback or a WireGuard address;
+wildcard and multicast addresses are rejected. Each WebSocket text message
+carries one JSON-RPC envelope. A client must finish `hello` before another command.
+
+Network clients supply a provisioned device token in the first `hello`. The
+listener permits native clients without Origin; browser clients need the exact
+configured `--allow-origin ORIGIN`. URLs, query strings and WebSocket subprotocols
+never carry credentials. Compression is disabled. The HTTP upgrade accepts at
+most eight KiB of headers; at most four unfinished upgrades/logins share a
+five-second deadline. Initial messages are limited to four KiB. Authenticated
+requests use the same four MiB limit as Unix requests. Malformed frames or a
+missing, wrong or revoked token reveal no session data and start no native work.
+
+Retry rights belong to either the local Unix user or one authenticated device.
+A device needs both its access token and its private resume token to reconnect;
+a different device cannot borrow those rights. Only Unix peers may add, list or
+revoke devices. Revocation closes that device's sockets and forgets its retry
+rights while native conversations and other devices keep running. See
+`client-protocol-v1.md` for the operator commands and durable failure outcomes.
 
 The greeting returns a fresh daemon instance id, a public client id, a private
 256-bit resume token, and the next operation counter. A reconnect supplies the client id, daemon instance id and private token. Shared user rows may contain the public client id;
@@ -78,8 +93,7 @@ again or starts a fresh watch. A socket disconnect ends that socket's watches.
 
 If one stored row or page cannot fit, the daemon returns an explicit error and
 keeps the backend alive. It does not truncate source text. Smaller history pages
-and bounded tool-output reads remain available. EP019b must resolve any remaining
-oversized plain-text row limitation before terminal cutover.
+and bounded source/output reads remain available, including for plain text.
 
 ## Initial budgets
 
@@ -96,9 +110,9 @@ must exercise them before the listener is accepted.
   workers. Native queues keep their own frame, byte and write-deadline limits.
 - One owner: 1024 encoded event frames/sixteen MiB. Encoding happens once; socket
   writers share those immutable bytes. A missing prefix requires a snapshot.
-- One daemon: 16 live peer connections, 16 active session owners and 256 saved
+- One daemon: 16 local peers plus 16 network peers, 16 active session owners and 256 saved
   session descriptions. Saved sessions do not start native processes until a
-  client subscribes.
+  client subscribes, unless explicitly stopped.
 - Each peer: at most 16 session interests and 32 output watches. The daemon also
   bounds pending reads (256 across peers, with 32 MiB reserved for outstanding
   replies) and requests, rather than retaining arbitrary reply
@@ -111,12 +125,15 @@ must exercise them before the listener is accepted.
   peer; the session and private results survive.
 - The manager admits incoming frames through one FIFO with separate count/byte
   permits for ordinary commands, controls and reads. This preserves counter order
-  without letting ordinary traffic consume all control admission.
+  without letting ordinary traffic consume all control admission. Local and
+  network peers have separate allowances, preserving local operator access.
 - The retry store reserves independent room for ordinary and urgent operations:
-  768 records/twelve MiB for ordinary work, 256 records/four MiB for controls.
+  768 records/twelve MiB for ordinary work, 256 records/four MiB for controls,
+  and 16 records/128 KiB for device controls.
   It reserves recovery space before dispatch. It evicts completed records first;
   a missing older counter never gains permission to execute again.
-- The daemon retains at most 128 client identities, with a 24-hour inactive lease.
+- The daemon retains at most 128 local plus 128 network client identities, with
+  a 24-hour inactive lease.
   A socket close does not cancel admitted work. The daemon may evict an inactive
   identity without recreating its old rights; pinned pending work still has a
   bounded record. Reads must not need an ordinary operation slot.
@@ -128,7 +145,9 @@ Wire-byte limits do not describe an exact heap limit.
 ## Saved sessions and shutdown
 
 The SQLite catalogue stores only the logical id, name, backend, working directory,
-native thread id and saved Ralph state. It stores no transcript or job database.
+native thread id, saved Ralph state, stopped flag and a Claude fresh-target flag.
+It also stores at most 32 device ids, bounded names and BLAKE3 secret verifiers;
+it never stores the device secrets. It stores no transcript or job database.
 The name is the Carlos catalogue label and survives native history adoption.
 Create stays pending until native startup finishes and the native address has
 been saved. One worker owns disk writes. It saves changed durable fields, not every token or
@@ -146,6 +165,12 @@ helper and conversation; queued frames check that permission again at the native
 writer. Worker replies also check their original conversation before changing
 facts. Ralph stays off after a crash, and the owner displays its saved-state
 notice after history is adopted so a reset cannot erase it.
+
+An explicit session stop joins its native owner before reporting success and
+persists the stopped flag on the disk worker. Reconnect/subscribe never reopens
+it. Explicit reopen restores the same saved native conversation, preserving
+private results and advancing the shared cursor across the replaced owner. A
+failed durable save reports uncertainty rather than claiming durable success.
 
 Shutdown first cancels pending launches and signals every owner, then waits for
 native cleanup. It stops only owned subprocesses and closes only its connection

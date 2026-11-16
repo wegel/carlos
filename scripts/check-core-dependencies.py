@@ -13,7 +13,7 @@ REVIEWED = {
 }
 DAEMON_REVIEWED = {
     "carlos-core", "carlos-proto", "carlos-client", "anyhow", "getrandom", "libc", "rusqlite",
-    "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile", "blake3",
+    "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile", "blake3", "tungstenite",
 }
 FORBIDDEN = {
     "carlos", "crossterm", "ratatui", "termion", "tui", "ansi-to-tui",

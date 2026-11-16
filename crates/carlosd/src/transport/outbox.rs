@@ -1,6 +1,8 @@
 //! Charge queued and active writes together, and discard only explicitly recoverable streams.
 
 use std::collections::VecDeque;
+use std::io::{self, Write};
+use std::os::unix::net::UnixStream;
 use std::sync::{Arc, Condvar, Mutex};
 
 use carlos_proto::ids::{EntryId, SessionId};
@@ -25,12 +27,26 @@ struct State {
     count: usize,
     bytes: usize,
     closed: bool,
+    wake: Option<UnixStream>,
 }
 
 #[derive(Clone, Default)]
 pub(crate) struct Outbox(Arc<(Mutex<State>, Condvar)>);
 
 impl Outbox {
+    pub(crate) fn with_wake(wake: UnixStream) -> io::Result<Self> {
+        wake.set_nonblocking(true)?;
+        let state = State {
+            wake: Some(wake),
+            ..State::default()
+        };
+        Ok(Self(Arc::new((Mutex::new(state), Condvar::new()))))
+    }
+
+    pub(crate) fn wake(&self) {
+        self.0 .0.lock().expect("peer output queue").notify();
+    }
+
     pub(crate) fn push(&self, frame: Frame) -> bool {
         let mut state = self.0 .0.lock().expect("peer output queue");
         let shared = matches!(
@@ -52,6 +68,7 @@ impl Outbox {
         state.bytes += frame.bytes.len();
         state.queue.push_back(frame);
         self.0 .1.notify_one();
+        state.notify();
         true
     }
 
@@ -65,6 +82,15 @@ impl Outbox {
                 return Some(frame);
             }
             state = self.0 .1.wait(state).expect("peer output wake");
+        }
+    }
+
+    pub(crate) fn try_take(&self) -> Option<Frame> {
+        let mut state = self.0 .0.lock().expect("peer output queue");
+        if state.closed {
+            None
+        } else {
+            state.queue.pop_front()
         }
     }
 
@@ -98,5 +124,18 @@ impl Outbox {
             state.bytes -= frame.bytes.len();
         }
         self.0 .1.notify_all();
+        state.notify();
     }
 }
+
+impl State {
+    fn notify(&self) {
+        if let Some(mut stream) = self.wake.as_ref() {
+            let _ = stream.write(&[1]);
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "websocket_write_tests.rs"]
+mod websocket_write_tests;

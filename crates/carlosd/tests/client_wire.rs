@@ -37,6 +37,8 @@ impl Daemon {
             socket: path.clone(),
             state: root.path().join("state"),
             codex_socket: None,
+            listen: None,
+            allowed_origin: None,
         };
         let stop = Arc::new(AtomicBool::new(false));
         let flag = stop.clone();

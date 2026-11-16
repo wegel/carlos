@@ -3,6 +3,7 @@
 mod device_cli;
 mod operator_connection;
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -39,11 +40,15 @@ fn arguments() -> Result<Option<Config>> {
     let mut socket = None;
     let mut state = None;
     let mut codex_socket = None;
+    let mut network = NetworkOptions::default();
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
-            println!("carlosd --socket PATH --state-dir PATH [--codex-socket PATH]");
+            println!("carlosd --socket PATH --state-dir PATH [--codex-socket PATH] [--listen IP:PORT] [--allow-origin ORIGIN]");
             device_cli::help();
             return Ok(None);
+        }
+        if network.argument(&option, &mut arguments)? {
+            continue;
         }
         let target = match option.to_str() {
             Some("--socket") => &mut socket,
@@ -62,5 +67,50 @@ fn arguments() -> Result<Option<Config>> {
         socket: socket.context("--socket is required")?,
         state: state.context("--state-dir is required")?,
         codex_socket,
+        listen: network.listen,
+        allowed_origin: network.origin,
     }))
+}
+
+#[derive(Default)]
+struct NetworkOptions {
+    listen: Option<SocketAddr>,
+    origin: Option<String>,
+}
+
+impl NetworkOptions {
+    fn argument(
+        &mut self,
+        option: &std::ffi::OsStr,
+        args: &mut impl Iterator<Item = std::ffi::OsString>,
+    ) -> Result<bool> {
+        match option.to_str() {
+            Some("--listen") => {
+                if self.listen.is_some() {
+                    bail!("duplicate --listen");
+                }
+                self.listen = Some(
+                    args.next()
+                        .context("--listen requires IP:PORT")?
+                        .to_str()
+                        .context("--listen requires a text address")?
+                        .parse()
+                        .context("invalid --listen address")?,
+                );
+            }
+            Some("--allow-origin") => {
+                if self.origin.is_some() {
+                    bail!("duplicate --allow-origin");
+                }
+                self.origin = Some(
+                    args.next()
+                        .context("--allow-origin requires a value")?
+                        .into_string()
+                        .map_err(|_| anyhow::anyhow!("--allow-origin requires UTF-8"))?,
+                );
+            }
+            _ => return Ok(false),
+        }
+        Ok(true)
+    }
 }

@@ -113,10 +113,18 @@ impl Manager {
         self.wake.clone()
     }
 
-    pub(crate) fn run(&mut self, accepted: mpsc::Receiver<UnixStream>, stop: Arc<AtomicBool>) {
+    pub(crate) fn run(
+        &mut self,
+        accepted: mpsc::Receiver<UnixStream>,
+        network: mpsc::Receiver<crate::network::Accepted>,
+        stop: Arc<AtomicBool>,
+    ) {
         while !stop.load(Ordering::SeqCst) {
             while let Ok(stream) = accepted.try_recv() {
                 self.accept(stream);
+            }
+            while let Ok(stream) = network.try_recv() {
+                self.accept_network(stream);
             }
             self.remove_closed();
             for _ in 0..224 {
@@ -147,7 +155,13 @@ impl Manager {
     }
 
     fn accept(&mut self, stream: UnixStream) {
-        if self.peers.len() == crate::limits::PEERS {
+        if self
+            .peers
+            .values()
+            .filter(|peer| !peer.socket.is_network())
+            .count()
+            >= crate::limits::PEERS
+        {
             return;
         }
         let Some(id) = self.next_peer.checked_add(1) else {
@@ -155,24 +169,49 @@ impl Manager {
         };
         self.next_peer = id;
         if let Ok(socket) = PeerSocket::start(id, stream, self.ingress.clone(), self.wake.clone()) {
-            self.peers.insert(
-                id,
-                Peer {
-                    socket,
-                    client: None,
-                    scope: None,
-                    replay_allowed: false,
-                    list: false,
-                    sessions: HashMap::new(),
-                    goals: Default::default(),
-                    tasks: Default::default(),
-                    task_windows: Default::default(),
-                    activities: Default::default(),
-                    outputs: HashMap::new(),
-                    generation: 0,
-                },
-            );
+            self.install_peer(id, socket);
         }
+    }
+
+    fn accept_network(&mut self, accepted: crate::network::Accepted) {
+        if self
+            .peers
+            .values()
+            .filter(|peer| peer.socket.is_network())
+            .count()
+            >= crate::limits::NETWORK_PEERS
+        {
+            return;
+        }
+        let Some(id) = self.next_peer.checked_add(1) else {
+            return;
+        };
+        self.next_peer = id;
+        if let Ok(socket) =
+            PeerSocket::start_network(id, accepted, self.ingress.clone(), self.wake.clone())
+        {
+            self.install_peer(id, socket);
+        }
+    }
+
+    fn install_peer(&mut self, id: u64, socket: PeerSocket) {
+        self.peers.insert(
+            id,
+            Peer {
+                socket,
+                client: None,
+                scope: None,
+                replay_allowed: false,
+                list: false,
+                sessions: HashMap::new(),
+                goals: Default::default(),
+                tasks: Default::default(),
+                task_windows: Default::default(),
+                activities: Default::default(),
+                outputs: HashMap::new(),
+                generation: 0,
+            },
+        );
     }
 
     fn remove_closed(&mut self) {

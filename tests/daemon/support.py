@@ -102,7 +102,7 @@ class Client:
 
 
 class Fixture:
-    def __init__(self, name, codex=None, mode="modern", tool_summaries="off"):
+    def __init__(self, name, codex=None, mode="modern", tool_summaries="off", listen=None, origin=None):
         ARTIFACTS.mkdir(parents=True, exist_ok=True)
         self.root = Path(tempfile.mkdtemp(prefix="carlos-daemon-" + name + "-", dir="/tmp"))
         self.artifacts = ARTIFACTS / self.root.name
@@ -137,17 +137,31 @@ class Fixture:
             self.native = NativeCodex(self.root)
             codex = self.native.path
         self.codex = codex
+        self.listen = listen
+        self.origin = origin
+        self.ws_uri = None
         self.process = None
         self.start()
 
     def start(self):
         self.log = (self.root / "daemon.log").open("a")
+        log_start = self.log.tell()
         arguments = [str(BINARY), "--socket", str(self.socket), "--state-dir", str(self.root / "state")]
         if self.codex:
             arguments += ["--codex-socket", str(self.codex)]
+        if self.listen:
+            arguments += ["--listen", self.listen]
+        if self.origin:
+            arguments += ["--allow-origin", self.origin]
         self.process = subprocess.Popen(arguments, env=self.env, stdout=self.log, stderr=self.log, cwd=self.root)
         wait_for(lambda: self.socket.exists() or self.process.poll() is not None, "daemon socket appeared")
         assert self.process.poll() is None, (self.root / "daemon.log").read_text()
+        if self.listen:
+            def address():
+                text = (self.root / "daemon.log").read_bytes()[log_start:].decode()
+                prefix = "carlosd: network listening on "
+                return next((line[len(prefix):] for line in text.splitlines() if line.startswith(prefix)), None)
+            self.ws_uri = wait_for(address, "network listener reports its actual bound address")
 
     def stop(self):
         if self.process and self.process.poll() is None:

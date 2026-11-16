@@ -10,6 +10,10 @@ pub const SEND_BYTES: usize = 512 * 1024;
 pub const NAME_BYTES: usize = 4096;
 /// Maximum simultaneously connected device sockets.
 pub const PEERS: usize = 16;
+/// Network connections never consume the sixteen trusted Unix peer slots.
+pub const NETWORK_PEERS: usize = 16;
+/// Bound HTTP upgrades and clients awaiting their first authenticated greeting together.
+pub const NETWORK_UNAUTHENTICATED: usize = 4;
 /// Maximum live native session owners.
 pub const OWNERS: usize = 16;
 /// Maximum saved session descriptions, including dormant and unavailable ones.

@@ -218,14 +218,38 @@ The operator provisions each device through the private Unix socket:
     carlosd device list --socket PATH
     carlosd device revoke DEVICE_ID --socket PATH
 
-The add command creates a new mode-0600 file and refuses existing files or symlinks. It writes and syncs the file and its directory entry before requesting a grant. The file contains one line: a32-character lowercase hexadecimal device id, a dot and a64-character lowercase hexadecimal secret. The command draws the secret's32 bytes from OS randomness. The catalogue stores only the device id, a single-line name of at most256 UTF-8 bytes and the secret's BLAKE3 hash. The command prints the public id and file path; it never prints the secret. A failed or uncertain grant keeps that file and never automatically issues another credential.
+The add command creates a new mode-0600 file and refuses existing files or symlinks. It writes and syncs the file and its directory entry before requesting a grant. The file contains one line: a 32-character lowercase hexadecimal device id, a dot and a 64-character lowercase hexadecimal secret. The command draws the secret's 32 bytes from OS randomness. The catalogue stores only the device id, a single-line name of at most 256 UTF-8 bytes and the secret's BLAKE3 hash. The command prints the public id and file path; it never prints the secret. A failed or uncertain grant keeps that file and never automatically issues another credential.
 
 These typed methods require a greeted Unix peer with matching OS credentials:
 
-- `device/add {operation,device:{id,name},verifier}` provisions one verifier or its exact duplicate. A different verifier or name under an existing id is rejected. The verifier contains64 lowercase hexadecimal characters, encoding BLAKE3 of the raw32 secret bytes.
+- `device/add {operation,device:{id,name},verifier}` provisions one verifier or its exact duplicate. A different verifier or name under an existing id is rejected. The verifier contains 64 lowercase hexadecimal characters, encoding BLAKE3 of the raw 32 secret bytes.
 - `device/list {}` returns `{devices:[{id,name}]}` for currently allowed grants. It returns neither hashes nor secrets. A device blocked by an unfinished or failed revoke is omitted.
 - `device/revoke {operation,device}` blocks that device's access and retires its private retry leases. It reports accepted only after the catalogue durably deletes the grant. A disk failure reports uncertain and keeps the device blocked for this daemon lifetime; a restart may reload the unchanged durable grant. Fix the disk and submit a new explicit revoke to finish it.
 
-Add/revoke return the existing private OperationResult without a session address. They reserve their own bounded result and ingress space, so full ordinary/native-control queues cannot consume the operator's allowance. An old add retry returns its retained result and cannot undo a later revoke. The operator CLI greets and submits exactly one action, without opening a native conversation, including when all16 owner slots are full.
+Add/revoke return the existing private OperationResult without a session address. They reserve their own bounded result and ingress space, so full ordinary/native-control queues cannot consume the operator's allowance. An old add retry returns its retained result and cannot undo a later revoke. The operator CLI greets and submits exactly one action, without opening a native conversation, including when all 16 owner slots are full.
 
-A network client supplies the file's token line in hello's `token`, independently of its private `resume_token`. `Client::begin_with_token` constructs that greeting while the platform owns token storage and socket I/O. AccessToken and ResumeToken hide their bytes in Debug output. Retry leases distinguish Unix callers from each authenticated DeviceId; another device cannot borrow even a correct private resume credential. The optional listener remains the next EP020 step; local provision alone does not expose a network endpoint.
+A network client supplies the file's token line in hello's `token`, independently of its private `resume_token`. `Client::begin_with_token` constructs that greeting while the platform owns token storage and socket I/O. AccessToken and ResumeToken hide their bytes in Debug output. Retry leases distinguish Unix callers from each authenticated DeviceId; another device cannot borrow even a correct private resume credential. The listener stays off until the operator supplies `--listen IP:PORT`.
+
+## Optional WebSocket listener
+
+Start `carlosd --socket PATH --state-dir PRIVATE_DIRECTORY --listen 127.0.0.1:PORT`
+for loopback, or choose the host's specific WireGuard address. Plain WebSocket
+traffic needs that private encrypted network when crossing machines. A native
+client may omit Origin. A browser needs `--allow-origin` with its exact Origin;
+other origins, query strings and requested subprotocols are rejected at upgrade.
+The server never negotiates compression or accepts a token through the URL.
+
+Send the same typed JSON-RPC envelopes as text messages. The first `hello`
+contains the device token; initial input is limited to four KiB and must finish
+within five seconds of TCP acceptance, including the HTTP upgrade. After a
+successful greeting, each incoming aggregate message may contain at most four
+MiB; outgoing messages may contain at most eight MiB. Binary messages and
+malformed UTF-8 fail without dispatch. Ping/pong and close use WebSocket control
+frames. The daemon closes blocked writes after 500 ms and retains the private
+operation results for an authenticated reconnect.
+
+The daemon allows 16 network sockets separately from 16 local sockets, with at
+most four unfinished upgrades/logins. A saturated network listener cannot take
+the Unix operator's connection or device-control allowance. Revocation closes
+only that device's sockets and retry leases; already admitted native work and
+other clients continue.

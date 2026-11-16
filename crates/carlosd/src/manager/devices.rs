@@ -89,6 +89,30 @@ impl Devices {
 }
 
 impl Manager {
+    pub(super) fn authenticate_device(
+        &self,
+        token: &carlos_proto::devices::AccessToken,
+    ) -> Result<DeviceId, RpcError> {
+        let denied = || error(-32003, "invalid or revoked device credential");
+        let (id, encoded) = token.as_str().split_once('.').ok_or_else(denied)?;
+        let id: DeviceId = id.parse().map_err(|_| denied())?;
+        let record = self
+            .devices
+            .records
+            .get(&id)
+            .filter(|_| !self.devices.blocked.contains(&id))
+            .ok_or_else(denied)?;
+        let mut secret = [0; 32];
+        for (index, byte) in secret.iter_mut().enumerate() {
+            *byte =
+                u8::from_str_radix(&encoded[index * 2..index * 2 + 2], 16).map_err(|_| denied())?;
+        }
+        if blake3::hash(&secret) != record.verifier {
+            return Err(denied());
+        }
+        Ok(id)
+    }
+
     pub(super) fn device_command(
         &mut self,
         peer: u64,

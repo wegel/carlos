@@ -36,9 +36,12 @@ from test_prompt_history import PromptHistoryTests
 from test_session_lifecycle import SessionLifecycleTests
 from test_owned_processes import OwnedProcessTests
 from test_devices import DeviceTests
+from test_network import NetworkTests
+from test_network_limits import NetworkLimitTests
+from test_network_source import NetworkSourceTests
 
 
-class DaemonTests(DeviceTests, SessionLifecycleTests, PromptHistoryTests, RalphTests, TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
+class DaemonTests(NetworkSourceTests, NetworkLimitTests, NetworkTests, DeviceTests, SessionLifecycleTests, PromptHistoryTests, RalphTests, TaskQuestionTests, ContextDefaultTests, ToolLabelTests, BackendSettingsTests, TaskActivityTests, SettingsChangeTests, TaskWindowTests, SettingsFactTests, TaskInterestTests, FailureTests, RecoveryTests, SourceTests, EditTests, GoalTests, QueueTests, TaskTests, TaskStopTests, unittest.TestCase):
     def test_codex_reads_controls_fifo_and_independent_output_cursors_while_send_waits(self):
         fixture = Fixture("codex-held", codex=True)
         self.addCleanup(fixture.close)
