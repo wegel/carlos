@@ -1,48 +1,85 @@
-//! Replies to agent-originated ACP client requests.
+//! Forward permission requests to the owner without choosing a native option.
 
-use std::sync::Arc;
-
-use super::process_writer::InputWriter;
-
+use anyhow::Result;
 use serde_json::{json, Value};
 
-pub(super) fn respond_to_agent_request(parsed: &Value, stdin: &Arc<InputWriter>) {
-    let Some(id) = parsed.get("id").cloned() else {
-        return;
-    };
-    let method = parsed.get("method").and_then(Value::as_str).unwrap_or("");
-    let reply = match method {
-        "session/request_permission" => permission_allow_reply(id, parsed.get("params")),
-        _ => json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": { "code": -32601, "message": format!("unsupported client method: {method}") },
-        }),
-    };
-    let _ = stdin.write(&reply);
+use super::process_writer::InputWriter;
+use crate::dispatch_guard::DispatchGuard;
+use crate::protocol_events::EventQueue;
+
+pub(super) fn receive_agent_request(
+    request: Value,
+    bytes: usize,
+    epoch: u64,
+    retired: bool,
+    stdin: &InputWriter,
+    events: &EventQueue,
+) -> Result<()> {
+    let callbacks = stdin.callbacks();
+    let registered = callbacks.register(&request, bytes, epoch)?;
+    if let Some(token) = registered.retired {
+        events.send(
+            json!({
+                "method":"carlos/grok/callback-retired", "params":{"token":token}
+            })
+            .to_string(),
+        )?;
+    }
+    if request["method"] == "session/request_permission"
+        && !request["params"]["sessionId"]
+            .as_str()
+            .is_some_and(|id| !id.is_empty() && id.len() <= 4096)
+    {
+        let callback = callbacks.get(&json!(registered.token))?;
+        return stdin.write_callback(
+            callback,
+            json!({"code":-32602,"message":"invalid ACP permission session"}),
+            true,
+            DispatchGuard::default(),
+        );
+    }
+    if request["method"] == "session/request_permission" && retired {
+        let callback = callbacks.get(&json!(registered.token))?;
+        return stdin.write_callback(
+            callback,
+            json!({"outcome":{"outcome":"cancelled"}}),
+            false,
+            DispatchGuard::default(),
+        );
+    }
+    if request["method"] == "session/request_permission" {
+        events.send(
+            json!({
+                "method":"carlos/grok/request",
+                "params":{"token":registered.token, "request":request}
+            })
+            .to_string(),
+        )?;
+    } else {
+        let callback = callbacks.get(&json!(registered.token))?;
+        stdin.write_callback(
+            callback,
+            json!({"code":-32601,"message":"unsupported ACP client method"}),
+            true,
+            DispatchGuard::default(),
+        )?;
+    }
+    Ok(())
 }
 
-fn permission_allow_reply(id: Value, params: Option<&Value>) -> Value {
-    let option_id = params
-        .and_then(|params| params.get("options"))
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .find_map(|option| {
-            let kind = option.get("kind").and_then(Value::as_str)?;
-            matches!(kind, "allow_once" | "allow_always")
-                .then(|| option.get("optionId").and_then(Value::as_str))
-                .flatten()
-        })
-        .unwrap_or("allow-once");
-    json!({
-        "jsonrpc": "2.0",
-        "id": id,
-        "result": {
-            "outcome": {
-                "outcome": "selected",
-                "optionId": option_id,
-            }
-        }
-    })
+pub(super) fn cancel_agent_requests(
+    stdin: &InputWriter,
+    events: &EventQueue,
+    session: Option<&str>,
+    epoch: Option<u64>,
+) -> Result<()> {
+    for token in stdin.cancel_callbacks(session, epoch)? {
+        events.send(
+            json!({
+                "method":"carlos/grok/callback-retired", "params":{"token":token}
+            })
+            .to_string(),
+        )?;
+    }
+    Ok(())
 }

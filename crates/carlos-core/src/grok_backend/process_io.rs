@@ -7,10 +7,41 @@ use std::time::Duration;
 use anyhow::{anyhow, bail, Result};
 use serde_json::{json, Value};
 
+use super::process_client::cancel_agent_requests;
 use super::GrokIo;
 use crate::dispatch_guard::DispatchGuard;
 
 impl GrokIo {
+    pub(in crate::grok_backend) fn respond_guarded(
+        &self,
+        token: &Value,
+        body: Value,
+        error: bool,
+        permission: DispatchGuard,
+        scope: impl Fn(Option<&str>, u64) -> bool + Send + Sync + 'static,
+    ) -> Result<()> {
+        let callback = self.stdin.callbacks().get(token)?;
+        let target = callback.clone();
+        let permission = permission.and(DispatchGuard::new(move || {
+            scope(target.session(), target.epoch())
+        }));
+        self.stdin.write_callback(callback, body, error, permission)
+    }
+
+    pub(in crate::grok_backend) fn retire_callback_choices(&self, session: &str, epoch: u64) {
+        self.stdin
+            .callbacks()
+            .cancel_session(Some(session), Some(epoch));
+    }
+
+    pub(in crate::grok_backend) fn cancel_callbacks(
+        &self,
+        session: &str,
+        epoch: Option<u64>,
+    ) -> Result<()> {
+        cancel_agent_requests(&self.stdin, &self.events, Some(session), epoch)
+    }
+
     pub(in crate::grok_backend) fn cancel(&self) {
         self.events.close();
         self.stdin.close();

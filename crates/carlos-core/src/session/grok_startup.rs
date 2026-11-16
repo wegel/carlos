@@ -24,6 +24,7 @@ impl SessionState {
         params: &Value,
     ) -> BackendUpdate {
         if method == "carlos/grok/closed" {
+            self.clear_grok_permissions();
             self.events.backend_closed = true;
             self.retire_backend_command();
             self.set_active_turn_id(None);

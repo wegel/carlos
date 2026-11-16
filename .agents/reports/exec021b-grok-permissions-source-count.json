@@ -1,0 +1,190 @@
+{
+  "baseline": {
+    "commit": "a55b95046cab80a3c053051d577d60c9a2df89e6",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 375,
+        "nonblank": 46928,
+        "physical": 52764,
+        "bytes": 1779976
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 751,
+      "nonblank": 95175,
+      "physical": 106230,
+      "bytes": 3577144
+    }
+  },
+  "grok_permissions": {
+    "commit": "working",
+    "groups": {
+      "carlos-client": {
+        "files": 75,
+        "nonblank": 10263,
+        "physical": 11050,
+        "bytes": 381528
+      },
+      "carlos-core": {
+        "files": 377,
+        "nonblank": 47626,
+        "physical": 53522,
+        "bytes": 1804013
+      },
+      "carlos-proto": {
+        "files": 28,
+        "nonblank": 2420,
+        "physical": 2687,
+        "bytes": 82784
+      },
+      "carlosd": {
+        "files": 57,
+        "nonblank": 8318,
+        "physical": 8909,
+        "bytes": 291904
+      },
+      "terminal": {
+        "files": 193,
+        "nonblank": 25593,
+        "physical": 28999,
+        "bytes": 952106
+      },
+      "helper": {
+        "files": 23,
+        "nonblank": 1653,
+        "physical": 1821,
+        "bytes": 88846
+      }
+    },
+    "total": {
+      "files": 753,
+      "nonblank": 95873,
+      "physical": 106988,
+      "bytes": 3601181
+    }
+  },
+  "delta_nonblank": 698,
+  "changes": {
+    "crates/carlos-core/src/engine/owner.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/client.rs": {
+      "added": 5,
+      "deleted": 5
+    },
+    "crates/carlos-core/src/grok_backend/commands.rs": {
+      "added": 50,
+      "deleted": 9
+    },
+    "crates/carlos-core/src/grok_backend/interrupt.rs": {
+      "added": 2,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/mod.rs": {
+      "added": 5,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/grok_backend/process.rs": {
+      "added": 3,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/grok_backend/process_callbacks.rs": {
+      "added": 209,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/process_client.rs": {
+      "added": 78,
+      "deleted": 40
+    },
+    "crates/carlos-core/src/grok_backend/process_io.rs": {
+      "added": 28,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/grok_backend/process_reader.rs": {
+      "added": 50,
+      "deleted": 11
+    },
+    "crates/carlos-core/src/grok_backend/process_writer.rs": {
+      "added": 135,
+      "deleted": 33
+    },
+    "crates/carlos-core/src/session/approval_commands.rs": {
+      "added": 7,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/approval_reply.rs": {
+      "added": 11,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/session/approval_state.rs": {
+      "added": 24,
+      "deleted": 18
+    },
+    "crates/carlos-core/src/session/backend_receive.rs": {
+      "added": 4,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/control_answers.rs": {
+      "added": 8,
+      "deleted": 1
+    },
+    "crates/carlos-core/src/session/event_approval.rs": {
+      "added": 12,
+      "deleted": 2
+    },
+    "crates/carlos-core/src/session/grok_permissions.rs": {
+      "added": 185,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/grok_startup.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/mod.rs": {
+      "added": 1,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/notification_turns.rs": {
+      "added": 3,
+      "deleted": 0
+    },
+    "crates/carlos-core/src/session/thread_commands.rs": {
+      "added": 1,
+      "deleted": 0
+    }
+  },
+  "added_nonblank": 823,
+  "deleted_nonblank": 125,
+  "note": "Same production traversal and test exclusions as the accepted ledger. Grok permission feature versus checked tool-fact commit a55b950. The exact runtime passes the full debug gate and both Rust configurations/lints; final EP native/release/performance gates remain."
+}

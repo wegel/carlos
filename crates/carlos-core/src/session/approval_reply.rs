@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use super::approval_state::ApprovalQueue;
+use super::approval_state::{ApprovalQueue, ApprovalRequestKind};
 use super::codex::callback_commands::CallbackRetired;
 use super::entry_id::EntryId;
 use super::state::SessionState;
@@ -33,7 +33,16 @@ impl SessionState {
             .as_ref()
             .and_then(Value::as_str)
             .map(str::to_string);
-        let cards = self.promote_approval(ApprovalQueue::Claude);
+        let queue = if self
+            .approval()
+            .pending()
+            .is_some_and(|card| card.facts().kind == ApprovalRequestKind::GrokPermission)
+        {
+            ApprovalQueue::Grok
+        } else {
+            ApprovalQueue::Claude
+        };
+        let cards = self.promote_approval(queue);
         ApprovalCleared::Other { editor, cards }
     }
 

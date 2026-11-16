@@ -50,6 +50,9 @@ pub(super) fn convert(
             Ok((choice, body))
         }
         ApprovalAnswer::Input { value } => {
+            if facts.kind == ApprovalRequestKind::GrokPermission {
+                return super::grok_permissions::answer(facts, card, value);
+            }
             ensure!(
                 facts.can_accept_once(),
                 "card does not offer accepting an answer"
@@ -139,7 +142,11 @@ fn field_reply(
     Ok(json!({"behavior":"allow","updatedInput":input}))
 }
 
-fn validate_field(field: &InputField, answer: &FieldAnswer, codex: bool) -> Result<Vec<String>> {
+pub(super) fn validate_field(
+    field: &InputField,
+    answer: &FieldAnswer,
+    codex: bool,
+) -> Result<Vec<String>> {
     ensure!(
         field.multiple || answer.values.len() <= 1,
         "field accepts only one value"

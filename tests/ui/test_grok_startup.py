@@ -1,7 +1,48 @@
 """Keep a saved Grok transcript readable while native history and an early send wait."""
 
 
+import json
+import sys
+
+from test_daemon_client import daemon_support
+
+
 class GrokStartup:
+    def test_grok_offered_permission_choices_work_through_the_terminal_without_a_prompt(self):
+        runner = sys.modules[type(self).__module__]
+        daemon_support.BINARY = runner.BINARY.parent / "carlosd"
+        daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
+        fixture = daemon_support.Fixture("terminal-grok-permission", mode="grok-permission-number")
+        self.addCleanup(fixture.close)
+        client = daemon_support.Client(fixture, "permission-owner")
+        self.addCleanup(client.close)
+        operation = client.operation(1)
+        session = client.call("session/create", operation=operation, backend="grok", cwd=str(fixture.root), name=None)["session"]
+        client.outcome(operation)
+        terminal = self.attach_daemon(fixture, session, "grok-permission")
+        terminal.contains("Idle")
+        terminal.paste("private composer stays")
+        terminal.wait(lambda: terminal.input_is("private composer stays"), "private composer before permission")
+        operation = client.operation(2)
+        client.call("session/send", session=session, operation=operation, text="permission fixture")
+        client.outcome(operation)
+        terminal.contains("Choose Grok's permission")
+        terminal.contains("Allow this command once")
+        terminal.contains("Allow this command in future sessions")
+        self.assertFalse((fixture.root / "permission-answers.jsonl").exists())
+        terminal.snapshot("grok-original-offered-options")
+        terminal.send(b"\x1b[B \t")
+        terminal.contains("Review answers")
+        terminal.send(b"\x13")
+        terminal.contains("Permission fixture finished")
+        terminal.wait(lambda: terminal.input_is("private composer stays"), "permission preserves private composer")
+        answers = [json.loads(line) for line in (fixture.root / "permission-answers.jsonl").read_text().splitlines()]
+        self.assertEqual(answers, [{"jsonrpc":"2.0", "id":91001, "result":{"outcome":{"outcome":"selected", "optionId":"native:always:β"}}}])
+        self.assertEqual(len(terminal.requests("session/approve")), 1)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(len(fixture.native_requests("session/prompt")), 1)
+        terminal.snapshot("grok-native-permission-chosen-without-an-extra-prompt")
+
     def test_grok_instant_answers_leave_each_follow_up_prompt_sendable(self):
         terminal = self.launch(backend="grok", resume=None)
         terminal.wait_ready_composer()

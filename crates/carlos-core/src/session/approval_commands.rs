@@ -17,6 +17,7 @@ use crate::session::state::SessionState;
 pub enum ApprovalQueue {
     Claude,
     Codex,
+    Grok,
 }
 
 /// Own every live card; removing a card retires its id forever.
@@ -26,6 +27,7 @@ pub struct ApprovalState {
     pending: Option<PendingApprovalRequest>,
     claude: VecDeque<PendingApprovalRequest>,
     codex: VecDeque<PendingApprovalRequest>,
+    grok: VecDeque<PendingApprovalRequest>,
 }
 
 impl ApprovalState {
@@ -39,6 +41,7 @@ impl ApprovalState {
         match queue {
             ApprovalQueue::Claude => &self.claude,
             ApprovalQueue::Codex => &self.codex,
+            ApprovalQueue::Grok => &self.grok,
         }
     }
 
@@ -48,6 +51,7 @@ impl ApprovalState {
             .iter()
             .chain(self.claude.iter())
             .chain(self.codex.iter())
+            .chain(self.grok.iter())
     }
 }
 
@@ -135,6 +139,7 @@ impl ApprovalState {
             .iter_mut()
             .chain(self.claude.iter_mut())
             .chain(self.codex.iter_mut())
+            .chain(self.grok.iter_mut())
     }
 
     fn claim(&mut self, id: EntryId) {
@@ -161,7 +166,7 @@ impl ApprovalState {
         if self.pending().is_some_and(|p| p.entry_id() == id) {
             return self.pending.take().map(|p| p.entry_id());
         }
-        for queue in [&mut self.claude, &mut self.codex] {
+        for queue in [&mut self.claude, &mut self.codex, &mut self.grok] {
             if let Some(index) = queue.iter().position(|p| p.entry_id() == id) {
                 return queue.remove(index).map(|p| p.entry_id());
             }
@@ -186,6 +191,7 @@ impl ApprovalState {
         match queue {
             ApprovalQueue::Claude => &mut self.claude,
             ApprovalQueue::Codex => &mut self.codex,
+            ApprovalQueue::Grok => &mut self.grok,
         }
     }
 }

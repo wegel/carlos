@@ -32,6 +32,7 @@ pub enum ApprovalRequestKind {
     LegacyApplyPatch,
     ClaudeExitPlanMode,
     ClaudeNative,
+    GrokPermission,
     ClaudeQuestion,
     CodexQuestion,
     CodexForm,
@@ -121,6 +122,8 @@ impl ApprovalRequestDraft {
             return None;
         }
         match self.kind {
+            ApprovalRequestKind::GrokPermission => (choice == ApprovalChoice::Cancel)
+                .then(|| json!({"outcome":{"outcome":"cancelled"}})),
             ApprovalRequestKind::CodexQuestion => match choice {
                 ApprovalChoice::Decline => Some(json!({"answers":{}})),
                 _ => None,
@@ -130,24 +133,7 @@ impl ApprovalRequestDraft {
                 ApprovalChoice::Cancel => Some(json!({"action":"cancel"})),
                 _ => None,
             },
-            ApprovalRequestKind::ClaudeNative => match choice {
-                ApprovalChoice::Accept
-                    if self
-                        .requested_permissions
-                        .as_ref()
-                        .is_some_and(|payload| payload["toolName"] == "AskUserQuestion") =>
-                {
-                    None
-                }
-                ApprovalChoice::Accept => Some(json!({ "behavior": "allow" })),
-                ApprovalChoice::Decline => {
-                    Some(json!({ "behavior": "deny", "message": "User declined" }))
-                }
-                ApprovalChoice::Cancel => Some(
-                    json!({ "behavior": "deny", "message": "User cancelled", "interrupt": true }),
-                ),
-                _ => None,
-            },
+            ApprovalRequestKind::ClaudeNative => self.claude_native_response(choice),
             ApprovalRequestKind::ClaudeQuestion => match choice {
                 ApprovalChoice::Accept => self.empty_question_answer(),
                 ApprovalChoice::Decline => Some(json!({ "action": "decline" })),
@@ -174,6 +160,27 @@ impl ApprovalRequestDraft {
                 _ => None,
             },
             ApprovalRequestKind::Permissions => self.permissions_response(choice),
+        }
+    }
+
+    fn claude_native_response(&self, choice: ApprovalChoice) -> Option<Value> {
+        match choice {
+            ApprovalChoice::Accept
+                if self
+                    .requested_permissions
+                    .as_ref()
+                    .is_some_and(|payload| payload["toolName"] == "AskUserQuestion") =>
+            {
+                None
+            }
+            ApprovalChoice::Accept => Some(json!({ "behavior": "allow" })),
+            ApprovalChoice::Decline => {
+                Some(json!({ "behavior": "deny", "message": "User declined" }))
+            }
+            ApprovalChoice::Cancel => {
+                Some(json!({ "behavior": "deny", "message": "User cancelled", "interrupt": true }))
+            }
+            _ => None,
         }
     }
 

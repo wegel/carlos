@@ -27,6 +27,7 @@ impl SessionState {
                 self.reset_codex_settings();
                 changed.codex_reset = true;
             }
+            self.clear_grok_permissions();
             self.set_thread_name(None);
         }
         self.set_thread_id(thread_id);

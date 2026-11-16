@@ -17,6 +17,7 @@ impl GrokCommands {
         permission: DispatchGuard,
     ) -> Result<String> {
         let epoch = self.capture_interrupt(expected, &permission)?;
+        self.process.retire_callback_choices(session, epoch);
         let translation = Arc::clone(&self.translation);
         let permission = permission.and(DispatchGuard::new(move || {
             translation
@@ -28,6 +29,7 @@ impl GrokCommands {
             json!({"sessionId":session,"cancelTrigger":"esc"}),
             permission.clone(),
         )?;
+        self.process.cancel_callbacks(session, Some(epoch))?;
         let _ = self.process.notify_guarded(
             "x.ai/queue/clear",
             json!({"sessionId":session}),

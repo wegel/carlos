@@ -14,7 +14,9 @@ The completed tool-fact milestone adds377/deletes72 nonblank production lines, n
 
 ## Grok approval choices
 
-Not implemented. Replace process_client's immediate permission_allow_reply and the automatic bypass override; reuse shared cards, native scoped controls and offered option ids. Record native policy/version evidence and production delta when this milestone starts.
+The owner now shows every offered option through the existing neutral single-choice field; original option ids and integer/string callback ids remain private. Captured Grok endpoints answer startup requests and preserve original session/prompt scope through the existing guarded writer. One bounded native target table retires reused ids and queued answers; the existing owner approval queue still decides consent. The CLI always-approve flag and both forced yoloMode values are removed, along with the old automatic allow-option fallback. Interrupt, completion, root replacement and EOF retire old cards/targets. No new wire family, terminal controller, crate or Swift type is added.
+
+At the current implementation checkpoint versus a55b950, this feature adds823/deletes125 nonblank production lines, net698, allCore. Combined EP total95873, or1003 above EP021a. exec021b-grok-permissions-source-count.json retains file details. The full debug gate passes in grok-permission-gate-01.log:196 daemon,314 terminal, both helper72-test suites and all copy/source/dictation/ANSI checks. Both Rust configurations and both strict lints pass. The EP still needs native history, final release/native/performance checks and end reviews.
 
 ## Native history windows
 

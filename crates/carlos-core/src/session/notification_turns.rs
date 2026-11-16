@@ -55,6 +55,9 @@ pub(in crate::session) fn handle_turn_completed(
     if session.codex_scope().enabled() {
         session.invalidate_codex_queue();
     }
+    if session.events.backend == carlos_proto::session::Backend::Grok {
+        session.clear_grok_permissions();
+    }
     let keep_codex = session.approval().pending().is_some_and(|pending| {
         session
             .codex_callbacks()

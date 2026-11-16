@@ -17,7 +17,7 @@ use crate::dispatch_guard::DispatchGuard;
 struct Captured {
     permission: DispatchGuard,
     commands: Weak<GrokCommands>,
-    session: String,
+    session: Option<String>,
     revision: u64,
 }
 
@@ -26,7 +26,11 @@ impl GrokClient {
         Ok(CommandHandle::new(Captured {
             permission: DispatchGuard::default(),
             commands: Arc::downgrade(&self.commands),
-            session: self.current_session_id()?,
+            session: self
+                .session_id
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Grok session lock poisoned"))?
+                .clone(),
             revision: self.commands.revision.load(Ordering::SeqCst),
         }))
     }
@@ -73,6 +77,37 @@ impl GrokCommands {
 }
 
 impl Captured {
+    fn respond_native(&self, token: &Value, body: Value, error: bool) -> Result<()> {
+        let commands = self.current()?;
+        let captured = self.clone();
+        commands.process.respond_guarded(
+            token,
+            body,
+            error,
+            self.write_permission(),
+            move |session, epoch| {
+                let Ok(commands) = captured.current() else {
+                    return false;
+                };
+                let session_matches = commands.session_id.lock().is_ok_and(|current| match current
+                    .as_deref()
+                {
+                    Some(current) => session == Some(current),
+                    None => {
+                        captured.session.is_none()
+                            && commands.opening.load(Ordering::SeqCst)
+                            && session.is_some()
+                    }
+                });
+                session_matches
+                    && commands
+                        .translation
+                        .lock()
+                        .is_ok_and(|state| state.prompt_epoch == epoch)
+            },
+        )
+    }
+
     fn write_permission(&self) -> DispatchGuard {
         let captured = self.clone();
         self.permission
@@ -84,8 +119,13 @@ impl Captured {
         let commands = self.commands.upgrade().context("Grok owner has stopped")?;
         ensure!(
             !commands.stopped.load(Ordering::SeqCst)
-                && commands.revision.load(Ordering::SeqCst) == self.revision
-                && commands.current_session_id()? == self.session,
+                && match &self.session {
+                    Some(session) =>
+                        commands.revision.load(Ordering::SeqCst) == self.revision
+                            && commands.current_session_id()? == *session,
+                    None =>
+                        commands.revision.load(Ordering::SeqCst) <= self.revision.saturating_add(1),
+                },
             "captured Grok session has changed"
         );
         Ok(commands)
@@ -111,17 +151,19 @@ impl BackendCommands for Captured {
     }
     fn call(&self, method: &str, params: Value, timeout: Duration) -> Result<String> {
         self.current()?.call_for(
-            &self.session,
+            self.session
+                .as_deref()
+                .context("Grok session is not ready")?,
             method,
             params,
             timeout,
             self.write_permission(),
         )
     }
-    fn respond(&self, id: &Value, _result: Value) -> Result<()> {
-        bail!("unsupported Grok approval request: {id}")
+    fn respond(&self, id: &Value, result: Value) -> Result<()> {
+        self.respond_native(id, result, false)
     }
-    fn respond_error(&self, _id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("Grok backend approvals are not implemented")
+    fn respond_error(&self, id: &Value, code: i64, message: &str) -> Result<()> {
+        self.respond_native(id, json!({"code":code,"message":message}), true)
     }
 }

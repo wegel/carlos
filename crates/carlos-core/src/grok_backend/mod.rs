@@ -151,7 +151,6 @@ impl GrokCommands {
             json!({
                 "cwd": self.cwd,
                 "mcpServers": [],
-                "_meta": { "yoloMode": true },
             }),
             SESSION_NEW_TIMEOUT,
         )?;
@@ -172,7 +171,6 @@ impl GrokCommands {
                 "sessionId": session_id,
                 "cwd": self.cwd,
                 "mcpServers": [],
-                "_meta": { "yoloMode": true },
             }),
             SESSION_LOAD_TIMEOUT,
         );
@@ -239,6 +237,11 @@ impl GrokCommands {
     }
 
     pub(super) fn store_session_id(&self, session_id: String) {
+        if let Ok(previous) = self.current_session_id() {
+            if self.process.cancel_callbacks(&previous, None).is_err() {
+                self.process.cancel();
+            }
+        }
         self.revision.fetch_add(1, Ordering::SeqCst);
         if let Ok(mut current) = self.session_id.lock() {
             *current = Some(session_id.clone());

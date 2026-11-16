@@ -145,6 +145,7 @@ impl Owner {
         for queue in [
             crate::session::approval_state::ApprovalQueue::Claude,
             crate::session::approval_state::ApprovalQueue::Codex,
+            crate::session::approval_state::ApprovalQueue::Grok,
         ] {
             let _ = self.session.clear_approval_queue(queue);
         }

@@ -7,7 +7,7 @@ use std::thread;
 
 use serde_json::{json, Value};
 
-use super::process_client::respond_to_agent_request;
+use super::process_client::{cancel_agent_requests, receive_agent_request};
 use super::process_writer::InputWriter;
 use crate::grok_backend::translate::{finish_prompt_turn, translate_grok_notification};
 use crate::grok_backend::types::GrokTranslationState;
@@ -110,13 +110,25 @@ fn route_line(
     let Ok(parsed) = serde_json::from_str::<Value>(line) else {
         return Ok(());
     };
+    if parsed.get("id").is_some() && parsed["method"].is_string() {
+        let (epoch, retired) = {
+            let state = translation
+                .lock()
+                .map_err(|_| anyhow::anyhow!("Grok translation lock poisoned"))?;
+            let foreign = state
+                .session_id
+                .as_deref()
+                .is_some_and(|session| parsed["params"]["sessionId"].as_str() != Some(session));
+            (
+                state.prompt_epoch,
+                foreign || state.ignore_stale_updates || state.turn_completed_emitted,
+            )
+        };
+        return receive_agent_request(parsed, line.len(), epoch, retired, stdin, events_tx);
+    }
     if let Some(id) = parsed.get("id").and_then(Value::as_u64) {
-        if parsed.get("method").and_then(Value::as_str).is_some() {
-            respond_to_agent_request(&parsed, stdin);
-            return Ok(());
-        }
         if let Some(last) = take_prompt_id(prompt_in_flight, id) {
-            return emit_prompt_finished(&parsed, events_tx, translation, last);
+            return emit_prompt_finished(&parsed, events_tx, translation, stdin, last);
         }
         if let Ok(mut pending) = pending.lock() {
             if let Some(tx) = pending.remove(&id) {
@@ -129,11 +141,33 @@ fn route_line(
         return Ok(());
     };
     let params = parsed.get("params").cloned().unwrap_or(Value::Null);
-    let Ok(mut state) = translation.lock() else {
-        return Ok(());
+    route_notification(method, &params, events_tx, stdin, translation)
+}
+
+fn route_notification(
+    method: &str,
+    params: &Value,
+    events: &EventQueue,
+    stdin: &InputWriter,
+    translation: &Mutex<GrokTranslationState>,
+) -> anyhow::Result<()> {
+    let (lines, completed, session, epoch) = {
+        let mut state = translation
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Grok translation lock poisoned"))?;
+        let lines = translate_grok_notification(&mut state, method, params).lines;
+        (
+            lines,
+            state.turn_completed_emitted,
+            state.session_id.clone(),
+            state.prompt_epoch,
+        )
     };
-    for synthetic in translate_grok_notification(&mut state, method, &params).lines {
-        events_tx.send(synthetic)?;
+    if completed {
+        cancel_agent_requests(stdin, events, session.as_deref(), Some(epoch))?;
+    }
+    for line in lines {
+        events.send(line)?;
     }
     Ok(())
 }
@@ -152,6 +186,7 @@ fn emit_prompt_finished(
     parsed: &Value,
     events_tx: &EventQueue,
     translation: &Arc<Mutex<GrokTranslationState>>,
+    stdin: &InputWriter,
     last: bool,
 ) -> anyhow::Result<()> {
     let interrupted = parsed
@@ -179,7 +214,12 @@ fn emit_prompt_finished(
     let Ok(mut state) = translation.lock() else {
         return Ok(());
     };
-    for synthetic in finish_prompt_turn(&mut state, interrupted).lines {
+    let lines = finish_prompt_turn(&mut state, interrupted).lines;
+    let session = state.session_id.clone();
+    let epoch = state.prompt_epoch;
+    drop(state);
+    cancel_agent_requests(stdin, events_tx, session.as_deref(), Some(epoch))?;
+    for synthetic in lines {
         events_tx.send(synthetic)?;
     }
     Ok(())

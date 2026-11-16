@@ -6,13 +6,13 @@ use super::build_grok_command;
 use crate::grok_backend::{grok_model_catalog, GrokRuntimeSettings};
 
 #[test]
-fn build_grok_command_uses_agent_stdio_always_approve() {
+fn build_grok_command_preserves_the_native_permission_policy() {
     let command = build_grok_command(Path::new("/repo"), &GrokRuntimeSettings::default());
     let args = command
         .get_args()
         .map(|arg| arg.to_string_lossy().into_owned())
         .collect::<Vec<_>>();
-    assert_eq!(args, ["agent", "--always-approve", "--no-leader", "stdio"]);
+    assert_eq!(args, ["agent", "--no-leader", "stdio"]);
 }
 
 #[test]

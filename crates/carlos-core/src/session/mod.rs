@@ -255,6 +255,7 @@ mod control_work_tests;
 #[path = "../engine/mod.rs"]
 pub mod engine;
 
+mod grok_permissions;
 mod grok_startup;
 
 #[cfg(test)]

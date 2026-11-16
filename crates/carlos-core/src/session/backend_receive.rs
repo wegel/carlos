@@ -70,6 +70,10 @@ impl SessionState {
         let Some(params) = parsed.get("params").and_then(Value::as_object) else {
             return BackendUpdate::new(BackendChange::None);
         };
+        if method == "carlos/grok/request" || method == "carlos/grok/callback-retired" {
+            self.receive_grok_permission(method, &parsed["params"]);
+            return BackendUpdate::new(BackendChange::None);
+        }
         if method == "carlos/grok/ready" || method == "carlos/grok/closed" {
             return self.handle_grok_lifecycle(method, &parsed["params"]);
         }

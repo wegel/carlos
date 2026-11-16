@@ -1,5 +1,7 @@
 //! Grok ACP stdio process: spawn, JSON-RPC IO, and stream routing.
 
+#[path = "process_callbacks.rs"]
+mod process_callbacks;
 #[path = "process_client.rs"]
 mod process_client;
 #[path = "process_io.rs"]
@@ -134,7 +136,7 @@ pub(super) fn start_with_events(
 
 fn build_grok_command(cwd: &Path, runtime: &GrokRuntimeSettings) -> Command {
     let mut command = Command::new("grok");
-    command.args(["agent", "--always-approve", "--no-leader", "stdio"]);
+    command.args(["agent", "--no-leader", "stdio"]);
     if let Some(model) = runtime.model.as_deref() {
         command.args(["--model", model]);
     }

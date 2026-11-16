@@ -100,7 +100,7 @@ pub(super) fn export_card(
         ApprovalRequestKind::FileChange | ApprovalRequestKind::LegacyApplyPatch => "file_change",
         ApprovalRequestKind::Permissions => "permissions",
         ApprovalRequestKind::ClaudeExitPlanMode => "plan",
-        ApprovalRequestKind::ClaudeNative => "tool",
+        ApprovalRequestKind::ClaudeNative | ApprovalRequestKind::GrokPermission => "tool",
         ApprovalRequestKind::ClaudeQuestion | ApprovalRequestKind::CodexQuestion => "question",
         ApprovalRequestKind::CodexForm => "form",
     };
@@ -113,7 +113,16 @@ pub(super) fn export_card(
         kind: kind.to_owned(),
         title: facts.title.clone(),
         caller,
-        display_id: Some(request_label(&facts.request_id)),
+        display_id: Some(request_label(
+            if facts.kind == ApprovalRequestKind::GrokPermission {
+                &facts
+                    .requested_permissions
+                    .as_ref()
+                    .expect("native Grok request")["id"]
+            } else {
+                &facts.request_id
+            },
+        )),
         details,
         choices,
         input,
@@ -152,6 +161,7 @@ fn export_input(card: &PendingApprovalRequest) -> Option<ApprovalInput> {
     let facts = card.facts();
     let payload = facts.requested_permissions.as_ref()?;
     match facts.kind {
+        ApprovalRequestKind::GrokPermission => Some(super::grok_permissions::input(payload)),
         ApprovalRequestKind::CodexQuestion => Some(export_fields(
             question_fields(payload).map_err(|error| error.to_string()),
         )),

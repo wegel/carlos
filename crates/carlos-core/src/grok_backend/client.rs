@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use serde_json::Value;
 
 use super::GrokClient;
@@ -48,12 +48,12 @@ impl BackendClient for GrokClient {
         self.rewind_fork(request)
     }
 
-    fn respond(&self, request_id: &Value, _result: Value) -> Result<()> {
-        bail!("unsupported Grok approval request: {request_id}")
+    fn respond(&self, request_id: &Value, result: Value) -> Result<()> {
+        self.capture()?.respond(request_id, result)
     }
 
-    fn respond_error(&self, _request_id: &Value, _code: i64, _message: &str) -> Result<()> {
-        bail!("Grok backend approvals are not implemented")
+    fn respond_error(&self, request_id: &Value, code: i64, message: &str) -> Result<()> {
+        self.capture()?.respond_error(request_id, code, message)
     }
 
     fn acknowledge_event(&self, length: usize) {
