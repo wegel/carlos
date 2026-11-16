@@ -8,6 +8,7 @@ use serde_json::json;
 use super::client::{attached, command, reply};
 use super::queue_panel::{page, single_read};
 use super::{session, snapshot};
+use crate::panels::QueueReadMode;
 use crate::{Client, ConnectionId, Effects};
 
 #[test]
@@ -101,7 +102,9 @@ fn input_reader(client: &mut Client, connection: ConnectionId, session: &Session
         &subscribe,
         json!({"kind":"snapshot","snapshot":facts}),
     );
-    let opened = client.open_queue_panel(session, None).expect("open queue");
+    let opened = client
+        .open_queue_panel(session, None, QueueReadMode::Refresh)
+        .expect("open queue");
     let mut preview = page(0, 1, 10, 'a');
     preview.session = session.clone();
     preview.entries[0].text_bytes = Some(ByteLength::new(16 * 1024 * 1024));

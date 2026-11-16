@@ -9,6 +9,7 @@ use super::client::{attached, command, notify, reply};
 use super::queue_panel::{id, page, single_read};
 use super::{event, session};
 use crate::codec::Incoming;
+use crate::panels::QueueReadMode;
 use crate::{Client, ClientError, ConnectionId, Effects, Outbound};
 
 #[test]
@@ -73,6 +74,47 @@ fn readers_reject_a_short_final_chunk_and_keep_input_failures_separate_from_page
 }
 
 #[test]
+fn input_assembly_rejects_a_rounded_utf8_start_that_would_duplicate_already_read_bytes() {
+    let (mut client, connection, read) = reading(4);
+    let first = text_reply(&mut client, single_read(&read), "aa", false);
+    let outgoing = single_read(&first);
+    let Command::QueueText {
+        expected,
+        entry,
+        offset,
+        ..
+    } = command(outgoing).command
+    else {
+        panic!("second input chunk")
+    };
+    assert_eq!(offset.get(), 2);
+    let result = client
+        .receive(
+            connection,
+            Incoming::Success {
+                id: outgoing.id(),
+                result: json!({"session":session(),"revision":expected,"entry":entry,
+            "offset":"1","next_offset":"4","complete":true,"text":"€"}),
+            },
+        )
+        .expect("valid generic rounded UTF-8 range");
+    assert!(result.outgoing.is_empty());
+    assert!(
+        client.take_queue_input(&session()).is_none(),
+        "overlap cannot become editable text"
+    );
+    assert!(client
+        .queue_panel(&session())
+        .expect("panel")
+        .input_error()
+        .is_some());
+    assert!(
+        client.queue_is_current(&session()),
+        "the checked preview remains usable"
+    );
+}
+
+#[test]
 fn changed_revisions_and_cancelled_reads_cannot_publish_old_input_or_restore_it_after_eof() {
     let (mut client, connection, read) = reading(3);
     let changed = notify(
@@ -120,7 +162,9 @@ fn changed_revisions_and_cancelled_reads_cannot_publish_old_input_or_restore_it_
 fn attachment_inputs_and_native_ceiling_fail_before_any_text_request_is_allocated() {
     for bytes in [None, Some(16 * 1024 * 1024 + 1)] {
         let (mut client, _) = attached();
-        let opened = client.open_queue_panel(&session(), None).expect("open");
+        let opened = client
+            .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+            .expect("open");
         let mut preview = page(0, 1, 10, 'a');
         preview.entries[0].text_bytes = bytes.map(ByteLength::new);
         reply(&mut client, single_read(&opened), json!(preview));
@@ -173,7 +217,9 @@ fn a_native_input_failure_stops_reading_until_the_user_explicitly_retries() {
 
 fn reading(bytes: u64) -> (Client, ConnectionId, Effects) {
     let (mut client, connection) = attached();
-    let opened = client.open_queue_panel(&session(), None).expect("open");
+    let opened = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("open");
     let mut preview = page(0, 1, 10, 'a');
     preview.entries[0].text_bytes = Some(ByteLength::new(bytes));
     reply(&mut client, single_read(&opened), json!(preview));

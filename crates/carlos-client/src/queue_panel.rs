@@ -2,7 +2,7 @@
 
 use carlos_proto::ids::{QueueEntryId, SessionId};
 
-use crate::panels::{PanelKind, QueuePanel};
+use crate::panels::{PanelKind, QueuePanel, QueueReadMode};
 use crate::{Client, ClientError, Effects};
 
 impl Client {
@@ -11,6 +11,7 @@ impl Client {
         &mut self,
         session: &SessionId,
         selected: Option<QueueEntryId>,
+        mode: QueueReadMode,
     ) -> Result<Effects, ClientError> {
         let slot = self
             .sessions
@@ -21,7 +22,12 @@ impl Client {
         if slot.panels.queue.is_none() {
             let mut panel = QueuePanel::default();
             panel.selection = selected.map(|id| id.to_string());
-            panel.refresh = true;
+            panel.refresh = mode == QueueReadMode::Refresh
+                || slot
+                    .replica
+                    .as_ref()
+                    .and_then(|replica| replica.queue())
+                    .is_none_or(|facts| !facts.known);
             panel.dirty = true;
             panel.recount();
             slot.panels.queue = Some(Box::new(panel));

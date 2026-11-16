@@ -124,7 +124,8 @@ impl Client {
             let panel = self.queue_panel_mut(&session).expect("owned input");
             let read = panel.input.read.as_mut().expect("owned input read");
             read.request = None;
-            if text.next_offset.get() > read.bytes
+            if text.offset.get() != read.text.len() as u64
+                || text.next_offset.get() > read.bytes
                 || !text.complete && text.text.is_empty()
                 || text.complete && text.next_offset.get() != read.bytes
             {

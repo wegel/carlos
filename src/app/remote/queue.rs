@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use carlos_client::panels::QueuePanel;
+use carlos_client::panels::{QueuePanel, QueueReadMode};
 use carlos_client::Effects;
 use carlos_proto::ids::{QueueEntryId, QueueRevision};
 use carlos_proto::queue::{QueueDirection, QueueFacts};
@@ -74,7 +74,8 @@ impl Device {
                 .as_deref()
                 .map(str::parse)
                 .transpose()?;
-            self.client.open_queue_panel(&self.session, selected)?
+            self.client
+                .open_queue_panel(&self.session, selected, QueueReadMode::Refresh)?
         };
         self.view.codex_queue.error = None;
         self.queue_effects(link, effects)
@@ -163,7 +164,17 @@ impl Device {
     fn toggle_queue_mode(&mut self, link: Option<&mut Transport>) -> Result<()> {
         self.view.codex_queue.mode = !self.view.codex_queue.mode;
         if self.view.codex_queue.mode && self.queue_panel().is_none() {
-            self.refresh_queue(link)?;
+            let selected = self
+                .view
+                .codex_queue
+                .selected
+                .as_deref()
+                .map(str::parse)
+                .transpose()?;
+            let effects =
+                self.client
+                    .open_queue_panel(&self.session, selected, QueueReadMode::Cached)?;
+            self.queue_effects(link, effects)?;
         }
         self.close_hidden_queue_reader();
         self.view.viewport.steer_notice_until =

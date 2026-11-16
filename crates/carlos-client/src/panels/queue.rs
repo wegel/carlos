@@ -6,6 +6,15 @@ use super::queue_input::InputState;
 use super::queue_reads::PageReads;
 use super::QueuePageWindow;
 
+/// Choose whether opening previews also asks the native backend to reread its queue.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QueueReadMode {
+    /// Reuse known accepted facts, discovering the native queue only when it is unknown.
+    Cached,
+    /// Explicitly refresh the native queue before settling its preview page.
+    Refresh,
+}
+
 /// Readonly queue previews and read status for one device; session facts stay in Replica.
 #[derive(Default)]
 pub struct QueuePanel {

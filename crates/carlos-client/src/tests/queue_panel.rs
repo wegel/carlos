@@ -10,13 +10,14 @@ use super::client::{attached, command, greet, notify, reply};
 use super::{entry_id, event, session};
 use crate::codec::Incoming;
 use crate::panels::PanelKind;
+use crate::panels::QueueReadMode;
 use crate::{Client, Effects, Outbound, ReadReply};
 
 #[test]
 fn queue_reader_walks_all_supported_rows_and_retains_only_the_selected_page() {
     let (mut client, _) = attached();
     let mut effects = client
-        .open_queue_panel(&session(), Some(id(4095)))
+        .open_queue_panel(&session(), Some(id(4095)), QueueReadMode::Refresh)
         .expect("open");
     for start in (0usize..4096).step_by(MAX_PAGE_ENTRIES) {
         let outgoing = single_read(&effects);
@@ -73,7 +74,9 @@ fn queue_reader_walks_all_supported_rows_and_retains_only_the_selected_page() {
 #[test]
 fn a_future_page_waits_for_numbered_facts_even_when_the_last_event_changes_no_queue_data() {
     let (mut client, connection) = attached();
-    let effects = client.open_queue_panel(&session(), None).expect("open");
+    let effects = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("open");
     let future = reply(
         &mut client,
         single_read(&effects),
@@ -106,10 +109,46 @@ fn a_future_page_waits_for_numbered_facts_even_when_the_last_event_changes_no_qu
 }
 
 #[test]
+fn cached_queue_interest_keeps_known_facts_usable_without_forcing_native_invalidation() {
+    let (mut client, _) = attached();
+    let opened = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("sheet refresh");
+    reply(
+        &mut client,
+        single_read(&opened),
+        json!(page(0, 1, 10, 'a')),
+    );
+    client.close_queue_panel(&session());
+    let watched = client
+        .open_queue_panel(&session(), None, QueueReadMode::Cached)
+        .expect("queue mode");
+    let Command::QueueRead {
+        refresh, expected, ..
+    } = command(single_read(&watched)).command
+    else {
+        panic!("bounded cached previews")
+    };
+    assert!(
+        !refresh,
+        "changing the composer policy must not invalidate native facts"
+    );
+    assert_eq!(expected, Some(revision('a')));
+    assert!(
+        client
+            .session(&session())
+            .expect("accepted facts")
+            .queue()
+            .expect("known queue")
+            .known
+    );
+}
+
+#[test]
 fn a_late_failure_cannot_replace_a_new_revision_or_select_a_different_native_entry() {
     let (mut client, connection) = attached();
     let opened = client
-        .open_queue_panel(&session(), Some(id(64)))
+        .open_queue_panel(&session(), Some(id(64)), QueueReadMode::Refresh)
         .expect("open");
     let first = reply(
         &mut client,
@@ -164,9 +203,13 @@ fn a_late_failure_cannot_replace_a_new_revision_or_select_a_different_native_ent
 #[test]
 fn closing_offline_never_restores_the_panel_and_reopening_cannot_accept_old_replies() {
     let (mut client, connection) = attached();
-    let old = client.open_queue_panel(&session(), None).expect("open");
+    let old = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("open");
     client.close_queue_panel(&session());
-    let reopened = client.open_queue_panel(&session(), None).expect("reopen");
+    let reopened = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("reopen");
     let late = reply(&mut client, single_read(&old), json!(page(0, 1, 10, 'a')));
     assert!(late.replies.is_empty());
     assert!(client
@@ -198,7 +241,7 @@ fn closing_offline_never_restores_the_panel_and_reopening_cannot_accept_old_repl
 fn an_unfinished_explicit_refresh_restarts_only_after_current_subscription_acceptance() {
     let (mut client, connection) = attached();
     client
-        .open_queue_panel(&session(), None)
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
         .expect("open before EOF");
     client.disconnect(connection);
     let (new_connection, resumed) = greet(&mut client, true, "d");
@@ -228,7 +271,9 @@ fn an_unfinished_explicit_refresh_restarts_only_after_current_subscription_accep
 #[test]
 fn explicit_reads_remain_unowned_and_panel_failures_wait_for_explicit_retry() {
     let (mut client, connection) = attached();
-    let opened = client.open_queue_panel(&session(), None).expect("open");
+    let opened = client
+        .open_queue_panel(&session(), None, QueueReadMode::Refresh)
+        .expect("open");
     let direct = client
         .read(
             connection,

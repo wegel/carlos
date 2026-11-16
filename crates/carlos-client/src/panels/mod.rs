@@ -5,7 +5,7 @@ pub(crate) mod queue_input;
 mod queue_pages;
 pub(crate) mod queue_reads;
 
-pub use queue::QueuePanel;
+pub use queue::{QueuePanel, QueueReadMode};
 pub use queue_input::QueueInput;
 pub use queue_pages::QueuePageWindow;
 
