@@ -26,8 +26,12 @@ class GrokStartup:
             terminal.wait(lambda: len(terminal.requests("session/history")) == count, "one stored older history page")
             request = terminal.requests("session/history")[-1]["id"]
             terminal.wait(lambda: any(message.get("id") == request for message in terminal.messages("server")), "older history page replied")
-        terminal.send(b"\x1b[H")
-        terminal.contains("Grok user 0 🌍")
+        def oldest_is_drawn():
+            if "Grok user 0 🌍" in terminal.text:
+                return True
+            terminal.send(b"\x1b[H")
+            return False
+        terminal.wait(oldest_is_drawn, "oldest received Grok page is applied and drawn")
         terminal.snapshot("complete-grok-oldest-human")
         terminal.send(b"\x1b[F")
         terminal.contains("Grok answer 179 🌍")

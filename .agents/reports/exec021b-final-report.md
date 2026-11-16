@@ -1,0 +1,33 @@
+# EP021b native phone data
+
+This report remains a draft. The complete corrected release/native gate, exact-pair measurements and end reviews have not finished. No delegated approval has been recorded.
+
+## What the owner can use
+
+Core exports accurate compact tool kind, native outcome, short result and diff counts through the existing shared fields. Real Grok permission cards show its exact offered choices; Carlos no longer forces native approval or replies automatically. Codex and Claude adopt a complete newest native window before Ready, then read earlier windows through the existing bounded worker. Prompt recall reaches older matching prompts without transcript scrolling. Native file changes retain their declared diffs, and MCP sources retain complete canonical JSON values.
+
+Grok still replays its complete native conversation before Ready. The complete-replay test found an inherited loss of message boundaries; fresh private text ids and optional native message boundaries now preserve all360 rows in the180-turn fixture. The adapter does not invent native paging. Claude's SDK can still import/project the complete file before its first archive window; its smaller first reply does not remove that native scan.
+
+The owner tested the terminal and reported several concrete bugs. Separate commits make copy confirmations expire after two seconds, keep the footer animation off label cells, explain a Claude logical id absent from a separate preview catalogue, wrap startup errors at narrow widths and stop replacing the footer with a loading hint during log appends. Visible Claude thinking text already renders when supplied; a token estimate alone supplies no text. Frozen owner preview1347891 includes these fixes, matching helper/daemon and checked native recall. Existing previews and the installed binary remain unchanged.
+
+## Code and scope
+
+The accepted EP021a baseline is checked tree3ffd3eb, source896435d22d03d85dba4cef0f58ba68e8, closed by4407f6e. Current runtime code iscf50440;10daa7a only makes the fork test's distinct original prompts explicitly queued. The per-feature source ledger is exec021b-source-ledger.md. Current authored nonblank production totals97267,2397 above EP021a:2326 Core,55 helper,10 terminal and6 daemon. Client/protocol production counts do not grow. Counts exclude tests, generated files, build scripts and documentation and use the accepted module traversal.
+
+The owner still has one native session owner and its existing bounded workers. Native cursors, snapshots, original callback ids and connection/root guards stay private. No new wire family, client controller or native history parser was added. Existing unsupported-method/full-history ancestry paths remain. Typed Swift bindings and the actual iPhone app remain EP022; queue/context-default/goal/task readers stay Rust-only until a screen needs them.
+
+## Checks completed so far
+
+Both Rust configurations, both strict lints and400-line/60-line/fmt/diff checks pass. Actual process/daemon/terminal checks cover native kind/outcome/source fidelity, every offered Grok approval option, startup callbacks, callback replacement/cancellation, complete Codex/Claude older traversal, skipped empty/child-only windows, failed reads/retry, UTF-8 chunk boundaries and prompt source filtering. A held native read preserves independent cached cursors, sends, approvals, interrupt, private typing and viewport anchors. Explicit stop retires that read. The existing transport refuses a concurrent fork during a large history read and permits a new explicit edit after release; no guard or deadline was weakened.
+
+The first complete release gate stops at1 failure among220 daemon tests, after successful Rust/release/helper checks and before ordinary terminal/native suites. Its trace shows the fork fixture's second original sent as a default steer while the previous turn finishes. The unchanged captured-turn guard returns uncertainty. Queue those distinct originals explicitly and retain every acknowledgement/history assertion. All12 corrected release repetitions pass in8.469s;12 original runs against the frozen EP021a baseline also pass, so those repetitions alone do not establish the intermittent race rate. The failed gate remains final-release-gate-01.log with artifacts native-history-gate-O5NBys. The second full gate passes all220 daemon tests in120.597s, then runs327 terminal cases in464.084s with3 failures. Two old scanner checks demand the now-unwanted label-color sweep or motion in a one-cell separator. Update them to require steady labels, separator motion when space permits, unchanged idle/Ralph colors and exact native requests. The Grok oldest-row test observes a reply before the terminal applies it; wait for the received page to be drawn through the existing idempotent Home gesture. Preserve failed final-release-gate-02.log/native-history-gate-XeLpPO and its original test sources. No runtime source, guard or deadline changes. All5 corrected release terminal checks pass in7.201s, release-ui-fixtures-corrected-01.log. A third full release/native run remains pending.
+
+## Measurements and end reviews
+
+Pending. Freeze the matching release CLI/daemon/helper/probe only after all builds/tests/hooks finish. Compare against the authoritative /tmp/carlos-ep021a/reviewed-pair/identity.json with15 alternating renderer samples per case on CPU6, three actual1000-prompt samples per transport and exact10092544-byte/155-chunk source transfers. Keep source/count checks, fixed RSS, idle CPU and the original EP016 greater-than10-percent rule. Measure actual native startup/traversal and held-read typing/controls separately. Grok's old replay loses rows, so its old startup/RSS figures are not equivalent-workload speed evidence. Distinguish the first cold Claude archive read, which includes SDK import/projection, from later archive reads.
+
+Perform the direct engineering review and one end-only Fable5.2 medium whole-roadmap review after that evidence is complete. Record findings and decisions here and in the active plan before delegated approval/archive.
+
+## Limits to carry forward
+
+The previously measured dense-Unicode terminal cost remains about6 seconds and1.3GiB temporary memory, with about238MiB retained. The earlier unexplained500ms native writer timeout remains recorded; this plan does not lengthen that deadline. First-window paging does not make the Claude SDK scan or Grok ACP full replay disappear. Preserve complete source and supported older data through the first real Swift/WebSocket consumer in EP022. No install, merge or push is authorized by this report.

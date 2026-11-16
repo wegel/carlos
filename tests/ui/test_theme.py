@@ -1,5 +1,6 @@
 """Check 3c text, gutter glyphs, compact columns, and context warnings."""
 
+import time
 
 class Theme:
     def scanner_head(self, terminal, color):
@@ -18,7 +19,7 @@ class Theme:
     def status_sweep_head(self, terminal, color):
         cells = terminal.screen.buffer[terminal.screen.lines - 2]
         return next((x for x in range(terminal.screen.columns - 1)
-                     if cells[x].fg == color), None)
+                     if cells[x].data == "━" and cells[x].fg == color), None)
 
     def assert_status_sweep_moves(self, terminal, color):
         terminal.wait(lambda: self.status_sweep_head(terminal, color) is not None,
@@ -26,8 +27,11 @@ class Theme:
         row = terminal.screen.display[-2]
         first = self.status_sweep_head(terminal, color)
         self.assertTrue(terminal.screen.buffer[terminal.screen.lines - 2][first].bold)
-        terminal.wait(lambda: (head := self.status_sweep_head(terminal, color)) is not None
-                      and head != first, "status-line scanner moves without backend output")
+        if row.count("━") > 1:
+            terminal.wait(lambda: (head := self.status_sweep_head(terminal, color)) is not None
+                          and head != first, "separator scanner moves without backend output")
+        else:
+            self.assertEqual(row.count("━"), 1, "one separator cell cannot show movement")
         self.assertEqual(terminal.screen.display[-2], row)
         self.assertFalse(any(c.data in "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
                              for c in terminal.screen.buffer[terminal.screen.lines - 2].values()))
@@ -112,22 +116,26 @@ class Theme:
         self.assert_status_sweep_moves(terminal, "f5c2e7")
         terminal.snapshot("status-sweep-ralph-phone")
 
-    def test_phone_kitt_crosses_model_and_token_text_then_restores_idle_colors(self):
+    def test_phone_scanner_keeps_model_and_token_styles_steady_and_restores_the_idle_separator(self):
         terminal = self.launch(mode="tool-live-context", resume=None)
         self.start_tools(terminal)
         terminal.resize(54, 32)
         terminal.contains("91%")
         self.assert_status_sweep_moves(terminal, "cba6f7")
-        row = terminal.screen.lines - 2
-        label = terminal.screen.display[row].index("gpt-")
-        terminal.wait(lambda: any(terminal.screen.buffer[row][x].fg == "cba6f7"
-                      and terminal.screen.buffer[row][x].data.isalpha()
-                      for x in range(label, terminal.screen.columns - 1)),
-                      "KITT head sweeps over status text")
-        head = self.status_sweep_head(terminal, "cba6f7")
-        self.assertTrue(terminal.screen.buffer[row][head].bold)
+        styles = {}
+        deadline = time.monotonic() + 4
+        while time.monotonic() < deadline:
+            terminal.pump(.025)
+            row = terminal.screen.lines - 2
+            for x, char in enumerate(terminal.screen.display[row]):
+                if char not in (" ", "━"):
+                    cell = terminal.screen.buffer[row][x]
+                    styles.setdefault((x, char), set()).add((cell.fg, cell.bold))
+        self.assertTrue(styles)
+        self.assertFalse({key: value for key, value in styles.items() if len(value) > 1},
+                         "the separator animates while model/token label colors and weight stay steady")
         terminal.contains("91k/100k 91%")
-        terminal.snapshot("phone-kitt-status-text")
+        terminal.snapshot("phone-scanner-keeps-status-text-steady")
         terminal.send(b"\x1b")
         terminal.wait(lambda: terminal.requests("turn/interrupt"), "interrupt quiet turn")
         terminal.contains("Turn interrupted")
