@@ -77,8 +77,9 @@ narrow review correction06f13ce, checked tree3ffd3eb. Final evidence, every revi
 and the unchanged archive hash are recorded under `.agents/reports/exec021a-*`.
 The checked baseline for the next plan is `/tmp/carlos-ep021a/reviewed-pair/identity.json`.
 
-The next incomplete phone-spike step is EP021b. Write
-`.agents/execplans/EXECPLAN_021b_native_phone_data.md` in full before implementation.
+The active next incomplete plan is
+`.agents/execplans/EXECPLAN_021b_native_phone_data.md`, now written in full.
+Execute its compact tool-fact milestone first, then Grok approvals and checked native history windows.
 It must cover paged native history, actual Grok approval replies and richer tool summaries
 as data, using the checked common client instead of adding another UI controller.
 Begin by reading `crates/carlos-core/src/protocol_history.rs`, the existing native history
