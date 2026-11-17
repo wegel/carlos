@@ -79,6 +79,7 @@ pub(super) struct Read {
     pub session: SessionId,
     pub kind: ReadKind,
     pub reply: mpsc::Receiver<EngineReply>,
+    pub ready: Option<EngineReply>,
     pub reserved: usize,
 }
 

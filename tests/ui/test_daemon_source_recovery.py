@@ -6,6 +6,43 @@ from test_daemon_client import daemon_support
 
 
 class DaemonSourceRecovery:
+    def test_daemon_orders_replaced_tool_source_after_its_numbered_facts(self):
+        def item(text):
+            return {"type":"commandExecution", "id":"versioned-tool", "command":"cat generated-output",
+                    "status":"completed", "exitCode":0, "aggregatedOutput":text}
+        fixture, client, session = self.running_sources("body-fact-order", [item("ORIGINAL TOOL\n" * 500)])
+        terminal = self.attach_daemon(fixture, session, "replaced-source")
+        terminal.contains("ORIGINAL TOOL")
+        terminal.paste("private draft while versions change")
+        for revision in range(20):
+            async def replace():
+                for link in list(fixture.native.connections):
+                    for label in ("INTERMEDIATE", "CURRENT"):
+                        text = (f"{label} tool version {revision}\n" * 500) + f"{label} {revision} TAIL\n"
+                        await fixture.native.notify(link, "item/completed", turnId="history-turn", item=item(text))
+            asyncio.run_coroutine_threadsafe(replace(), fixture.native.loop).result(timeout=5)
+            terminal.contains(f"CURRENT {revision} TAIL")
+        sequence, chunks = 0, 0
+        for message in terminal.messages("server"):
+            params = message.get("params", {})
+            result = message.get("result", {})
+            if message.get("method") == "session/event" and params.get("session") == session:
+                sequence = max(sequence, int(params["seq"]))
+            elif message.get("method") == "session/snapshot":
+                sequence = max(sequence, int(params["snapshot"]["seq"]))
+            elif isinstance(result, dict) and result.get("kind") == "snapshot":
+                sequence = max(sequence, int(result["snapshot"]["seq"]))
+            chunk = params.get("chunk") if message.get("method") == "entry/source" else result
+            if isinstance(chunk, dict) and "source" in chunk and "entry" in chunk:
+                self.assertLessEqual(int(chunk["seq"]), sequence, "source cannot outrun its entry version")
+                chunks += 1
+        self.assertGreater(chunks, 20)
+        self.assertTrue(terminal.input_is("private draft while versions change"))
+        self.assertNotIn("F5 reconnects", terminal.text)
+        self.assertEqual(len(terminal.requests("hello")), 1)
+        self.assertEqual(terminal.requests("session/send"), [])
+        terminal.snapshot("replaced-tool-source-follows-numbered-facts")
+
     def test_daemon_terminal_keeps_indented_ascii_output_rows_exact_through_backbuffer_scroll(self):
         call = "    (root/'summary.json').write_text(json.dumps({'errors':errors,'turnStarts':len(terminal.requests('turn/start'))},indent=2))"
         output = "WRAP FIRST ROW\n" + (call + "\n") * 60 + "WRAP LAST ROW\n"

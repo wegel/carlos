@@ -15,11 +15,17 @@ use crate::transport::wire::{self, error};
 impl Manager {
     pub(super) fn drain_reads(&mut self) {
         let mut pending = Vec::new();
-        for read in std::mem::take(&mut self.reads) {
+        for mut read in std::mem::take(&mut self.reads) {
             if !self.peers.contains_key(&read.peer) {
+                self.read_bytes -= read.reserved;
                 continue;
             }
-            match read.reply.try_recv() {
+            let reply = read.ready.take().map_or_else(|| read.reply.try_recv(), Ok);
+            match reply {
+                Ok(reply) if self.body_ahead_of_facts(&read, &reply) => {
+                    read.ready = Some(reply);
+                    pending.push(read);
+                }
                 Ok(reply) => {
                     self.read_bytes -= read.reserved;
                     self.finish_read(read, reply);
@@ -35,6 +41,30 @@ impl Manager {
             }
         }
         self.reads.extend(pending);
+    }
+
+    // Keep both direct and watched chunks behind this peer's numbered facts.
+    // A completed read keeps its original byte reservation while it waits.
+    fn body_ahead_of_facts(&mut self, read: &Read, reply: &EngineReply) -> bool {
+        let sequence = match reply {
+            EngineReply::Source(chunk) => chunk.seq,
+            EngineReply::Output(chunk) => chunk.seq,
+            _ => return false,
+        };
+        let waiting = self.peers[&read.peer]
+            .sessions
+            .get(&read.session)
+            .is_some_and(|interest| interest.syncing || interest.seq < sequence);
+        if waiting {
+            if let Some(live) = self
+                .sessions
+                .get_mut(&read.session)
+                .and_then(|state| state.live.as_mut())
+            {
+                live.dirty = true;
+            }
+        }
+        waiting
     }
 
     fn finish_read(&mut self, read: Read, reply: EngineReply) {
@@ -215,3 +245,7 @@ fn replay_events(
         })
         .collect()
 }
+
+#[cfg(test)]
+#[path = "read_order_tests.rs"]
+mod tests;

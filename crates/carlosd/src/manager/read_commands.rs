@@ -345,6 +345,7 @@ impl Manager {
             session,
             kind,
             reply,
+            ready: None,
             reserved,
         });
         Ok(())
