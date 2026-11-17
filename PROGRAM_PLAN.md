@@ -132,7 +132,8 @@ the current normal daemon alive until this turn and every other session are idle
 Checked runtimefa5890c2 is installed with backups at~/.local/lib/carlos/backups/20261117T220849Z.
 Phone source122768f838c06ad4231a passes24 simulator tests and is installed and
 launched on iPhone18 Pro. Idle restart and authenticated LAN-check user services
-are armed; actual listener readiness must be confirmed after this turn ends.
+completed the restart; the independent check confirms authenticated access,
+this session and Mac LAN reachability. The owner has resumed from the phone.
 `.agents/reports/exec022-watch-phone-handoff.md` records checks, original failures,
 unchanged successful rechecks and the remaining EP022 work.
 

@@ -82,11 +82,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   for all sessions to be idle before the one-time listener restart. Their private
   plan, restart receipt and connectivity proof stay under tmp/phone-handover-tools.
   No frame cap, assertion or deadline has been weakened.
-- [ ] Confirm the real listener after this active turn ends. The handover receipt
-  must leave waiting-for-idle, and normal-phone-connectivity.json must confirm
-  the normal token, sourcefa5890c2, current logical session and Mac LAN reachability.
-  This is an activation handover, not EP approval. The owner must relaunch each
-  existing TUI to load the client fix; F5 alone retains its old executable.
+- [x] Confirm the real listener after the prior active turn ends. The handover
+  receipt records starting-phone-listener at1794954050.3668823; the independent
+  normal-phone-connectivity.json confirms authentication, sourcefa5890c2, four
+  saved sessions, this same logical session and Mac LAN reachability. The owner
+  restarted and is now speaking from the phone. The activation handover is done;
+  EP022 remains open. Existing TUIs still need a relaunch to load the client fix.
 - [x] Build, test, sign, install and launch phone source122768f838c06ad4231a,
   including the shared watch fix. All24 actual simulator tests pass. Strict
   signing passes; the first device install loses XPC, and the unchanged retry

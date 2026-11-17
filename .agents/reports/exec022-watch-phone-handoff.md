@@ -80,6 +80,13 @@ restart actually begins. Do not claim the real listener is ready before that
 check completes. Existing terminal processes need to be relaunched for this
 client fix; F5 alone leaves their old executable running.
 
+The production handover has now completed. Its receipt records
+starting-phone-listener at1794954050.3668823. The independent connectivity check
+at1794954050.865607 confirms authentication, sourcefa5890c2, four saved sessions,
+the current logical session and Mac LAN reachability. The owner then reports
+that they restarted and are now speaking from the phone. This proves the actual
+normal endpoint, beyond the earlier owned-fixture checks.
+
 The final package's synthetic1000-turn/6001-row perf-session diagnostic records
 scroll p95 .69ms, typing .49ms and append .54ms. RSS reports zero, so it supplies
 no memory evidence. This is a diagnostic run rather than a paired speed claim.
