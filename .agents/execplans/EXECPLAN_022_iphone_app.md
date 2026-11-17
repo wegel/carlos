@@ -136,6 +136,31 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Surprises & Discoveries
 
+Questions UI02 passes on19fcce42a4d264823b4a at
+ui-tests-20261116T223614.xcresult, local phone-b27be74f8e41. It selects the offered value,
+enters a private Unicode note and submits exactly one original native callback reply;
+only the native resolution removes the card. UI01 exposed a real binding mistake:
+structured questions need not offer an empty Allow-once decision. Input availability
+comes from the captured Fields variant, independently of decision buttons. Remove that
+false requirement; keep all host/snapshot/card/field checks. The corrected unit fixture
+also omits Once. All18 Rust cases pass; native tests pass12/12,0 skips at
+tests-20261116T223749.xcresult. UniFFI's generated errorDescription contains Swift enum
+syntax, so PhoneFailureMessage now extracts the original typed message consistently
+in app error banners. The original failure retained the private note and sent no reply.
+
+Structured questions use existing protocol InputField/FieldAnswers data. The phone
+binding captures the original fields and host/card in an opaque PhoneQuestions object;
+Swift receives labels and selected positions, while Rust maps positions back to the
+original typed values. It rejects changed/retired/foreign/offline cards and oversized
+private text before allocating an operation. All18 Rust phone tests pass, including6
+new question/browser cases, and strict phone clippy passes. Native app/tests compile
+on16e4ba16c5cc73d94262, tests-20261116T223034.xcresult. The actual questions UI workflow
+is running at questions-ui-01.log. Forms still need their flat native editor; the
+temporary terminal-only form caption is explicitly unfinished, not accepted EP output.
+The full terminal gate plus isolated Codex contract is running at
+questions-terminal-gate-01.log. The wrapper differs from scripts/test.sh only in its
+explicit checkout and owned /tmp artifact root, retaining all assertions and deadlines.
+
 Running-tool workflow02 passes on e4569aeb392a5d716e88 at
 ui-tests-20261116T221430.xcresult, local phone-ab5a7afca629. It opens a running tool,
 reads chunk-a, answers the offered approval, sends the original Stop, receives the
@@ -375,6 +400,15 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Decision (2026-11-17,Root): bind neutral question fields without asking Swift to encode
+arbitrary native JSON. Capture the original field definitions, keep option values in
+Rust and recheck the original live card before submission. Keep a user's edited field
+state when the socket reconnects; a changed request disables the old editor and retains
+its answers rather than interpreting old option positions against new values. Browser
+completion is information only; opening a link never grants consent. Fields/browser
+work precedes the remaining flat-form editor; do not broaden the wire protocol merely
+to expose a screen that can use its existing typed input.
+
 Decision (2026-11-17,Root): give expanded running and completed tools one native output
 model using the shared checked read/watch/close calls. Keep original source separate.
 Close offscreen output lifetimes and release their Swift text; retain only a measured
@@ -477,6 +511,12 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+Running-tool expansion is now committed as6cf1ced after actual UI/native/Rust checks.
+The saved-token/render preview is installed; launch while the physical phone is locked
+was denied and does not block simulator work. The next checkpoint is actual native
+question input, then remaining form/approval polish, syntax, keyboard/speech, full scroll
+checks and final measurements/review. No reviewer has been run during the EP.
 
 The saved-token regression is now reproduced and the first fix passes an actual
 terminate/relaunch/foreground UI workflow. The physical saved-host list explains why

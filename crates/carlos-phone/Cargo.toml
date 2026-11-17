@@ -13,10 +13,8 @@ bindgen = ["uniffi/cli"]
 [dependencies]
 carlos-client = { path = "../carlos-client" }
 carlos-proto = { path = "../carlos-proto" }
-uniffi = { version = "=0.32.2", default-features = false }
-
-[dev-dependencies]
 serde_json = "1"
+uniffi = { version = "=0.32.2", default-features = false }
 
 [[bin]]
 name = "carlos-bindgen-swift"

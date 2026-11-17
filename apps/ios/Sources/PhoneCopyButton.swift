@@ -43,7 +43,7 @@ struct PhoneCopyButton: View {
                         Self.logger.info("Pasteboard write complete")
                         copied = true
                         notice = UUID()
-                    case .failure(let failure): error = failure.localizedDescription
+                    case .failure(let failure): error = PhoneFailureMessage.describe(failure)
                     }
                 }
             } label: {

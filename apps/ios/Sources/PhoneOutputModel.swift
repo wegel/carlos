@@ -35,7 +35,7 @@ final class PhoneOutputModel {
                 guard let self, active else { transport.batch({ try $0.closeBody(body: body) }) { _ in }; return }
                 self.body = body
                 readNext()
-            case .failure(let failure): self?.error = failure.localizedDescription
+            case .failure(let failure): self?.error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -93,7 +93,7 @@ final class PhoneOutputModel {
                     self.body = nil
                     watching = false
                     start()
-                } else { error = failure.localizedDescription }
+                } else { error = PhoneFailureMessage.describe(failure) }
             }
         }
     }
@@ -102,7 +102,7 @@ final class PhoneOutputModel {
         guard active, !suspended, !reading, let body else { return }
         reading = true
         transport.command({ try $0.readBody(body: body) }) { [weak self] result in
-            if case .failure(let failure) = result { self?.reading = false; self?.error = failure.localizedDescription }
+            if case .failure(let failure) = result { self?.reading = false; self?.error = PhoneFailureMessage.describe(failure) }
         }
     }
 
@@ -110,7 +110,7 @@ final class PhoneOutputModel {
         guard active, !suspended, !watching, let body else { return }
         watching = true
         transport.command({ try $0.watchBody(body: body) }) { [weak self] result in
-            if case .failure(let failure) = result { self?.watching = false; self?.error = failure.localizedDescription }
+            if case .failure(let failure) = result { self?.watching = false; self?.error = PhoneFailureMessage.describe(failure) }
         }
     }
 }

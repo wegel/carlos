@@ -30,6 +30,8 @@ final class BridgeTests: XCTestCase {
             guard case PhoneError.InvalidMessage = error else { return XCTFail("Expected typed invalid message") }
         }
         XCTAssertEqual(client.maximumMessageBytes(), 8 * 1024 * 1024)
+        XCTAssertEqual(PhoneFailureMessage.describe(PhoneError.StaleRead(message: "These questions changed; your answers are retained")),
+                       "These questions changed; your answers are retained")
     }
 
     private func hello(_ id: Int64, resumed: Bool = false) throws -> Data {

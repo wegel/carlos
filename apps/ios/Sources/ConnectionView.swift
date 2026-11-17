@@ -120,6 +120,6 @@ struct ConnectionView: View {
             error = nil
             field = nil
             pending = try store.connect(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = PhoneFailureMessage.describe(error) }
     }
 }

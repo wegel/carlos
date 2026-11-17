@@ -5,10 +5,16 @@ remote Mac over SSH. The development machine runs Linux and cannot run Xcode.
 The same Mac builds the owner's other iOS projects, so carlos keeps its own
 directory and its own simulator there.
 
-EP022 has started. `apps/ios` contains the native app and real-library Swift
-tests; `crates/carlos-phone` binds only the shared client calls those screens
-need. The first milestone proves the generated Swift caller before adding the
-full phone UI. An app shell is not yet the completed session screen.
+EP022 is in progress. `apps/ios` contains the native session screen and actual
+simulator tests; `crates/carlos-phone` binds the shared client calls those screens
+need. The app can connect, select/create sessions, send prompts, show Markdown,
+copy original answers and answer offered approvals. The active ExecPlan records
+the remaining features and checks before the app can be called complete.
+
+The app saves each host's token in this device's Keychain and keeps the selected
+host and session in preferences. Reopening reuses the token. In a saved host's
+Connection screen, leaving the token blank keeps it; changing the address requires
+an explicitly entered token. A failed connection keeps the form editable.
 
 ## Settings
 
@@ -49,12 +55,20 @@ Codex peer on Linux, with an SSH forward bound only to the Mac’s loopback addr
 
     target/ui-venv/bin/python scripts/ios-fixture.py
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow controls
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow credentials
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow relaunch
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow source
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow tools
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow questions
 
 The first command drives the real connection form, creates a session, types a Unicode
 prompt and checks both the visible answer and the exact native request. The second
 holds the native prompt reply while the UI answers its offered approval and sends Stop
 for the original turn. The fixture emits a native completion only after it receives
-that interrupt. Neither check uses an account or inference. Each command uses a fresh
+that interrupt. The other commands check invalid-token repair, saved-token/session
+relaunch, a10MB answer's exact clipboard bytes, running-tool expansion and native
+question answers. Each command checks the actual screen and native requests without
+an account or inference. Each command uses a fresh
 daemon, a separate app bundle id, synthetic credentials in the test target only, the
 owned simulator and its own saved native trace/XCResult. Run scripts/test.sh once to
 prepare target/ui-venv if missing, and build the fixture daemon with:

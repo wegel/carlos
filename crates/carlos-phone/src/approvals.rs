@@ -1,11 +1,14 @@
 //! Bind original live approval cards and only decisions the backend actually offered.
 
-use carlos_proto::commands::{ApprovalAnswer, Command};
-use carlos_proto::ids::EntryId;
-use carlos_proto::session::{Approval, Decision};
+use std::sync::{Arc, Mutex};
 
+use carlos_proto::commands::{ApprovalAnswer, Command};
+use carlos_proto::ids::{EntryId, SessionId};
+use carlos_proto::session::{Approval, ApprovalInput, Decision};
+
+use crate::client::State;
 use crate::session_calls::session_id;
-use crate::{PhoneClient, PhoneError, PhoneSubmission};
+use crate::{PhoneApprovalInput, PhoneClient, PhoneError, PhoneQuestions, PhoneSubmission};
 
 /// A phone cannot manufacture session-wide approval or cancellation support.
 pub type PhoneDecision = Decision;
@@ -35,7 +38,7 @@ pub struct PhoneApproval {
     pub choices: Vec<PhoneDecision>,
     pub active: bool,
     pub submitted: bool,
-    pub requires_input: bool,
+    pub input: Option<PhoneApprovalInput>,
 }
 
 #[uniffi::export]
@@ -51,7 +54,7 @@ impl PhoneClient {
                 replica
                     .approvals()
                     .iter()
-                    .map(PhoneApproval::from)
+                    .map(|card| PhoneApproval::new(&self.state, &session, card))
                     .collect()
             })
             .unwrap_or_default())
@@ -86,7 +89,12 @@ impl PhoneClient {
                 message: "This card cannot accept that decision".into(),
             });
         }
-        if card.input.is_some() && matches!(decision, Decision::Once | Decision::Session) {
+        if card
+            .input
+            .as_ref()
+            .is_some_and(|input| !matches!(input, ApprovalInput::Browser { .. }))
+            && matches!(decision, Decision::Once | Decision::Session)
+        {
             return Err(PhoneError::State {
                 message: "This request requires structured input".into(),
             });
@@ -100,8 +108,8 @@ impl PhoneClient {
     }
 }
 
-impl From<&Approval> for PhoneApproval {
-    fn from(card: &Approval) -> Self {
+impl PhoneApproval {
+    fn new(owner: &Arc<Mutex<State>>, session: &SessionId, card: &Approval) -> Self {
         Self {
             id: card.id.to_string(),
             caption: PhoneApprovalCaption {
@@ -114,7 +122,21 @@ impl From<&Approval> for PhoneApproval {
             choices: card.choices.clone(),
             active: card.active,
             submitted: card.submitted,
-            requires_input: card.input.is_some(),
+            input: card.input.as_ref().map(|input| match input {
+                ApprovalInput::Fields { fields } => PhoneApprovalInput::Fields {
+                    questions: PhoneQuestions::new(
+                        owner,
+                        session.clone(),
+                        card.id.clone(),
+                        fields.clone(),
+                    ),
+                },
+                ApprovalInput::Form { .. } => PhoneApprovalInput::Form,
+                ApprovalInput::Browser { url } => PhoneApprovalInput::Browser { url: url.clone() },
+                ApprovalInput::Unsupported { reason } => PhoneApprovalInput::Unsupported {
+                    reason: reason.clone(),
+                },
+            }),
         }
     }
 }

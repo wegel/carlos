@@ -49,7 +49,7 @@ final class PhoneTransport: @unchecked Sendable {
                 self.greetingDeadline = deadline
                 self.queue.asyncAfter(deadline: .now() + 15, execute: deadline)
             } catch {
-                self.close(message: error.localizedDescription)
+                self.close(message: PhoneFailureMessage.describe(error))
             }
         }
     }
@@ -177,7 +177,7 @@ final class PhoneTransport: @unchecked Sendable {
                 }
             }
         } catch {
-            close(message: error.localizedDescription)
+            close(message: PhoneFailureMessage.describe(error))
         }
     }
 

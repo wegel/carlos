@@ -76,6 +76,7 @@ ui-test)
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
         tools) test_case=testRunningToolExpandsStreamsAndKeepsItsRowChoice ;;
+        questions) test_case=testNativeQuestionKeepsTheChoiceAndPrivateNote ;;
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \

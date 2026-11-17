@@ -70,7 +70,7 @@ final class PhoneMarkdownModel {
             if self.identity == identity {
                 switch result {
                 case .success(let document): self.document = document
-                case .failure(let failure): error = failure.localizedDescription
+                case .failure(let failure): error = PhoneFailureMessage.describe(failure)
                 }
                 changed()
             } else { formatNext() }

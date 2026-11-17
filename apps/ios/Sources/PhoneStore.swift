@@ -22,7 +22,7 @@ final class PhoneStore {
                 hosts = try JSONDecoder().decode([PhoneHost].self, from: saved).map { PhoneHostModel(configuration: $0, bodyBudget: bodyBudget, defaults: defaults) }
                 let selected = defaults.string(forKey: "carlos.hosts.selected.v1")
                 selectedHost = hosts.first(where: { $0.id == selected })?.id ?? hosts.last?.id
-            } catch { self.error = "Cannot read the saved host list: \(error.localizedDescription)" }
+            } catch { self.error = "Cannot read the saved host list: \(PhoneFailureMessage.describe(error))" }
         }
     }
 

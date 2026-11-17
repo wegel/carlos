@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/daemon"))
 from network_support import grant
 from support import Fixture
+from native_task_questions import callback_key, question
 
 
 def mac_settings():
@@ -118,6 +119,36 @@ def configure_source(native):
     return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
 
 
+def configure_questions(native):
+    """Reply only to the exact original native question, then publish its actual completion."""
+    original_prompt = native.prompt
+    original_response = native.task_question_response
+    identity = "phone:questions:α"
+
+    async def prompt(link, request):
+        if request["params"]["input"][0]["text"] != "phone questions":
+            await original_prompt(link, request)
+            return
+        native.prompts += 1
+        await native.notify(link, "turn/started", turn={"id": "live"})
+        frame = question(identity, thread=native.thread_id, turn="live", blocking=True)
+        native.task_callbacks[callback_key(identity)] = frame
+        native.task_callback_ids.add(callback_key(identity))
+        await native.send(link, frame)
+
+    async def response(link, answer):
+        handled = await original_response(link, answer)
+        if handled and answer.get("id") == identity:
+            await native.notify(link, "serverRequest/resolved", requestId=identity)
+            await native.notify(link, "item/agentMessage/delta", turnId="live", itemId="phone-question-result",
+                                delta="Phone answers accepted 🦀")
+            await native.notify(link, "turn/completed", turn={"id": "live", "status": "completed"})
+        return handled
+
+    native.prompt = prompt
+    native.task_question_response = response
+
+
 def run(workflow):
     """Keep the fixture alive through XCTest, then assert actual native traffic."""
     identity = "phone-" + uuid.uuid4().hex[:12]
@@ -132,6 +163,8 @@ def run(workflow):
             configure_controls(fixture.native, stream_output=True)
         elif workflow == "source":
             expected_source = configure_source(fixture.native)
+        elif workflow == "questions":
+            configure_questions(fixture.native)
         token = grant(fixture, "native-phone")
         local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
         with forward(local_port, artifacts) as remote_port:
@@ -150,7 +183,8 @@ def run(workflow):
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
             expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
-                        "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": []}[workflow]
+                        "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
+                        "questions": ["phone questions"]}[workflow]
             assert observed == expected, observed
             if workflow == "relaunch":
                 assert fixture.native.started == 1, "Relaunch must not create another native session"
@@ -160,6 +194,9 @@ def run(workflow):
                 assert fixture.native.answers == 1 and fixture.native.interrupts == 1
                 answers = [request for request in fixture.native.requests if request.get("id") == "card"]
                 assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
+            elif workflow == "questions":
+                assert fixture.native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
+                    "field-str": {"answers": ["Listed value", "user_note: phone note 🦀"]}}}}], fixture.native.task_answers
             assert not fixture.native.errors, fixture.native.errors
             print(f"Actual phone {workflow} screen and native traffic passed: {artifacts}")
     finally:
@@ -168,5 +205,5 @@ def run(workflow):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions"), default="prompt")
     run(parser.parse_args().workflow)

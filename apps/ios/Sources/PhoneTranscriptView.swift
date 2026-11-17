@@ -36,7 +36,7 @@ struct PhoneTranscriptView: View {
                 }.scrollTargetLayout().frame(width: max(0, geometry.size.width - 32), alignment: .leading)
                     .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 20)
             }
-            .clipped().scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
+            .clipped().scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
             .defaultScrollAnchor(following ? .bottom : nil, for: .sizeChanges)
             .scrollPosition($position)
             .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in

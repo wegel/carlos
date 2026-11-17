@@ -85,7 +85,7 @@ final class PhoneHostModel: Identifiable {
             error = nil
             link = .connecting
             transport.connect(url: url, token: token, callbacks: callbacks)
-        } catch { self.error = error.localizedDescription }
+        } catch { self.error = PhoneFailureMessage.describe(error) }
     }
 
     func select(_ session: String) {
@@ -119,7 +119,7 @@ final class PhoneHostModel: Identifiable {
                 accept(operation)
             case .failure(let failure):
                 creating = false
-                error = failure.localizedDescription
+                error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -139,7 +139,7 @@ final class PhoneHostModel: Identifiable {
                     followRequest = UUID()
                     if draft == text { draft = "" }
                 }
-            case .failure(let failure): error = failure.localizedDescription
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -153,6 +153,12 @@ final class PhoneHostModel: Identifiable {
         guard let selected, connected, !controlSubmitting else { return }
         followRequest = UUID()
         submitControl { try $0.approve(session: selected, approval: card.id, decision: decision) }
+    }
+
+    func answer(_ questions: PhoneQuestions, answers: [PhoneQuestionAnswer]) {
+        guard connected, !controlSubmitting else { return }
+        followRequest = UUID()
+        submitControl { try $0.answerQuestions(questions: questions, answers: answers) }
     }
 
     func reopen() {
@@ -171,7 +177,7 @@ final class PhoneHostModel: Identifiable {
                 desiredRalph = on
                 ralphRequest = operation
                 accept(operation)
-            case .failure(let failure): error = failure.localizedDescription
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -183,7 +189,7 @@ final class PhoneHostModel: Identifiable {
             controlSubmitting = false
             switch result {
             case .success(let operation): accept(operation)
-            case .failure(let failure): error = failure.localizedDescription
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -196,7 +202,7 @@ final class PhoneHostModel: Identifiable {
                 guard let self, self.selected == selected else { return }
                 switch result {
                 case .success(let entries): for entry in entries { rows[entry.id] = entry }
-                case .failure(let failure): error = failure.localizedDescription
+                case .failure(let failure): error = PhoneFailureMessage.describe(failure)
                 }
             }
         }
@@ -216,7 +222,7 @@ final class PhoneHostModel: Identifiable {
             transport.command({ try $0.watchSessions() }) { [weak self] result in
                 if case .failure(let failure) = result {
                     self?.catalogRequested = false
-                    self?.error = failure.localizedDescription
+                    self?.error = PhoneFailureMessage.describe(failure)
                 }
             }
         }
@@ -264,7 +270,7 @@ final class PhoneHostModel: Identifiable {
                 if update.order != nil || !update.rows.isEmpty || update.approvals != nil || !update.operations.isEmpty {
                     contentChanged()
                 }
-            case .failure(let failure): error = failure.localizedDescription
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -300,6 +306,6 @@ final class PhoneHostModel: Identifiable {
     }
 
     private func report(_ result: Result<Void, any Error>) {
-        if case .failure(let failure) = result { error = failure.localizedDescription }
+        if case .failure(let failure) = result { error = PhoneFailureMessage.describe(failure) }
     }
 }

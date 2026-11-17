@@ -5,7 +5,7 @@ use std::sync::Arc;
 use serde_json::json;
 
 use crate::test_support::{connected, info, reply, request, SESSION};
-use crate::{PhoneClient, PhoneDecision, PhoneError, PhonePhase};
+use crate::{PhoneApprovalInput, PhoneClient, PhoneDecision, PhoneError, PhonePhase};
 
 const CARD: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001";
 const TURN: &str = "cccccccccccccccccccccccccccccccc";
@@ -63,7 +63,10 @@ fn a_starting_card_accepts_only_its_actual_decisions_and_keeps_prompts_blocked()
 #[test]
 fn structured_input_cannot_be_replaced_with_an_empty_allow_answer() {
     let client = with_card(false, true);
-    assert!(client.approvals(SESSION.into()).expect("cards")[0].requires_input);
+    assert!(matches!(
+        client.approvals(SESSION.into()).expect("cards")[0].input,
+        Some(PhoneApprovalInput::Unsupported { .. })
+    ));
     assert!(matches!(
         client.approve(SESSION.into(), CARD.into(), PhoneDecision::Once),
         Err(PhoneError::State { .. })

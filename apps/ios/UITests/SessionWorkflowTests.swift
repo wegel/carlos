@@ -6,6 +6,35 @@ import XCTest
 
 final class SessionWorkflowTests: XCTestCase {
     @MainActor
+    func testNativeQuestionKeepsTheChoiceAndPrivateNote() throws {
+        let app = try connectedSession()
+        let draft = app.textFields["composer.draft"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        draft.tap()
+        draft.typeText("phone questions")
+        app.buttons["composer.send"].tap()
+        let option = app.buttons["question.field-str.option.0"]
+        XCTAssertTrue(option.waitForExistence(timeout: 15))
+        option.tap()
+        XCTAssertEqual(option.value as? String, "Selected")
+        let note = app.textFields["question.field-str.text"]
+        XCTAssertTrue(note.waitForExistence(timeout: 15))
+        note.tap()
+        note.typeText("phone note 🦀")
+        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
+        let screen = XCTAttachment(screenshot: app.screenshot())
+        screen.name = "Native question with listed choice and private note"
+        screen.lifetime = .keepAlways
+        add(screen)
+        let submit = app.buttons["questions.submit"]
+        XCTAssertTrue(wait { submit.isEnabled })
+        submit.tap()
+        XCTAssertTrue(app.staticTexts["Phone answers accepted 🦀"].waitForExistence(timeout: 15))
+        XCTAssertFalse(submit.exists, "Only the observed native resolution removes the question")
+        app.terminate()
+    }
+
+    @MainActor
     func testRunningToolExpandsStreamsAndKeepsItsRowChoice() throws {
         let app = try connectedSession()
         let draft = app.textFields["composer.draft"]

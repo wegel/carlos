@@ -101,7 +101,7 @@ final class PhoneSourceModel {
                 file = opened.file
                 watching = false
                 readNext()
-            case .failure(let failure): self?.failure = failure.localizedDescription
+            case .failure(let failure): self?.failure = PhoneFailureMessage.describe(failure)
             }
         }
     }
@@ -155,7 +155,7 @@ final class PhoneSourceModel {
                 if restoring, case PhoneError.StaleRead = failure {
                     restoring = false
                     open()
-                } else { self.failure = failure.localizedDescription }
+                } else { self.failure = PhoneFailureMessage.describe(failure) }
             }
         }
     }
@@ -164,7 +164,7 @@ final class PhoneSourceModel {
         guard active, !paused, !reading, let body else { return }
         reading = true
         transport.command({ try $0.readBody(body: body) }) { [weak self] result in
-            if case .failure(let failure) = result { self?.reading = false; self?.failure = failure.localizedDescription }
+            if case .failure(let failure) = result { self?.reading = false; self?.failure = PhoneFailureMessage.describe(failure) }
         }
     }
 
@@ -172,7 +172,7 @@ final class PhoneSourceModel {
         guard active, !paused, !watching, let body else { return }
         watching = true
         transport.command({ try $0.watchBody(body: body) }) { [weak self] result in
-            if case .failure(let failure) = result { self?.watching = false; self?.failure = failure.localizedDescription }
+            if case .failure(let failure) = result { self?.watching = false; self?.failure = PhoneFailureMessage.describe(failure) }
         }
     }
 

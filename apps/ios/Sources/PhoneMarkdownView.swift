@@ -42,7 +42,7 @@ struct PhoneMarkdownBlockView: View {
             let document = document, index = index
             let result = await Task.detached(priority: .userInitiated) { Result { try document.block(index: index) } }.value
             guard !Task.isCancelled else { return }
-            switch result { case .success(let value): block = value; case .failure(let failure): error = failure.localizedDescription }
+            switch result { case .success(let value): block = value; case .failure(let failure): error = PhoneFailureMessage.describe(failure) }
             changed()
         }
     }
