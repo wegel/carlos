@@ -19,7 +19,7 @@ struct PhoneActivityLine: View {
         .padding(.horizontal, 16).frame(height: 28)
         .overlay(alignment: .top) {
             Rectangle().fill(PhoneTheme.surface0).frame(height: 1)
-            if active {
+            if active && info?.activity.canInterrupt == true {
                 PhoneScanner(color: info?.activity.ralph == true ? PhoneTheme.pink : PhoneTheme.mauve,
                     tip: info?.activity.ralph == true ? PhoneTheme.ralphScannerTip : PhoneTheme.scannerTip,
                     reduceMotion: reduceMotion)

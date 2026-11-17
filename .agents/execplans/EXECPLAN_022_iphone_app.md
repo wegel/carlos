@@ -34,6 +34,27 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Protect a working saved token when the person types a rejected replacement.
+  Direct code inspection shows PhoneStore.connect writes Keychain before the greeting
+  accepts that token. Add a real existing-host rejection/Cancel/relaunch workflow, then
+  commit the new credential only after its exact connection authenticates. Keep this
+  native attempt small; no Rust outbox, persistent operation ledger or auth wizard.
+
+- [x] (2026-11-17) Reconnect commit4d60ba7 passes the fresh full Rust/terminal/Codex
+  check at reconnect-terminal-gate-01.log, artifacts source-terminal-PYEmq3:
+  all225 daemon,330 terminal and23 native contract checks pass unchanged. The empty
+  replay regression and actual Safari round trip pass as recorded below.
+- [ ] Finish the next visual checkpoint. Source4068648d0d3bd0edc21f compiles the opaque
+  1024px icon, native named launch-background asset and scanner’s actual-turn guard;
+  native test bundle tests-20261117T000834.xcresult passes with13 tests. The editable SVG and PNG
+  need no build-time image dependency. A native TextRenderer is being checked to paint a green caret
+  after the last streaming paragraph without adding a source character; only the
+  live final block uses a clock, and Reduce Motion keeps it steady. Stream UI01 on
+  5657c2c5ddec92e37f86 fails its blink-pixel check; UI03 checks selection after UI02 shows ticks without paint. It checks actual changing green pixels, unchanged
+  accessibility text and original Stop/partial-answer/Copy behavior. A test-only main
+  actor warning in its screenshot helper is corrected locally; verify the final run.
+  Root inspected visual-polish-launch-01’s actual initial screen oned1692fe352dba5ba41a. Its low-contrast placeholders and technical setup copy are improved locally; launch02 checks those changes.
+
 - [x] (2026-11-17) Browser05 passes on5621087dafe487fb5108,
   ui-tests-20261116T235815.xcresult, local phone-codex-7ac042eb4735. It opens Safari,
   reads the actual page heading, returns to usable unchanged approval controls, sends
@@ -164,6 +185,17 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+Streaming UI01 fails its actual pixel check: all seven samples contain265 green pixels
+from static content and no visible blinking caret. UI02 adds geometry-only traces and
+also fails. Its log shows the periodic clock changing phase, but no renderer paint log.
+Root is testing native text selection as the cause: the active answer now disables
+selection while using TextRenderer; completed text remains selectable. UI03 checks that
+single behavior change and logs draw entry/geometry without logging source text. Do not
+add an animatable workaround or change the pixel assertion before reading these traces.
+The screenshot helper now stays on the main actor and holds its RGBA buffer for the
+whole CoreGraphics draw. The final caret change must remove temporary logs.
+
 
 Forms UI08 passes on60f84be7db4c644d6cd8, ui-tests-20261116T233112.xcresult,
 local phone-788b8adfbd8d. Root inspected the keyboard-open image: Done is in the top

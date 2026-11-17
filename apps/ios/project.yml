@@ -29,7 +29,8 @@ targets:
       path: ${CARLOS_GENERATED}/CarlosInfo.plist
       properties:
         CFBundleDisplayName: Carlos
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         UIUserInterfaceStyle: Dark
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -40,6 +41,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
         OTHER_LDFLAGS: ["$(inherited)", "-lc++", "-liconv"]
       configs:
