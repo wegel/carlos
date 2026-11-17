@@ -46,7 +46,14 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   against stale renders. The current clean build/check logs are flat-native-03,
   flat-composer-keyboard-03 and flat-composer-scroll-03 on e240e77436096c8f4454.
   All19 native tests pass without skips, including the explicit stale-render/selection
-  regression. The actual keyboard and live-scroll workflows remain pending.
+  regression. Both actual keyboard and live-scroll workflows pass on that same source:
+  phone-codex-caddf734f69e and phone-codex-222fcbc0759e. The normal release phone
+  build also passes. The flat progress preview is strictly signed/verified, installed
+  and successfully launched at12:38UTC. Mac preview
+  `previews/e240e77436096c8f4454-20261117T123752Z/Carlos.app`, executableSHA256
+  bb54803de138346af3065dafe63bab3f5814a0720ffdd58ebea54688d73da8eb.
+  The remaining full sweep is running at final-simulator-matrix-02.log, with completed
+  exact-source native/keyboard/scroll checks retained in final-prechecked-e240.json.
 - [x] Pass the clean native history failure/retry/prepend workflow on
   b757d93c53abc21091a5/ui-tests-20261117T072244, native fixture
   phone-codex-557752bcf662. Keep both axes within2pt and reach the original oldest

@@ -1,7 +1,6 @@
 // Copy exact original text, including content outside the visible display window.
 import SwiftUI
 import UIKit
-import OSLog
 
 enum PhoneCopySource: Sendable {
     case inline(String)
@@ -20,7 +19,6 @@ enum PhoneCopySource: Sendable {
 }
 
 struct PhoneCopyButton: View {
-    private static let logger = Logger(subsystem: "app.carlos.phone", category: "clipboard")
     let source: PhoneCopySource
     var identifier = "answer.copy"
     @State private var copied = false
@@ -31,7 +29,7 @@ struct PhoneCopyButton: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Button {
-                Self.logger.info("Copy requested, bytes=\(source.byteCount, privacy: .public)")
+                error = nil
                 copying = true
                 let source = source
                 Task {
@@ -39,9 +37,7 @@ struct PhoneCopyButton: View {
                     copying = false
                     switch result {
                     case .success(let text):
-                        Self.logger.info("Original read complete; writing pasteboard")
                         UIPasteboard.general.string = text
-                        Self.logger.info("Pasteboard write complete")
                         copied = true
                         notice = UUID()
                     case .failure(let failure): error = PhoneFailureMessage.describe(failure)
