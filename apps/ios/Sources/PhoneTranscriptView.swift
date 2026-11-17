@@ -25,12 +25,6 @@ struct PhoneTranscriptView: View {
                     ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
                         PhoneTranscriptItemView(host: host, item: item).id(item.id)
                     }
-                    ForEach(privateEchoes, id: \.key) { operation in
-                        PhoneUserMessage {
-                            Text(operation.text ?? "").font(PhoneTheme.prose(15, weight: .semibold))
-                                .lineSpacing(PhoneTheme.proseLeading).foregroundStyle(PhoneTheme.text)
-                        }.padding(.top, 18)
-                    }
                     ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.top, 18) }
                     ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.top, 18) }
                     Color.clear.frame(height: 1).id("transcript.bottom")
@@ -85,10 +79,6 @@ struct PhoneTranscriptView: View {
             }
         }
         .accessibilityIdentifier("transcript")
-    }
-
-    private var privateEchoes: [PhoneOperation] {
-        host.operationOrder.compactMap { host.operations[$0] }.filter { $0.session == host.selected && $0.needsEcho }
     }
 
     private var recoveries: [PhoneOperation] {

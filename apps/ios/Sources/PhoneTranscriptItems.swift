@@ -7,6 +7,7 @@ struct PhoneTranscriptItem: Identifiable {
         case heading(PhoneEntry)
         case block(PhoneEntry, PhoneSourceModel, PhoneDocument, UInt32)
         case footer(PhoneEntry, PhoneSourceModel)
+        case echo(PhoneOperation)
     }
 
     let id: String
@@ -17,11 +18,13 @@ struct PhoneTranscriptItem: Identifiable {
     @MainActor
     static func read(host: PhoneHostModel, width: CGFloat, layout: PhoneLayout) -> [Self] {
         var result: [Self] = []
+        let echoes = PhoneEchoLayout(host: host)
+        result += echoes.after(nil)
         var previous: PhoneEntryLayout?
         for id in host.orderedEntries {
             let row = host.rows[id]
             let form = row.map { PhoneEntryLayout.presentation($0, width: width) } ?? .block
-            guard form != .hidden else { continue }
+            guard form != .hidden else { result += echoes.after(id); continue }
             let gap: CGFloat = previous == nil ? 6 : previous == .compact && form == .compact ? 0 : 18
             previous = form
             if let row, row.kind == .answer || row.kind == .commentary,
@@ -38,7 +41,11 @@ struct PhoneTranscriptItem: Identifiable {
             } else {
                 result.append(Self(id: id, entry: id, gap: gap, content: .entry(row, form)))
             }
+            let inserted = echoes.after(id)
+            result += inserted
+            if !inserted.isEmpty { previous = .block }
         }
+        result += echoes.tail
         return result
     }
 }
@@ -51,6 +58,11 @@ struct PhoneTranscriptItemView: View {
     var body: some View {
         Group {
             switch item.content {
+            case .echo(let operation):
+                PhoneUserMessage {
+                    Text(operation.text ?? "").font(PhoneTheme.prose(15, weight: .semibold))
+                        .lineSpacing(PhoneTheme.proseLeading).foregroundStyle(PhoneTheme.text)
+                }
             case .entry(let row, let layout):
                 if let row { PhoneEntryRow(host: host, row: row, compact: layout == .compact) }
                 else { ProgressView().frame(height: 26).onAppear { host.loadRows([item.entry]) } }
@@ -80,6 +92,38 @@ struct PhoneTranscriptItemView: View {
                     .modifier(SourceRowLifetime(source: source, row: row))
             }
         }.padding(.top, item.gap)
+    }
+}
+
+// A device-local scroll/layout hint, never an invented native entry or a shared history fact.
+struct PhoneEchoAnchor {
+    let entry: String?
+    let queued: Bool
+}
+
+// Insert only private echoes; confirmed native rows keep their original order.
+@MainActor
+private struct PhoneEchoLayout {
+    private var positions: [String: [PhoneOperation]] = [:]
+    private(set) var tail: [PhoneTranscriptItem] = []
+
+    init(host: PhoneHostModel) {
+        let known = Set(host.orderedEntries)
+        for key in host.operationOrder {
+            guard let operation = host.operations[key], operation.session == host.selected, operation.needsEcho else { continue }
+            guard let anchor = host.echoAnchors[key], !anchor.queued else {
+                tail.append(Self.item(operation))
+                continue
+            }
+            let entry = anchor.entry.flatMap { known.contains($0) ? $0 : nil } ?? ""
+            positions[entry, default: []].append(operation)
+        }
+    }
+
+    func after(_ entry: String?) -> [PhoneTranscriptItem] { (positions[entry ?? ""] ?? []).map(Self.item) }
+
+    private static func item(_ operation: PhoneOperation) -> PhoneTranscriptItem {
+        PhoneTranscriptItem(id: "echo/" + operation.key, entry: "", gap: 18, content: .echo(operation))
     }
 }
 

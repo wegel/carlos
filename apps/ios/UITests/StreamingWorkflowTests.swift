@@ -14,6 +14,9 @@ extension SessionWorkflowTests {
         let streaming = app.staticTexts["answer.streaming"]
         XCTAssertTrue(streaming.waitForExistence(timeout: 15))
         XCTAssertEqual(streaming.label, "Streaming paragraph 🌍", "The caret must not become source or accessibility text")
+        let prompt = app.staticTexts["phone stream"]
+        XCTAssertTrue(prompt.exists)
+        XCTAssertLessThan(prompt.frame.maxY, streaming.frame.minY, "A private prompt echo must precede the answer it started")
         try checkCaretBlink(app, text: streaming)
         let stop = app.buttons["composer.stop"]
         XCTAssertTrue(wait { stop.isEnabled })

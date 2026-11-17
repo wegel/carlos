@@ -34,6 +34,24 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Private prompt echoes precede their own answer on source8ed2cec1d2b216555c99,
+  ui-tests-20261117T012930.xcresult, phone-codex-c137582457f1. Root inspected both
+  live/stopped images: the blue user band precedes the green answer; the caret blinks
+  and disappears after the original native interrupt. The small Swift layout hint
+  never inserts or reorders native rows, copies private text into another session,
+  or changes the shared operation ledger. Queued echoes stay at the tail. Full
+  workspace cargo test passes at composer-cargo-01.log. Keyboard/voice/scroll checks
+  remain pending and the earlier failures remain recorded below.
+
+- [ ] Check the native composer and on-device speech on the owned simulator.
+  PhonePromptInput keeps native selection and five-line sizing; actual physical-key
+  events must prove Return sends one exact prompt and Shift/Option+Return preserve
+  newlines. PhoneDictation requests permissions only after a tap, requires on-device
+  recognition, keeps late callbacks scoped to the current private draft and stops
+  audio on exit/background. Voice UI checks deny access or show actual simulator
+  unavailability without recording or sending. Keyboard UI01 and voice/native01
+  are pending; no success or physical microphone proof is claimed.
+
 - [x] (2026-11-17) Credential staging and trace-free caret pass on589f3adae575cb5d84ca:
   stream04 (ui-tests-20261117T003806), rejected-new-token repair
   (ui-tests-20261117T004433), saved-token/session relaunch (004534) and rejected
@@ -197,6 +215,45 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+Scroll UI02 reduces the header jump from840 to6pt, but still fails the original2pt
+tolerance on108da9486b4baa513ab2/ui-tests-20261117T014047.xcresult,
+phone-codex-b3d500dc66a2. UI03 uses the raw measured content offset instead of
+adding the content inset; temporary offset traces will identify the exact coordinate
+values and must be removed before a final pass. Keyboard UI03 still fails its first
+modified Return on eaf2c86cd7b1f67de684/ui-tests-20261117T013801.xcresult,
+phone-codex-a8b14d49e7c2. Add a real UIKit command-admission test and temporary
+command-state traces; do not guess another cause or weaken the per-key assertion.
+Voice UI02 also fails to present the app alert after the native denial. Keep the error
+beside the draft instead, with Settings and Dismiss actions. Voice UI03 cannot test
+that behavior because Root’s new UIKit unit test incorrectly passed an optional
+selector to canPerformAction. Unwrap the actual SDK selector; retain the failed
+compile at9c3e4ed24baa04694d50/voice-ui-03.log, phone-codex-f8a660072fac.
+Voice UI04 will test the corrected build. No hardware speech accuracy is claimed.
+
+
+Scroll UI01 proves a real jump: expanding the last tool moves its header from
+701.67 to -138.33pt. Preserve sourcee6458813f8219a9b6e43,
+ui-tests-20261117T013148.xcresult, phone-codex-55fdd98ca027. The phone was still
+pinning the bottom while a person deliberately expanded output. Before that tap,
+replace the bottom/id scroll target with the measured absolute offset and stop
+following; resume following when within40pt or after Latest/Send/approval. UI02
+keeps the original2pt screen-position tolerance and exact native checks.
+
+
+Keyboard UI01 (4049cfc7b213d0c02604/ui-tests-20261117T011903.xcresult,
+phone-codex-f2d0c49e16ed) fails before sending: custom modified-Return edits appeared to lose the newline and following word. Explicitly notifying the native
+text-view delegate after programmatic insertion does not fix UI02: its first
+Shift+Return assertion still reads only phone. Root also found the test used a raw
+carriage return instead of XCTest’s physical Return key constant. UI03 uses the
+SDK constant and retains each per-key assertion. The cause is not yet proven. Voice UI01 (9409def3dcd22f9d877b,
+ui-tests-20261117T012316.xcresult, phone-codex-be6cdd5c287a) reaches the actual
+Speech permission dialog and denies it, but never shows the app error: the dialog
+made the app inactive and canceled its own permission attempt. Keep authorization
+alive through inactive permission dialogs; backgrounding still cancels it. Voice
+UI02 resets privacy rights only for the synthetic fixture bundle and rechecks the
+actual denial. No recording or native prompt is permitted in this workflow.
+
 
 The token replacement workflow reproduces the existing-host failure on4d683461d007481a9358,
 ui-tests-20261117T002718.xcresult, local phone-codex-67093b172e86: after a rejected edit
@@ -561,6 +618,23 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Keep speech recognition native and private. The microphone requests permission only
+on an explicit tap, checks support for the device language and requires on-device
+recognition. It never chooses a remote recognizer or automatically sends words.
+Stop/end/error preserve recognized text in the current draft; switching sessions
+invalidates old callbacks. Retain the native recognizer for the recording lifetime.
+Native permission dialogs may make the app inactive, so only backgrounding cancels
+an authorization request. Stop active audio on inactivity/backgrounding. The owned
+simulator check intentionally denies access; actual acoustic accuracy is a separate
+hardware limitation and must not be claimed from this test. Date/author:2026-11-17,Root.
+
+Keep private prompt placement in Swift as a small device-local layout hint. Capture
+the last native row at Send, place an idle send’s private echo after that row, and
+leave queued sends at the tail. Remove the hint when the real operation gains its
+native row. Never invent, reorder or persist authoritative native history to make
+a screenshot look right. Date/author:2026-11-17,Root.
+
 
 Correction (2026-11-17,Root): the earlier Safari-heading diagnosis was wrong. Root
 misread the reported source line, which points at the Allow-button query/await after

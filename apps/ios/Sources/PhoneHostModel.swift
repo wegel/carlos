@@ -16,6 +16,7 @@ final class PhoneHostModel: Identifiable {
     var rows: [String: PhoneEntry] = [:]
     var operations: [String: PhoneOperation] = [:]
     var operationOrder: [String] = []
+    var echoAnchors: [String: PhoneEchoAnchor] = [:]
     var approvals: [PhoneApproval] = []
     var ralphRequest: PhoneOperation?
     var desiredRalph: Bool?
@@ -152,12 +153,14 @@ final class PhoneHostModel: Identifiable {
         guard let selected, !submitting, connected, transcript?.ready == true,
               !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = draft
+        let echoAnchor = PhoneEchoAnchor(entry: orderedEntries.last, queued: transcript?.info.activity.canInterrupt == true)
         submitting = true
         transport.submit({ try $0.sendPrompt(session: selected, text: text) }) { [weak self] result in
             guard let self else { return }
             submitting = false
             switch result {
             case .success(let operation):
+                echoAnchors[operation.key] = echoAnchor
                 accept(operation)
                 if self.selected == selected {
                     followRequest = UUID()
@@ -340,6 +343,7 @@ final class PhoneHostModel: Identifiable {
         completeCreation(operation)
         switch operation.state {
         case .accepted where !operation.needsEcho:
+            echoAnchors.removeValue(forKey: operation.key)
             operations.removeValue(forKey: operation.key)
             operationOrder.removeAll { $0 == operation.key }
             let key = operation.key
