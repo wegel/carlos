@@ -27,18 +27,18 @@ class NativeHistoryTests:
     def test_codex_skips_nonempty_native_windows_with_no_visible_rows(self):
         fixture, peer, client, session, opened = self.native_history_fixture("unrendered")
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
-        for turn in peer.turns[40:140]:
+        for turn in peer.turns[139:239]:
             turn["items"] = [{"type":"futureOpaqueItem", "id":"opaque-" + turn["id"]}]
         before = self.native_prefix_boundary(client, session, opened)
         page = client.call("session/history", session=session, before=before, limit=100)
         self.assertTrue(page["entries"], "unrendered items cannot strand the public cursor")
-        self.assertEqual(page["entries"][0]["text"], "native user 0 🌍")
-        self.assertFalse(page["has_older"])
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(page["entries"][0]["text"], "native user 138 🌍")
+        self.assertTrue(page["has_older"])
+        self.assertEqual(len(peer.pages), 102)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_held_native_history_keeps_other_readers_cached_cursors_independent(self):
-        fixture, peer, reader, session, opened = self.native_history_fixture("two-readers")
+        fixture, peer, reader, session, opened = self.native_history_fixture("two-readers", dense_latest=True)
         before = self.native_prefix_boundary(reader, session, opened)
         other = Client(fixture, "independent-history")
         self.addCleanup(other.close)
@@ -46,7 +46,7 @@ class NativeHistoryTests:
         peer.pause = True
         pending = reader.send("session/history", session=session, before=before, limit=100)
         wait_for(lambda: peer.held, "first native prefix read is held")
-        cached = other.call("session/history", session=session, before=latest["entries"][0]["id"], limit=20)
+        cached = other.call("session/history", session=session, before=latest["entries"][21]["id"], limit=20)
         self.assertEqual(len(cached["entries"]),20)
         self.assertNotEqual(cached["entries"][0]["id"],before)
         self.assertEqual(len(peer.pages),2)
@@ -114,7 +114,7 @@ class NativeHistoryTests:
         from test_prompt_history import check_native_recall
         fixture, peer, client, session, opened = self.native_history_fixture("recall-sparse")
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
-        for turn in peer.turns[:140]:
+        for turn in peer.turns[:239]:
             turn["items"] = [item for item in turn["items"] if item["type"] != "userMessage"]
         # The newest window is already loaded; remove humans only from the unread middle.
         unknown = client.call("prompt/select", session=session, source="unknown", anchor=None, direction="latest")
@@ -122,8 +122,8 @@ class NativeHistoryTests:
         self.assertEqual(len(peer.pages), 1, "Codex never exposes an unknown prompt source")
         peer.turns[0]["items"].insert(0, {"type":"userMessage", "id":"user-0",
             "content":[{"type":"text","text":"native user 0 🌍"}]})
-        check_native_recall(self, client, session, ["native user 0 🌍"] + [f"native user {i} 🌍" for i in range(140,240)])
-        self.assertEqual(len(peer.pages), 3)
+        check_native_recall(self, client, session, ["native user 0 🌍", "native user 239 🌍"])
+        self.assertEqual(len(peer.pages), 240)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_native_recall_reads_all_humans_without_transcript_paging(self):
@@ -131,13 +131,16 @@ class NativeHistoryTests:
         fixture, peer, client, session, opened = self.native_history_fixture("recall")
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
         check_native_recall(self, client, session, [f"native user {index} 🌍" for index in range(240)])
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(len(peer.pages), 240)
         self.assertEqual(fixture.native.prompts, 0)
 
-    def native_history_fixture(self, name, empty=(), unrendered=()):
+    def native_history_fixture(self, name, empty=(), unrendered=(), dense_latest=False, turns=240):
         fixture = Fixture("native-history-" + name, codex=True)
         self.addCleanup(fixture.close)
-        peer = NativeHistoryWindows(fixture.native)
+        peer = NativeHistoryWindows(fixture.native, turns=turns)
+        if dense_latest:
+            peer.turns[-1]["items"].extend({"type":"agentMessage", "id":f"extra-{index}",
+                "text":f"cached extra {index}"} for index in range(30))
         for index in empty:
             peer.turns[index]["items"] = []
         for index in unrendered:
@@ -159,7 +162,7 @@ class NativeHistoryTests:
         self.assertEqual(snapshot["info"]["availability"], "ready")
         self.assertTrue(snapshot["entries"], "Ready must supply an anchor for supported older entries")
         self.assertEqual(snapshot["entries"][-1]["text"], "native answer 139 🌍")
-        self.assertEqual(len(peer.pages), 2)
+        self.assertEqual(len(peer.pages), 101)
         collected, page = list(snapshot["entries"]), snapshot
         while page["has_older"]:
             page = client.call("session/history", session=session, before=collected[0]["id"], limit=100)
@@ -167,16 +170,16 @@ class NativeHistoryTests:
             collected = page["entries"] + collected
         self.assertEqual([row["text"] for row in collected],
                          [f"native {kind} {index} 🌍" for index in range(140) for kind in ("user","answer")])
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(len(peer.pages), 240)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_overlap_only_native_windows_cannot_return_an_empty_continuation(self):
         fixture, peer, client, session, opened = self.native_history_fixture("overlap-only")
         before = self.native_prefix_boundary(client, session, opened)
-        peer.turns[40:140] = list(peer.turns[140:240])
+        peer.turns[238] = peer.turns[239]
         page = client.call("session/history", session=session, before=before, limit=100)
-        self.assertEqual(page["entries"][0]["text"], "native user 0 🌍")
-        self.assertFalse(page["has_older"])
+        self.assertEqual(page["entries"][0]["text"], "native user 237 🌍")
+        self.assertTrue(page["has_older"])
         self.assertEqual(len(peer.pages), 3)
         self.assertEqual(fixture.native.prompts, 0)
 
@@ -199,10 +202,11 @@ class NativeHistoryTests:
         expected = [f"native {kind} {index} 🌍" for index in range(240) for kind in ("user", "answer")]
         self.assertEqual([entry["text"] for entry in collected], expected)
         self.assertEqual(len({entry["id"] for entry in collected}), 480)
-        self.assertEqual(len(peer.pages), 3)
-        self.assertTrue(all(page["itemsView"] == "full" and page["sortDirection"] == "desc" for page in peer.pages))
+        self.assertEqual(len(peer.pages), 240)
+        self.assertTrue(all(page["limit"] == 1 and page["itemsView"] == "full" and page["sortDirection"] == "desc" for page in peer.pages))
         again = client.call("session/subscribe", session=session, since=None)["snapshot"]
-        self.assertEqual({entry["text"]:entry["id"] for entry in again["entries"]}, current_ids)
+        self.assertEqual({entry["text"]:entry["id"] for entry in again["entries"]
+                          if entry["text"] in current_ids}, current_ids)
         self.assertEqual(fixture.native.prompts, 0)
         self.assertFalse(any(request.get("method") == "thread/read" and request["params"].get("includeTurns")
                              for request in fixture.native.requests))
@@ -210,28 +214,27 @@ class NativeHistoryTests:
     def native_prefix_boundary(self, client, session, opened):
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
         snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
-        prefix = client.call("session/history", session=session, before=snapshot["entries"][0]["id"], limit=100)
-        return prefix["entries"][0]["id"]
+        return snapshot["entries"][0]["id"]
 
     def test_codex_skips_empty_native_windows_without_claiming_older_history_is_finished(self):
-        fixture, peer, client, session, opened = self.native_history_fixture("empty", empty=range(40, 140))
+        fixture, peer, client, session, opened = self.native_history_fixture("empty", empty=range(139, 239))
         before = self.native_prefix_boundary(client, session, opened)
         older = client.call("session/history", session=session, before=before, limit=100)
         self.assertTrue(older["entries"], "native empty turns must not strand the client's older cursor")
-        self.assertEqual(older["entries"][0]["text"], "native user 0 🌍")
-        self.assertFalse(older["has_older"])
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(older["entries"][0]["text"], "native user 138 🌍")
+        self.assertTrue(older["has_older"])
+        self.assertEqual(len(peer.pages), 102)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_failed_older_read_preserves_the_page_and_retries_the_original_native_cursor(self):
         fixture, peer, client, session, opened = self.native_history_fixture("retry")
         before = self.native_prefix_boundary(client, session, opened)
-        peer.fail_cursor = "PRIVATE_HISTORY:desc:100"
+        peer.fail_cursor = "PRIVATE_HISTORY:desc:1"
         failed = client.response(client.send("session/history", session=session, before=before, limit=100))
         self.assertIn("native history fixture read failed", failed["error"]["message"])
         again = client.call("session/history", session=session, before=before, limit=100)
         self.assertTrue(again["entries"])
-        self.assertEqual([page["cursor"] for page in peer.pages[1:]], ["PRIVATE_HISTORY:desc:100"] * 2)
+        self.assertEqual([page["cursor"] for page in peer.pages[1:]], ["PRIVATE_HISTORY:desc:1"] * 2)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_remembers_cursors_skipped_during_the_initial_empty_window(self):
@@ -242,9 +245,9 @@ class NativeHistoryTests:
         self.assertIn("cursor", failed["error"]["message"])
         peer.next_override = None
         older = client.call("session/history", session=session, before=before, limit=100)
-        self.assertEqual(older["entries"][0]["text"], "native user 0 🌍")
-        self.assertFalse(older["has_older"])
-        self.assertEqual([page["cursor"] for page in peer.pages[-2:]], ["PRIVATE_HISTORY:desc:200"] * 2)
+        self.assertEqual(older["entries"][0]["text"], "native user 138 🌍")
+        self.assertTrue(older["has_older"])
+        self.assertEqual([page["cursor"] for page in peer.pages[-2:]], ["PRIVATE_HISTORY:desc:101"] * 2)
         self.assertEqual(fixture.native.prompts, 0)
 
     def test_codex_held_older_history_keeps_live_sends_approval_and_interrupt_responsive(self):

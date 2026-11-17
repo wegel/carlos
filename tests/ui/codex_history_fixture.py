@@ -5,7 +5,7 @@ from pathlib import Path
 import uuid
 
 
-def write_history(root, count=105, large=False, compact=False, provider="openai", commands_per_turn=0, large_indices=(1,)):
+def write_history(root, count=105, large=False, compact=False, provider="openai", commands_per_turn=0, large_indices=(1,), large_bytes=6*1024*1024):
     thread, window = str(uuid.uuid4()), str(uuid.uuid4())
     stamp = "2026-11-11T00:00:00Z"
     rows = [{"type":"session_meta","payload":{
@@ -28,7 +28,7 @@ def write_history(root, count=105, large=False, compact=False, provider="openai"
                     rows.append({"type":"event_msg","payload":{"type":"item_completed","thread_id":thread,
                         "turn_id":turn,"item":{"type":"Extension","kind":"clock.sleep","id":str(uuid.uuid4()),"durationMs":1}}})
             if large and index in large_indices and role == "assistant":
-                text += " x" * (3 * 1024 * 1024)
+                text += " x" * (large_bytes // 2) + f"\nHISTORY_REPLY:{index}"
             item_id = str(uuid.uuid4())
             response_id = "msg_" + str(uuid.uuid4())
             content = [{"type":"input_text" if role == "user" else "output_text","text":text}]

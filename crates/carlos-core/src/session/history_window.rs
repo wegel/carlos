@@ -77,7 +77,7 @@ impl SessionState {
         before: &WireEntryId,
         limit: usize,
     ) -> Result<Option<HistoryCursor>> {
-        if let Some(cursor) = self.older_native_cursor(before, limit)? {
+        if let Some(cursor) = self.older_native_cursor(before)? {
             return Ok(Some(HistoryCursor::Codex(cursor)));
         }
         let end = self

@@ -114,7 +114,7 @@ fn newest_window_reads_once_and_older_window_uses_the_original_native_cursor() {
     assert_eq!(calls[1].1["cursor"], "older");
     assert!(calls
         .iter()
-        .all(|(_, params)| params["itemsView"] == "full"));
+        .all(|(_, params)| params["itemsView"] == "full" && params["limit"] == 1));
 }
 
 #[test]

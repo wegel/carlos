@@ -5,7 +5,8 @@ Decision Log and Outcomes & Retrospective current. Root works directly on `iphon
 in `/var/home/wegel/work/perso/carlos-daemon`, without developer subagents. The owner
 delegated approval after complete checks, Root's engineering review and one end-only
 Fable5.2 medium whole-roadmap review. Do not request intermediate reviewers or routine
-approval. Do not install the spike CLI, merge into main, alter an archived plan or replace
+approval. The owner's later normal-install request authorizes installing a fully checked,
+matching CLI/daemon/helper package. Do not merge into main, alter an archived plan or replace
 any frozen owner preview. A normal upstream push was explicitly requested separately;
 that request does not authorize merging, force pushing or publishing an app.
 
@@ -33,6 +34,22 @@ protocol checks, reconnect/reply rights, session facts, body/history reads and M
 structure. The phone must not link `carlos-core` or ship a backend/helper process.
 
 ## Progress
+
+- [ ] Fix the owner's Codex resume failure before the remaining phone setup. After
+  the sandbox restart, installed Carlos closes Codex on a stdout frame above64MiB;
+  native Broken pipe is a consequence of that close. The current native session
+  log is431MB with25 task-started turns, including large long-running turns.
+  The initial native history request asks for100 full turns. Native full replies total
+  83618724bytes; the largest individual turn is47477424bytes. The resumed thread
+  reports paginated history and its latest turn reply is243930bytes. Carlos now
+  requests one complete turn per reply without changing either frame cap or the
+  original-request64MiB budget. Cached partial prefixes satisfy other readers,
+  rather than fetching another turn to fill a maximum row count. Rust tests pass;
+  real terminal/native checks, release gate and installed-pair update remain.
+  Isolated copies of the owner's rollout and size-only probes are in ignored
+  tmp/codex-large-resume; no prompt is sent and the original session is untouched.
+  Codex0.169.0 schemas are generated there. Metadata-only read does not hydrate
+  native item pages; the isolated resume probe now seeds them first.
 
 - [ ] Resume after the owner's requested sandbox restart. The owner offers writable
   access to the real Carlos binary/config/state/runtime directories and asks Root
@@ -929,6 +946,23 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+- 2026-11-17, Codex resume: the owner's431MB rollout produces83618724bytes
+  across25 native complete-turn replies, with a47477424byte largest turn. A
+ 100-turn native request therefore exceeded the64MiB stdout bound; native
+  Broken pipe followed Carlos closing the pipe. The metadata-only resume reply
+  itself is small and already excludes turns. Probe04/05 in ignored
+  tmp/codex-large-resume preserve size-only evidence from an isolated rollout copy.
+  The actual owner daemon currently reports4 sessions,2 ready,1 closed,1
+  unavailable and no active turns. It remains running outside the tool PID namespace.
+- 2026-11-17, smaller Codex pages exposed a cached-prefix bug: readers asking for
+  up to100 rows fetched another native turn even when a previous reader had just
+  installed2 usable rows. Serve that available prefix first; fetch only at its
+  oldest row. Both concurrent readers now share the same complete-turn read.
+ 15 daemon cases and both real Codex stdio/socket large-ancestor cases pass.
+  Each native case retains31 turns/1711 items and reads75737895bytes overall,
+  with no reply above64MiB, no item-per-RPC reads and no inference. Original
+  failed checks/artifacts remain under /tmp/carlos-ep022/codex-history-*-01.
+
 The stronger native comparison catches a regression the moderate gesture misses.
 The slow setter travels618pt versus619pt native on the moderate flick but only
 28% of native travel on a strong fling. Raw offsets also count revised offscreen
@@ -1639,6 +1673,16 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+- 2026-11-17: request one complete Codex turn per native history reply. A turn
+  can already contain tens of MiB, so a fixed100-turn batch cannot bound bytes.
+  Keep whole-turn deduplication, the existing8MiB event cap,64MiB history cap,
+  per-original-read budget and20s deadline. A single turn above64MiB still needs
+  item paging in future work; do not claim this change removes that safety limit.
+  Native contract tests continue checking Codex's100-turn API independently of
+  Carlos's smaller read policy. The phone scrolling fixture groups its60 fixed
+  messages into one turn; its history retry fixture groups the same130 sparse
+  messages into two turns, preserving the same visible bodies and held-read boundary.
+
 - Decision: preserve a saved server's ID when editing its address, but use a fresh
   transport/model for a changed endpoint until authentication succeeds.
   Rationale: matching only by address created a second saved entry. Reusing an old
@@ -1886,6 +1930,12 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+2026-11-17 resume repair in progress: Root traced the failure to one oversized
+native history batch and implemented bounded complete-turn reads plus shared
+cached-prefix reuse. Debug/release Rust checks and focused daemon/real-native
+checks pass; full terminal/backend checks and a matching normal install still
+remain. No phone app has been replaced and no owner daemon has been stopped.
 
 At the owner's sandbox-restart checkpoint, the installed CLI/daemon/helper match
 checked92d3a535 and the phone remains on owner-acceptedde74. The new server-manager
@@ -2400,3 +2450,5 @@ Revision2026-11-17: record the owner’s successful physical-phone scroll check 
 Revision2026-11-17: record the explicit normal-install request, read-only mount blocker, checked shared installer and outstanding daemon-route preference; retain the measured prefetch memory reduction without changing accepted phone scrolling.
 
 Revision2026-11-17: save the owner-requested sandbox restart checkpoint, verified normal install, idle local-only daemon facts, server-manager changes and exact UI test-selector retry state. No EP approval or new phone deployment.
+
+Revision2026-11-17: resume after the sandbox restart and prioritize the newly reported oversized Codex history response; diagnose with isolated private copies before modifying paging or limits.

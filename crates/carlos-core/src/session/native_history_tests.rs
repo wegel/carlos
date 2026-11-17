@@ -111,9 +111,7 @@ fn repeated_skipped_cursors_and_changed_roots_preserve_the_accepted_prefix() {
         .is_err());
     assert_eq!(state.messages().len(), 2);
     assert_eq!(
-        state
-            .older_native_cursor(&before, 100)
-            .expect("original cursor"),
+        state.older_native_cursor(&before).expect("original cursor"),
         Some(cursor("next"))
     );
     state.set_thread_id("replacement".into());
@@ -124,4 +122,14 @@ fn repeated_skipped_cursors_and_changed_roots_preserve_the_accepted_prefix() {
         )
         .is_err());
     assert_eq!(state.messages().len(), 2);
+}
+
+#[test]
+fn a_partial_cached_prefix_serves_other_readers_without_fetching_another_turn() {
+    let state = state();
+    let before = state.messages()[1].id.to_wire();
+    assert!(state
+        .older_native_cursor(&before)
+        .expect("checked cached prefix")
+        .is_none());
 }

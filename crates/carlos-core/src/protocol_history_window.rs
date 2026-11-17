@@ -178,10 +178,12 @@ impl HistoryReader<'_> {
 
     fn window_page(&mut self, cursor: Value) -> Result<Option<Value>> {
         let first = cursor.is_null();
+        // A long-running turn can contain tens of MiB. Batch counts cannot bound
+        // reply bytes, so keep each complete turn inside its own history read.
         let page = self.call(
             "thread/turns/list",
             json!({"threadId":self.thread,
-            "sortDirection":"desc","itemsView":"full","limit":100,"cursor":cursor}),
+            "sortDirection":"desc","itemsView":"full","limit":1,"cursor":cursor}),
         )?;
         Ok((!unsupported(&page, first)?).then_some(page))
     }

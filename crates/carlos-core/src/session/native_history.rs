@@ -51,17 +51,16 @@ impl SessionState {
         self.native_history.cursor.is_some() || self.has_older_claude_history()
     }
 
-    /// Fetch a native window only when stored rows cannot fill this checked client page.
+    /// Fetch another native turn only after the client exhausts the stored prefix.
     pub(crate) fn older_native_cursor(
         &self,
         before: &WireEntryId,
-        limit: usize,
     ) -> Result<Option<HistoryCursor>> {
         let end = self
             .messages
             .position(EntryId::from_wire(before))
             .context("retired or foreign history cursor")?;
-        if end >= limit.clamp(1, 1000) {
+        if end > 0 {
             return Ok(None);
         }
         self.native_history_cursor()

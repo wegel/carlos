@@ -10,18 +10,18 @@ class DaemonHistory:
         daemon_support.BINARY = runner.BINARY.parent / "carlosd"
         daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
         fixture, peer, client, session, opened = NativeHistoryTests.native_history_fixture(
-            self, "terminal-unrendered-tail", unrendered=range(140,240))
+            self, "terminal-unrendered-tail", unrendered=range(14,24), turns=24)
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
         terminal = self.attach_daemon(fixture, session, "unrendered-tail")
-        terminal.contains("native answer 139 🌍")
-        self.assertEqual(len(peer.pages), 2, "startup finds a real row anchor before Ready")
+        terminal.contains("native answer 13 🌍")
+        self.assertEqual(len(peer.pages), 11, "startup crosses every unrendered turn before Ready")
         def oldest_visible():
             if "native user 0 🌍" in terminal.text:
                 return True
             terminal.send(b"\x1b[H")
             return False
         terminal.wait(oldest_visible, "every supported older native row remains reachable")
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(len(peer.pages), 24)
         self.assertEqual(terminal.requests("session/send"), [])
         self.assertEqual(fixture.native.prompts, 0)
         terminal.snapshot("unrendered-native-tail-keeps-oldest-supported-history")
@@ -35,29 +35,24 @@ class DaemonHistory:
         daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
         fixture = daemon_support.Fixture("terminal-concurrent-native-history", codex=True)
         self.addCleanup(fixture.close)
-        peer = NativeHistoryWindows(fixture.native)
+        peer = NativeHistoryWindows(fixture.native, turns=24)
+        for turn in peer.turns[4:14]:
+            turn["items"] = [{"type":"futureOpaqueItem", "id":"opaque-" + turn["id"]}]
         client = daemon_support.Client(fixture, "other-history-reader")
         self.addCleanup(client.close)
         opened = client.operation(1)
         session = client.call("session/open", operation=opened, backend="codex", cwd=str(fixture.root),
                               target={"kind":"resume", "address":fixture.native.thread_id})["session"]
         self.assertEqual(client.outcome(opened)["state"]["kind"], "accepted")
-        for turn in peer.turns[40:140]:
-            turn["items"] = [{"type":"futureOpaqueItem", "id":"opaque-" + turn["id"]}]
         snapshot = client.call("session/subscribe", session=session, since=None)["snapshot"]
-        cached = client.call("session/history", session=session, before=snapshot["entries"][0]["id"], limit=100)
         peer.pause = True
-        pending = client.send("session/history", session=session, before=cached["entries"][0]["id"], limit=100)
+        pending = client.send("session/history", session=session, before=snapshot["entries"][0]["id"], limit=100)
         daemon_support.wait_for(lambda: peer.held, "other device holds the native read")
         terminal = self.attach_daemon(fixture, session, "concurrent-native-history")
-        terminal.contains("native answer 239 🌍")
-        for count in (1, 2):
-            terminal.send(b"\x1b[H")
-            terminal.wait(lambda: len(terminal.requests("session/history")) == count, "terminal requests older page")
-            if count == 1:
-                terminal.wait(lambda: any(message.get("id") == terminal.requests("session/history")[0]["id"]
-                              for message in terminal.messages("server")), "cached page arrives")
-                terminal.resize(90, 40)
+        terminal.contains("native answer 23 🌍")
+        terminal.send(b"\x1b[H")
+        terminal.wait(lambda: len(terminal.requests("session/history")) == 1, "terminal joins the older read")
+        terminal.resize(90, 40)
         terminal.paste("private draft during shared read 🌍")
         terminal.wait(lambda: terminal.input_is("private draft during shared read 🌍"), "private draft while shared read waits")
         self.assertEqual(len(peer.pages), 2, "one shared native fetch remains held")
@@ -71,7 +66,7 @@ class DaemonHistory:
         terminal.wait(oldest_visible, "terminal crosses opaque native items without a stale page")
         self.assertTrue(terminal.input_is("private draft during shared read 🌍"))
         self.assertNotIn("queue is full", terminal.text)
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(len(peer.pages), 24)
         self.assertEqual(terminal.requests("session/send"), [])
         self.assertEqual(fixture.native.prompts, 0)
         terminal.snapshot("shared-native-history-reaches-oldest-with-private-draft")
@@ -182,7 +177,7 @@ class DaemonHistory:
         daemon_support.ARTIFACTS = runner.ARTIFACTS / "daemon"
         fixture = daemon_support.Fixture("terminal-native-history", codex=True)
         self.addCleanup(fixture.close)
-        peer = NativeHistoryWindows(fixture.native)
+        peer = NativeHistoryWindows(fixture.native, turns=12)
         client = daemon_support.Client(fixture, "history-owner")
         self.addCleanup(client.close)
         operation = client.operation(1)
@@ -190,20 +185,22 @@ class DaemonHistory:
                               target={"kind":"resume", "address":fixture.native.thread_id})["session"]
         client.outcome(operation)
         terminal = self.attach_daemon(fixture, session, "native-history")
-        terminal.contains("native answer 239 🌍")
-        for count, anchor in enumerate((190, 140, 90, 40), 1):
+        terminal.contains("native answer 11 🌍")
+        for count, anchor in enumerate(range(10, -1, -1), 1):
             terminal.send(b"\x1b[H")
             terminal.wait(lambda: len(terminal.requests("session/history")) == count, "one explicit older client page")
             terminal.wait(lambda: sum(isinstance(message.get("result"), dict) and "has_older" in message["result"]
                           for message in terminal.messages("server")) == count, "older page reached the client")
             terminal.resize(90 if count % 2 else 100, 40)
+            if f"native user {anchor} 🌍" not in terminal.text:
+                terminal.send(b"\x1b[H")
             terminal.contains(f"native user {anchor} 🌍")
         terminal.send(b"\x1b[H")
         terminal.contains("native user 0 🌍")
-        self.assertEqual(len(peer.pages), 3)
+        self.assertEqual(len(peer.pages), 12)
         terminal.snapshot("oldest-native-window-with-preserved-anchor")
         terminal.send(b"\x1b[F")
-        terminal.contains("native answer 239 🌍")
+        terminal.contains("native answer 11 🌍")
         terminal.wait(lambda: terminal.input_is(""), "history never adds text to the composer")
         self.assertEqual(terminal.requests("session/send"), [])
         self.assertNotIn("PRIVATE_HISTORY", json.dumps(terminal.messages("server")))

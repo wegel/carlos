@@ -40,7 +40,7 @@ def check_older_windows(case, terminal, model):
         return False
 
     terminal.wait(oldest_visible, "the client applies the older page and scrolls to the first human")
-    case.assertEqual(len(terminal.requests("thread/turns/list")), 2)
+    case.assertEqual(len(terminal.requests("thread/turns/list")), 106)
     case.assertEqual(terminal.requests("thread/items/list"), [])
     case.assertEqual(model.requests, [])
 
@@ -50,7 +50,7 @@ def check_history(case, binary, codex, root, socket_mode=False):
     model = Model(root, lambda _body: case.fail("History must never call a model"))
     case.addCleanup(model.close)
     source, turns, path = write_history(root, count=40, commands_per_turn=55,
-        compact=True, large=True, large_indices=(1,3), provider="fixture")
+        compact=True, large=True, large_indices=(1,3,29), large_bytes=24*1024*1024, provider="fixture")
     original = path.read_bytes()
     peer = Codex(str(codex),root)
     try:
@@ -79,14 +79,31 @@ def check_history(case, binary, codex, root, socket_mode=False):
     case.assertEqual(pages[0]["params"]["sortDirection"],"desc")
     case.assertEqual(terminal.requests("thread/items/list"),[])
     response = next(row for row in terminal.messages("server") if row.get("id") == pages[0]["id"] and "method" not in row)
-    projected = response["result"]["data"]
     case.assertGreater(len(json.dumps(response)),8*1024*1024,"exercise a real oversized public history page")
-    case.assertEqual([turn["id"] for turn in projected],list(reversed(turns[:31])))
-    case.assertEqual(len([item for turn in projected for item in turn["items"]]),30*57+1)
-    case.assertNotIn("HISTORY_REPLY:30",json.dumps(projected),"the ancestor's excluded tail must stay excluded")
+    case.assertEqual([turn["id"] for turn in response["result"]["data"]], [turns[30]])
+    case.assertEqual(pages[0]["params"]["limit"], 1)
     terminal.rewind("history human 29")
     terminal.send(b"\x1b[A")
     terminal.wait(lambda:terminal.input_is("history human 28"),"canonical adjacent rewind anchor")
+    terminal.send(b"\x1b")
+    terminal.wait(lambda: terminal.input_is(""), "rewind closes before older history")
+    def oldest_visible():
+        if "history human 0" in terminal.text:
+            return True
+        terminal.send(b"\x1b[H")
+        return False
+    terminal.wait(oldest_visible, "all bounded turn pages retain the complete forked ancestor")
+    records = terminal.messages("server")
+    pages = terminal.requests("thread/turns/list")
+    replies = {row["id"]:row for row in records if "id" in row and "method" not in row}
+    projected = [turn for request in reversed(pages) for turn in replies[request["id"]]["result"]["data"]]
+    case.assertEqual([turn["id"] for turn in projected], turns[:31])
+    case.assertEqual(len([item for turn in projected for item in turn["items"]]),30*57+1)
+    response_bytes = sum(len(json.dumps(replies[request["id"]])) for request in pages)
+    case.assertGreater(response_bytes,64*1024*1024,"combined history exceeds the unchanged frame cap")
+    case.assertTrue(all(request["params"]["limit"] == 1 for request in pages))
+    case.assertTrue(all(len(json.dumps(replies[request["id"]])) < 64*1024*1024 for request in pages))
+    case.assertNotIn("HISTORY_REPLY:30",json.dumps(projected),"the excluded tail must stay excluded")
     case.assertEqual(terminal.requests("thread/fork"),[])
     case.assertEqual(terminal.requests("turn/start"),[])
     case.assertEqual(model.requests,[])
@@ -100,5 +117,5 @@ def check_history(case, binary, codex, root, socket_mode=False):
         case.assertTrue(all(row["connection"] == 1 for row in records),"one exact native socket connection")
     (root/"history-load-proof.json").write_text(json.dumps({"readySeconds":elapsed,
         "turns":len(projected),"items":sum(len(turn["items"]) for turn in projected),
-        "responseBytes":len(json.dumps(response)),"turnPageRequests":len(pages),
+        "responseBytes":response_bytes,"turnPageRequests":len(pages),
         "transport":"unix-websocket" if socket_mode else "stdio"},indent=2))

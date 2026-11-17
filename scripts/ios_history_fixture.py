@@ -19,6 +19,9 @@ def configure_motion(fixture):
             paragraph * (2 + part % 3) for part in range(3 + index % 5))
         turn["items"] = [{"type": "agentMessage", "id": f"motion-answer-{index}",
                           "phase": "final_answer", "text": text}]
+    # This fixture measures native scrolling, not fetching older turns. Keep its
+    # sixty completed messages together so the initial viewport has the same body.
+    peer.turns = [{**peer.turns[0], "items": [item for turn in peer.turns for item in turn["items"]]}]
     client = Client(fixture, "phone-motion-owner")
     try:
         operation = client.operation(1)
@@ -39,7 +42,11 @@ def configure_history(fixture):
         else:
             item = {"type": "reasoning", "id": f"empty-reason-{index}", "summary": [], "content": []}
         turn["items"] = [item]
-    peer.fail_cursor = "PRIVATE_HISTORY:desc:100"
+    # Two complete turns retain the same sparse messages on either side of the
+    # held read. Carlos now asks for one complete turn in each native reply.
+    peer.turns = [{**peer.turns[0], "items": [item for turn in peer.turns[:30] for item in turn["items"]]},
+                  {**peer.turns[30], "items": [item for turn in peer.turns[30:] for item in turn["items"]]}]
+    peer.fail_cursor = "PRIVATE_HISTORY:desc:1"
     peer.pause = True
     original = peer.reply_page
 
