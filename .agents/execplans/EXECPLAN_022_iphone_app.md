@@ -74,7 +74,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   sequentially in native-source-rows-*-01.log before physical installation.
   Source9a45 also passes10000-line code36.5s, syntax/exact Copy47.9s, history
   failure/retry/prepend32.6s and tool/live-update anchors91.2s. The full captured
-  reference and native units remain pending. The checkpoint report is
+  reference passes56.8s in both Flow and Gutter, with no rejected/mutating reads.
+  All19 native units pass with0 failures/skips. Install and launch succeed at
+  16:07:51/54Z on iPhone18 Pro. Signed preview
+  previews/9a45429810146c725110-20261117T160640Z/Carlos.app has executable SHA256
+  0fb2975939ef081c3e37bc060290b59d13e59b810e146a58bdfc977fc4a29d6a.
+  Logs: source-rows-phone-{build,sign,install}-01.log. The owner can now test the
+  actual motion; do not call it confirmed smooth from settled coordinates alone.
+  Continue the same-source functional sweep in final-native-matrix-01.log; seven
+  exact-source passes are reused from native-source-rows-prechecked-01.json.
+  The checkpoint report is
   .agents/reports/exec022-scroll-checks.md.
 
 - [x] The owner confirms the phone reconnects to their normal-shell daemon after
@@ -2049,3 +2058,7 @@ source/functional sweep open. No reviewer or EP approval has occurred.
 Revision2026-11-17: prevent the transient source cell from rendering a complete
 answer before the parent splits it into native block rows. The unchanged10MB
 source/exact clipboard check now passes; retain the prior main-thread stall.
+
+Revision2026-11-17: record the complete candidate checks and signed physical-phone
+install of9a45429810146c725110. Continue the final same-source app sweep and keep
+physical motion quality open until it has direct evidence.

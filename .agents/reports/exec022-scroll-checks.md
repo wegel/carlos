@@ -75,8 +75,14 @@ private artifacts; they are not included in this report or reviewer context.
 Source9a45429810146c725110 also passes syntax/exact-copy in47.9s, history
 failure/retry/prepend in32.6s, and tool expansion/live-update position in91.2s.
 The original2pt assertions and native traffic checks remain in force. The full
-private reference in Flow and Gutter and native units are pending. Physical
-installation follows those checks. The complete functional sweep, final measurements and end-only
+private reference passes in56.8s in both layouts, without a mutation or rejected
+read. All19 native units pass with0 failures/skips. The checked Release app was
+strictly signed, installed and launched on iPhone18 Pro at16:07:51/54Z. The
+immutable preview is previews/9a45429810146c725110-20261117T160640Z/Carlos.app on
+the owned Mac; executable SHA256 is
+0fb2975939ef081c3e37bc060290b59d13e59b810e146a58bdfc977fc4a29d6a.
+The owner has been told it is ready to test. Direct physical motion feedback
+remains open; no smooth-motion claim follows from the simulator checks. The complete functional sweep, final measurements and end-only
 reviews remain required before EP022 can close. The existing full Linux release,
 terminal and native-backend gate passes on runtime source92d3a53538102e52153236eb9c0b4ba0;
 these scrolling changes are Swift-only, and a subsequent workspace cargo test passes.
