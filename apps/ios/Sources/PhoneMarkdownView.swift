@@ -28,7 +28,7 @@ struct PhoneMarkdownBlockView: View {
     var changed: @MainActor () -> Void = {}
     @State private var block: PhoneMarkdownBlock?
     @State private var error: String?
-    @State private var code: AttributedString?
+    @State private var code: [PhoneOutputChunk]?
 
     var body: some View {
         Group {
@@ -46,11 +46,11 @@ struct PhoneMarkdownBlockView: View {
         .task(id: ObjectIdentifier(document)) {
             let document = document, index = index
             let result = await Task.detached(priority: .userInitiated) {
-                Result { () -> (PhoneMarkdownBlock, AttributedString?) in
+                Result { () -> (PhoneMarkdownBlock, [PhoneOutputChunk]?) in
                     var block = try document.block(index: index)
-                    var code: AttributedString?
+                    var code: [PhoneOutputChunk]?
                     if case .code = block.kind {
-                        code = PhoneCodeText.format(try document.code(index: index))
+                        code = PhoneOutputChunk.split(PhoneFileOutput(text: PhoneCodeText.format(try document.code(index: index))))
                         block.spans = []
                     }
                     return (block, code)
@@ -76,11 +76,8 @@ struct PhoneMarkdownBlockView: View {
         case .code(let language):
             VStack(alignment: .leading, spacing: 6) {
                 if let language { Text(language).font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.overlay2) }
-                ScrollView(.horizontal) {
-                    Text(code ?? AttributedString(block.spans.map(\.text).joined()))
-                        .font(PhoneTheme.mono(12.5)).fixedSize(horizontal: true, vertical: false)
-                        .textSelection(.enabled).accessibilityIdentifier("code.block")
-                }.scrollIndicators(.hidden)
+                PhoneCodeViewport(chunks: code ?? [], fontSize: 12.5, lineSpacing: 0, streaming: streaming,
+                                  textIdentifier: "code.block", scrollIdentifier: "code.viewport")
             }.padding(10).background(PhoneTheme.crust).clipShape(RoundedRectangle(cornerRadius: 10))
         case .rule:
             Rectangle().fill(PhoneTheme.surface0).frame(height: 1).padding(.vertical, 6)

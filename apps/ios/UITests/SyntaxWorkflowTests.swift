@@ -29,13 +29,7 @@ extension SessionWorkflowTests {
         capture("Actual native code uses the phone palette", screenshot: app.screenshot())
         let copy = app.buttons.matching(NSPredicate(format: "identifier == 'answer.copy' AND value == %@", "\(source.utf8.count) bytes")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 15))
-        UIPasteboard.general.string = "Not copied yet"
-        copy.tap()
-        XCTAssertTrue(wait { copy.label == "Copied" })
-        let paste = Task.detached { UIPasteboard.general.string }
-        let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow Paste"]
-        if allow.waitForExistence(timeout: 15) { allow.tap() }
-        let copied = await paste.value
+        let copied = await copiedText(using: copy)
         XCTAssertEqual(copied, source)
         XCTAssertTrue(wait { copy.label == "Copy" })
         app.buttons["header.settings"].tap()

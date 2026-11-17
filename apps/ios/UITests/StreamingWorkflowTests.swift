@@ -5,6 +5,9 @@ import XCTest
 extension SessionWorkflowTests {
     @MainActor
     func testStreamingCaretBlinksAndStopsWithTheOriginalTurn() throws {
+        struct Stream: Decodable { let streamText: String; let streamLabel: String }
+        let file = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "fixture", withExtension: "json"))
+        let source = try JSONDecoder().decode(Stream.self, from: Data(contentsOf: file))
         let app = try connectedSession()
         let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
@@ -13,7 +16,7 @@ extension SessionWorkflowTests {
         app.buttons["composer.send"].tap()
         let streaming = app.staticTexts["answer.streaming"]
         XCTAssertTrue(streaming.waitForExistence(timeout: 15))
-        XCTAssertEqual(streaming.label, "Streaming paragraph 🌍", "The caret must not become source or accessibility text")
+        XCTAssertEqual(streaming.label, source.streamLabel, "The caret must not become source or accessibility text")
         let prompt = app.staticTexts["phone stream"]
         XCTAssertTrue(prompt.exists)
         XCTAssertLessThan(prompt.frame.maxY, streaming.frame.minY, "A private prompt echo must precede the answer it started")
@@ -23,8 +26,8 @@ extension SessionWorkflowTests {
         stop.tap()
         XCTAssertTrue(app.buttons["composer.send"].waitForExistence(timeout: 15))
         XCTAssertFalse(streaming.exists)
-        XCTAssertTrue(app.staticTexts["Streaming paragraph 🌍"].exists)
-        let bytes = Data("Streaming paragraph 🌍".utf8).count
+        XCTAssertTrue(app.staticTexts[source.streamLabel].exists)
+        let bytes = Data(source.streamText.utf8).count
         let copy = app.buttons.matching(NSPredicate(format: "identifier == 'answer.copy' AND value == %@", "\(bytes) bytes")).firstMatch
         XCTAssertTrue(copy.waitForExistence(timeout: 15))
         capture("Stopped native answer keeps text and Copy without a caret", screenshot: app.screenshot())

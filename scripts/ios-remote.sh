@@ -73,6 +73,7 @@ ui-test)
         prompt) test_case=testConnectCreateAndSendOneExactPrompt ;;
         controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
         source) test_case=testLongOriginalSourceAndCopyKeepEveryByte ;;
+        code-source) test_case=testLargeCodeFenceKeepsEveryOriginalByteAndStaysResponsive ;;
         reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
@@ -92,6 +93,7 @@ ui-test)
             test_case=testUnavailableOrDeniedVoiceInputKeepsThePrivateDraft
             ;;
         keyboard) test_case=testHardwareReturnSendsAndModifiedReturnKeepsNewlines ;;
+        code-stream) test_case=testStreamingCaretBlinksAndStopsWithTheOriginalTurn ;;
         stream) test_case=testStreamingCaretBlinksAndStopsWithTheOriginalTurn ;;
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac

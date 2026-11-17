@@ -205,14 +205,7 @@ final class SessionWorkflowTests: XCTestCase {
             XCTFail("The complete source's Copy button is not visible")
             return
         }
-        UIPasteboard.general.string = "The answer has not been copied yet"
-        copy.tap()
-        XCTAssertTrue(wait { copy.label == "Copied" })
-        // UIPasteboard is Sendable. Keep the runner free to answer iOS's actual cross-app Paste prompt.
-        let paste = Task.detached { UIPasteboard.general.string }
-        let allowPaste = XCUIApplication(bundleIdentifier: "com.apple.springboard").alerts.buttons["Allow Paste"]
-        if allowPaste.waitForExistence(timeout: 15) { allowPaste.tap() }
-        let copied = await paste.value
+        let copied = await copiedText(using: copy)
         let bytes = Data(try XCTUnwrap(copied).utf8)
         XCTAssertEqual(bytes.count, fixture.sourceBytes)
         let actual = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()

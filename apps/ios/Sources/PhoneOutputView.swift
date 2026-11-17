@@ -6,7 +6,6 @@ struct PhoneOutputView: View {
     var filePath: String?
     @State private var chunks: [PhoneOutputChunk] = []
     @State private var numberWidth: CGFloat = 24
-    @State private var contentHeight: CGFloat = 22
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -17,21 +16,7 @@ struct PhoneOutputView: View {
             if model.window == nil, model.error == nil {
                 ProgressView("Loading tool output").font(PhoneTheme.mono(11.5))
             } else {
-                ScrollView([.horizontal, .vertical]) {
-                    LazyVStack(alignment: .leading, spacing: PhoneTheme.outputLeading) {
-                        ForEach(chunks) { chunk in
-                            HStack(alignment: .top, spacing: 12) {
-                                if let numbers = chunk.numbers {
-                                    Text(numbers).foregroundStyle(PhoneTheme.overlay1)
-                                        .frame(width: numberWidth, alignment: .trailing).accessibilityHidden(true)
-                                }
-                                Text(chunk.text).textSelection(.enabled)
-                            }.font(PhoneTheme.mono(11.5)).lineSpacing(PhoneTheme.outputLeading)
-                                .fixedSize(horizontal: true, vertical: true)
-                        }
-                    }.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
-                }.frame(height: min(320, contentHeight)).scrollIndicators(.visible)
-                    .defaultScrollAnchor(.topLeading, for: .alignment)
+                PhoneCodeViewport(chunks: chunks, numberWidth: numberWidth, scrollIdentifier: "tool.output.\(model.entry)")
             }
             if let error = model.error {
                 Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
@@ -41,7 +26,6 @@ struct PhoneOutputView: View {
         .padding(.vertical, 8).padding(.horizontal, 10).frame(maxWidth: .infinity, alignment: .leading)
         .background(PhoneTheme.crust).clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay { RoundedRectangle(cornerRadius: 10).stroke(PhoneTheme.surface0, lineWidth: 1) }
-        .accessibilityElement(children: .contain).accessibilityIdentifier("tool.output.\(model.entry)")
         .task(id: OutputFormatKey(version: model.version, path: filePath)) {
             let pieces = model.window?.pieces ?? []
             let path = filePath
@@ -56,6 +40,7 @@ struct PhoneOutputView: View {
             numberWidth = max(24, CGFloat(formatted.1) * 6.9)
         }
     }
+
 }
 
 private struct OutputFormatKey: Hashable {

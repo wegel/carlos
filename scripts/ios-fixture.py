@@ -99,14 +99,17 @@ def configure_controls(native, *, stream_output=False):
     native.handle = handle
 
 
-def configure_source(native):
+def configure_source(native, *, code=False):
     """Publish a source larger than a client frame; the phone must fetch every original byte."""
     source = "# Native source\n\n" + ("native paragraph " + "x" * 65500 + " 🌍\n\n") * 160
+    if code:
+        source = "# Native code\n\n```rust\n" + "".join(f"let value_{line} = {line}; // 🦀\n" for line in range(10000)) + "```\n\n"
     source += "phone source complete 🦀\n"
+    submitted = "phone large code" if code else "phone long source"
     original = native.prompt
 
     async def prompt(link, request):
-        if request["params"]["input"][0]["text"] != "phone long source":
+        if request["params"]["input"][0]["text"] != submitted:
             await original(link, request)
             return
         native.prompts += 1
@@ -124,10 +127,11 @@ def configure_source(native):
     return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
 
 
-def configure_stream(native):
+def configure_stream(native, *, code=False):
     """Hold one native answer until the original Stop, without approvals or fake UI state."""
     configure_controls(native)
     original = native.prompt
+    answer = "Streaming paragraph 🌍" + ("\n\n```rust\nlet count = 42;\n" if code else "")
 
     async def prompt(link, request):
         if request["params"]["input"][0]["text"] != "phone stream":
@@ -138,9 +142,10 @@ def configure_stream(native):
         await native.notify(link, "item/started", turnId="live", item={
             "type": "agentMessage", "id": "phone-stream", "phase": "final_answer", "text": ""})
         await native.notify(link, "item/agentMessage/delta", turnId="live", itemId="phone-stream",
-                            delta="Streaming paragraph 🌍")
+                            delta=answer)
 
     native.prompt = prompt
+    return {"streamText": answer, "streamLabel": "let count = 42;\n" if code else answer}
 
 
 def configure_questions(native, *, form_request=False, browser_url=None):
@@ -204,10 +209,10 @@ def configure_workflow(fixture, workflow, artifacts, resources):
         source = {"relayPort": visits.port, "relayControlPath": visits.control}
     elif workflow == "tools":
         configure_controls(fixture.native, stream_output=True)
-    elif workflow == "source":
-        source = configure_source(fixture.native)
-    elif workflow in ("stream", "scroll"):
-        configure_stream(fixture.native)
+    elif workflow in ("source", "code-source"):
+        source = configure_source(fixture.native, code=workflow == "code-source")
+    elif workflow in ("stream", "scroll", "code-stream"):
+        source = configure_stream(fixture.native, code=workflow == "code-stream")
         if workflow == "scroll":
             original_history = fixture.native.history
 
@@ -246,7 +251,7 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
+    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
                 "voice": [], "history": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
@@ -268,7 +273,7 @@ def check_native(fixture, backend, workflow, observed, visits):
         assert native.answers == 1 and native.interrupts == 1
         answers = [request for request in native.requests if request.get("id") == "card"]
         assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
-    elif workflow in ("stream", "scroll", "ralph"):
+    elif workflow in ("stream", "scroll", "ralph", "code-stream"):
         assert native.interrupts == 1 and native.answers == 0
     elif workflow == "questions":
         assert native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
@@ -319,7 +324,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "code-source", "code-stream"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":
