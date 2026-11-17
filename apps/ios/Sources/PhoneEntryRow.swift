@@ -10,10 +10,26 @@ struct PhoneEntryRow: View {
     @State private var visible = false
     @State private var source: PhoneSourceModel?
     @State private var acceptedInline = ""
-    @State private var inlineMarkup = PhoneMarkdownModel()
+    @State private var inlineMarkup: PhoneMarkdownModel
+
+    init(host: PhoneHostModel, row: PhoneEntry, compact: Bool = false) {
+        self.host = host
+        self.row = row
+        self.compact = compact
+        _inlineMarkup = State(initialValue: host.inlineMarkdown(for: row))
+    }
 
     private var color: Color { row.kind.textColor }
     private var accent: Color { row.kind.accent }
+
+    private var document: PhoneRenderedDocument? {
+        // Complete answers become independent collection rows. Never first lay out
+        // that same source as one enormous cell while the parent changes its rows.
+        if row.kind == .answer || row.kind == .commentary {
+            return row.text.sourceBytes == nil ? inlineMarkup.document : nil
+        }
+        return source?.document
+    }
 
     var body: some View {
         Group {
@@ -59,7 +75,7 @@ struct PhoneEntryRow: View {
     }
 
     @ViewBuilder private var contents: some View {
-        if let document = source?.document ?? inlineMarkup.document {
+        if let document {
             PhoneMarkdownView(document: document, color: color, role: row.kind,
                 streaming: row.kind == .answer && !row.done && host.connected && host.transcript?.currentSnapshot == true && host.transcript?.info.activity.canInterrupt == true, changed: host.contentChanged)
         }

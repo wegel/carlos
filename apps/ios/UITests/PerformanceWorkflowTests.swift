@@ -4,6 +4,26 @@ import XCTest
 
 extension SessionWorkflowTests {
     @MainActor
+    func testReadOnlyReferenceScrollPerformance() throws {
+        let app = try connectedHost()
+        let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 15))
+        session.tap()
+        setTools("Auto", in: app)
+        let transcript = app.collectionViews["transcript"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 15))
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTOSSignpostMetric.scrollingAndDecelerationMetric,
+                          XCTCPUMetric(application: app), XCTMemoryMetric(application: app)], options: options) {
+            transcript.swipeDown(velocity: .slow)
+            transcript.swipeUp(velocity: .fast)
+        }
+        capture("Real conversation after measured scrolling", screenshot: app.screenshot())
+        app.terminate()
+    }
+
+    @MainActor
     func testIdleCpuAndResidentMemory() async throws {
         struct Idle: Decodable { let idleControlURL: URL }
         let file = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "fixture", withExtension: "json"))
@@ -55,7 +75,7 @@ extension SessionWorkflowTests {
         app.buttons["header.settings"].tap()
         app.segmentedControls["settings.tools"].buttons["Auto"].tap()
         app.navigationBars["Session settings"].buttons["Done"].tap()
-        let transcript = app.scrollViews["transcript"]
+        let transcript = app.collectionViews["transcript"]
         XCTAssertGreaterThan(transcript.staticTexts.count, 0)
         transcript.swipeDown(velocity: .slow)
         transcript.swipeUp(velocity: .slow)
@@ -70,7 +90,7 @@ extension SessionWorkflowTests {
         app.buttons["header.settings"].tap()
         app.segmentedControls["settings.tools"].buttons["Auto"].tap()
         app.navigationBars["Session settings"].buttons["Done"].tap()
-        let transcript = app.scrollViews["transcript"]
+        let transcript = app.collectionViews["transcript"]
         XCTAssertGreaterThan(transcript.staticTexts.count, 0)
         let options = XCTMeasureOptions()
         options.iterationCount = 3

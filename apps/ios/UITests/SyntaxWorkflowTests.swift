@@ -37,8 +37,8 @@ extension SessionWorkflowTests {
         app.navigationBars["Session settings"].buttons["Done"].tap()
         let output = app.scrollViews.matching(NSPredicate(format: "identifier BEGINSWITH 'tool.output.'")).firstMatch
         XCTAssertTrue(wait { output.exists && output.staticTexts.containing(NSPredicate(format: "label CONTAINS 'let count = 42;'")).firstMatch.exists })
-        for _ in 0..<3 where output.frame.minY < app.scrollViews["transcript"].frame.minY {
-            app.scrollViews["transcript"].swipeDown()
+        for _ in 0..<3 where output.frame.minY < app.collectionViews["transcript"].frame.minY {
+            app.collectionViews["transcript"].swipeDown()
         }
         XCTAssertTrue(output.isHittable)
         let fileText = output.staticTexts.containing(NSPredicate(format: "label CONTAINS 'let count = 42;'")).firstMatch

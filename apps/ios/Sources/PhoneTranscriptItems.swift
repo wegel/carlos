@@ -5,7 +5,7 @@ struct PhoneTranscriptItem: Identifiable {
     enum Content {
         case entry(PhoneEntry?, PhoneEntryLayout)
         case heading(PhoneEntry)
-        case block(PhoneEntry, PhoneSourceModel, PhoneDocument, UInt32)
+        case block(PhoneEntry, PhoneSourceModel, PhoneRenderedDocument, UInt32)
         case footer(PhoneEntry, PhoneSourceModel)
         case echo(PhoneOperation)
     }
@@ -34,10 +34,10 @@ struct PhoneTranscriptItem: Identifiable {
             if let row, row.kind == .answer || row.kind == .commentary,
                let source = host.loadedSource(for: id), let document = source.document {
                 if layout == .flow {
-                    result.append(Self(id: id + "/heading", entry: id, gap: gap, content: .heading(row)))
+                    result.append(Self(id: id, entry: id, gap: gap, content: .heading(row)))
                 }
                 for block in 0..<UInt32(document.blockCount()) {
-                    result.append(Self(id: id + "/block/\(block)", entry: id,
+                    result.append(Self(id: block == 0 && layout == .gutter ? id : id + "/block/\(block)", entry: id,
                         gap: block == 0 ? (layout == .flow ? 8 : gap) : PhoneTheme.paragraphGap,
                         content: .block(row, source, document, block)))
                 }

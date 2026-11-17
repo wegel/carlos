@@ -9,7 +9,7 @@ extension SessionWorkflowTests {
         let saved = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch
         XCTAssertTrue(saved.waitForExistence(timeout: 15))
         saved.tap()
-        let transcript = app.scrollViews["transcript"]
+        let transcript = app.collectionViews["transcript"]
         let last = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'history anchor 129 🌍'")).firstMatch
         XCTAssertTrue(wait { last.exists && last.isHittable })
         let earlier = app.buttons["transcript.history"]

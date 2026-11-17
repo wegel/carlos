@@ -43,6 +43,12 @@ final class PhoneHostModel: Identifiable {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var sources: [String: PhoneSourceModel] = [:]
     @ObservationIgnored private var outputs: [String: PhoneOutputModel] = [:]
+    @ObservationIgnored private let inlineDocuments: NSCache<NSString, PhoneMarkdownModel> = {
+        let cache = NSCache<NSString, PhoneMarkdownModel>()
+        cache.countLimit = 64
+        cache.totalCostLimit = 2 * 1024 * 1024
+        return cache
+    }()
 
     init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget(), defaults: UserDefaults = .standard) {
         id = configuration.id
@@ -57,6 +63,21 @@ final class PhoneHostModel: Identifiable {
     func editDraft(_ text: String) { draftText = text }
 
     func loadedSource(for entry: String) -> PhoneSourceModel? { sources[entry] }
+
+    func inlineMarkdown(for row: PhoneEntry) -> PhoneMarkdownModel {
+        if let model = inlineDocuments.object(forKey: row.id as NSString) { return model }
+        let model = PhoneMarkdownModel()
+        inlineDocuments.setObject(model, forKey: row.id as NSString, cost: row.text.preview.utf8.count * 2 + 128)
+        return model
+    }
+
+    func prepareInline(_ entries: [String]) {
+        for id in entries {
+            guard let row = rows[id], row.text.sourceBytes == nil,
+                  row.kind == .answer || row.kind == .commentary else { continue }
+            inlineMarkdown(for: row).setInline(row.text.preview)
+        }
+    }
 
     func output(for entry: String) -> PhoneOutputModel? {
         guard let selected else { return nil }
@@ -136,6 +157,7 @@ final class PhoneHostModel: Identifiable {
         transcript = nil
         orderedEntries = []
         rows = [:]
+        inlineDocuments.removeAllObjects()
         approvals = []
         approvalRequests = [:]
         if let old, old != session {

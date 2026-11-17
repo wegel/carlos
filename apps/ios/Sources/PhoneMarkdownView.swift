@@ -2,7 +2,7 @@
 import SwiftUI
 
 struct PhoneMarkdownView: View {
-    let document: PhoneDocument
+    let document: PhoneRenderedDocument
     let color: Color
     var role: PhoneEntryKind = .answer
     var streaming = false
@@ -20,15 +20,28 @@ struct PhoneMarkdownView: View {
 }
 
 struct PhoneMarkdownBlockView: View {
-    let document: PhoneDocument
+    let document: PhoneRenderedDocument
     let index: UInt32
     let color: Color
     var role: PhoneEntryKind = .answer
     var streaming = false
     var changed: @MainActor () -> Void = {}
-    @State private var block: PhoneMarkdownBlock?
-    @State private var error: String?
-    @State private var code: [PhoneOutputChunk]?
+    @ObservedObject private var prepared: PhoneRenderedBlock
+
+    init(document: PhoneRenderedDocument, index: UInt32, color: Color, role: PhoneEntryKind = .answer,
+         streaming: Bool = false, changed: @escaping @MainActor () -> Void = {}) {
+        self.document = document
+        self.index = index
+        self.color = color
+        self.role = role
+        self.streaming = streaming
+        self.changed = changed
+        _prepared = ObservedObject(wrappedValue: document.block(index: index))
+    }
+
+    private var block: PhoneMarkdownBlock? { prepared.block }
+    private var error: String? { prepared.error }
+    private var code: [PhoneOutputChunk]? { prepared.code }
 
     var body: some View {
         Group {
@@ -44,24 +57,7 @@ struct PhoneMarkdownBlockView: View {
             else { Color.clear.frame(height: 22) }
         }
         .task(id: ObjectIdentifier(document)) {
-            let document = document, index = index
-            let result = await Task.detached(priority: .userInitiated) {
-                Result { () -> (PhoneMarkdownBlock, [PhoneOutputChunk]?) in
-                    var block = try document.block(index: index)
-                    var code: [PhoneOutputChunk]?
-                    if case .code = block.kind {
-                        code = PhoneOutputChunk.split(PhoneFileOutput(text: PhoneCodeText.format(try document.code(index: index))))
-                        block.spans = []
-                    }
-                    return (block, code)
-                }
-            }.value
-            guard !Task.isCancelled else { return }
-            switch result {
-            case .success(let value): block = value.0; code = value.1
-            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
-            }
-            changed()
+            if await prepared.loadCode() { changed() }
         }
     }
 
@@ -70,9 +66,11 @@ struct PhoneMarkdownBlockView: View {
         case .paragraph:
             PhoneStreamingText(text: Text(styled(block.spans, size: role == .notice ? 11.5 : 15)), streaming: streaming)
                 .lineSpacing(role == .notice ? 0 : PhoneTheme.proseLeading).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         case .heading(let level):
             PhoneStreamingText(text: Text(styled(block.spans, size: max(15, 25 - CGFloat(level) * 2), strong: true)), streaming: streaming)
                 .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         case .code(let language):
             VStack(alignment: .leading, spacing: 6) {
                 if let language { Text(language).font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.overlay2) }
@@ -87,6 +85,7 @@ struct PhoneMarkdownBlockView: View {
                     ForEach(block.cells.indices, id: \.self) { column in
                         Text(styled(block.cells[column], strong: header)).textSelection(.enabled)
                             .frame(width: 140, alignment: alignment(columns.indices.contains(column) ? columns[column] : .unspecified))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }.padding(.vertical, 4)
             }.scrollIndicators(.hidden)

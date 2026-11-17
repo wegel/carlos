@@ -34,19 +34,45 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Replace the transcript's SwiftUI LazyVStack/ScrollPosition/native-marker
-  corrections with UIKit reusable collection cells and stable visible-row anchors.
-  The owner confirms the corrected normal-shell connection works, then makes real
-  history jumps the next priority and questions whether the current long-buffer
-  scroller follows best practice. Keep this inside EP022 and Root direct. Apple
-  documents UIHostingConfiguration for SwiftUI cells in native collections, stable-ID
-  diffable data sources and self-sizing layout invalidation/contentOffsetAdjustment.
-  Keep the existing semantic row views, exact source readers, private expansion
-  choices and shared client. Remove the replaced scroller/marker path rather than
-  retain competing scroll controllers. Add native coordinate tests across mixed
-  real-sized rows, failed/retried/prepended history, tools and live output. Check
-  complete paragraph rendering as well: the real reference video shows truncated
-  list/quote text. No new reviewer before the end.
+- [x] Replace the SwiftUI LazyVStack/ScrollPosition/native-marker scroller with
+  UIKit reusable UIHostingConfiguration cells and a stable-ID data source. Keep
+  semantic rows, exact source readers, private tool choices and the shared client;
+  delete PhoneScrollOffset. Full vertical prose/heading/table sizing also removes
+  the observed truncation. The native tests retain their2pt coordinate limit.
+  Preserve history01/02's36pt failed-read shifts and history03's12pt prepend shift.
+  Reapply the explicit source anchor after actual layout outside gestures, and
+  include the row's changing top gap when preserving the first message. Source
+  c4aa20ff006b6a727aac passes history04, scroll04, the short captured-reference
+  check and cargo test. Its signed app was installed and launched on iPhone18 Pro;
+  the owner still reports motion stutters and jumps, so this is not a final fix.
+- [ ] Finish the owner's motion-stutter and jump fix. Source982f15b87f37886beb7f
+  retains parsed inline documents in an NSCache (64 entries and2MiB cost hints),
+  prepares up to16 upcoming entries, shares rendered blocks across cell reuse and
+  removes the asynchronous22pt placeholder for already-parsed block metadata.
+  Code highlighting remains off the UI thread. Defer structural transcript updates
+  through the complete drag/deceleration gesture and keep only the newest pending
+  update. Against the previous native build44bfcd6e902bd588621d on the same captured
+  conversation, three gesture pairs use mean CPU0.802s rather than1.034s (23% less).
+  Physical peak memory is68.5MB rather than69.0MB; gesture durations are unchanged
+  at2.35s. XCTest reports no frame-rate or hitch metric here, so these numbers do
+  not establish smooth physical-phone motion. The candidate passes history01 and
+  scroll01 with the original coordinate/native-traffic assertions. Retain logs and
+  metrics under /tmp/carlos-ep022/native-prepared-* and native-scroll-baseline-*.
+  Check10000-line code,10MB source/exact Copy, syntax, full captured reference and
+  native units before installing this candidate. Then complete the final sweep.
+  The10000-line code check passes, but the10MB source run stalls in SwiftUI
+  text layout; retain prepared-source-live-01.sample/png. PhoneEntryRow can observe
+  the ready source before its parent replaces that row with independent block
+  cells, briefly laying out the entire source a second time. Source
+  9a45429810146c725110 keeps only the preview in that transitional answer/commentary
+  cell; the parent remains the sole renderer of complete block rows. Check this
+  bounded fix with the original10MB source and exact clipboard assertions. The
+  corrected source passes that unchanged workflow in48.0s, native fixture
+  phone-codex-9eeafe3e2ae3. Retain the failed982f run: the test could not obtain a
+  screen because the main run loop stayed busy for30s. The unchanged Rust cargo
+  test also passes (native-prepared-cargo-01.log). Remaining candidate checks run
+  sequentially in native-source-rows-*-01.log before physical installation.
+
 - [x] The owner confirms the phone reconnects to their normal-shell daemon after
   the shared catalogue copy. Read-only hello and sessions/watch accept the unchanged
   phone token and show one saved session; device/list shows its one registered
@@ -656,6 +682,13 @@ time. The current acceptance checklist above states what remains before approval
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+The native collection alone did not remove the owner's motion stutter. Reused cells
+still recreated inline parsers and briefly measured parsed blocks at22pt before
+metadata arrived. Keeping parsed documents/blocks removes that repeated work;
+coalescing structural changes until drag and deceleration finish prevents the
+coordinator from replacing cells midway through a gesture. The measured CPU drop
+is evidence of less work, not proof of a particular screen refresh rate.
 
 - The clean live-scroll check on b757d93c53abc21091a5 receives the actual native
   prompt `phonestream`; it never reaches the streaming stage. This is input loss,
@@ -1352,6 +1385,13 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Decision2026-11-17 Root: use one native collection scroller, retain bounded parsed
+inline documents and block facts, and defer structural updates until a gesture
+ends. Remove the former SwiftUI marker controller instead of retaining competing
+scroll paths. Keep syntax work off the UI thread and preserve exact source/copy
+and2pt reader-position checks. The owner reports both stutters and jumps, so verify
+both less per-cell work and position before calling the fix complete.
+
 Decision2026-11-17 Root: replace per-row SwiftUI geometry observations with weak native
 view markers. Reading those rectangles does not add a dependency back into the lazy
 stack's placement graph. Use one-shot row jumps plus the existing measured-point
@@ -1997,3 +2037,11 @@ a proven fix, and every temporary trace must be removed before the clean final r
 
 Revision2026-11-17: share the existing pure read-gutter parser and record the proven
 first-character loss; check the smaller render-marker fix with the unchanged real UI.
+
+Revision2026-11-17: record the native scroller passes, physical-phone feedback and
+measured23% CPU reduction from shared parsed rows; keep motion quality and the final
+source/functional sweep open. No reviewer or EP approval has occurred.
+
+Revision2026-11-17: prevent the transient source cell from rendering a complete
+answer before the parent splits it into native block rows. The unchanged10MB
+source/exact clipboard check now passes; retain the prior main-thread stall.

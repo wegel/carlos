@@ -115,7 +115,7 @@ final class SessionWorkflowTests: XCTestCase {
             let header = app.buttons["header.sessions"]
             let draft = app.textViews["composer.draft"]
             XCTAssertTrue(wait { header.isHittable && draft.isHittable })
-            let transcript = app.scrollViews["transcript"]
+            let transcript = app.collectionViews["transcript"]
             XCTAssertGreaterThanOrEqual(transcript.frame.minY, header.frame.maxY)
             XCTAssertGreaterThanOrEqual(draft.frame.minY, transcript.frame.maxY)
             XCTAssertGreaterThan(transcript.staticTexts.count, 0)

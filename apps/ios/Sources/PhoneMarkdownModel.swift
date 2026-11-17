@@ -6,7 +6,7 @@ import Observation
 final class PhoneMarkdownModel {
     private let markdown: Bool
     private let changed: @MainActor @Sendable () -> Void
-    var document: PhoneDocument?
+    var document: PhoneRenderedDocument?
     var error: String?
     @ObservationIgnored private var target: PhoneCopySource?
     @ObservationIgnored private var identity = UUID()
@@ -69,7 +69,7 @@ final class PhoneMarkdownModel {
             formatting = false
             if self.identity == identity {
                 switch result {
-                case .success(let document): self.document = document
+                case .success(let document): self.document = PhoneRenderedDocument(source: document)
                 case .failure(let failure): error = PhoneFailureMessage.describe(failure)
                 }
                 changed()

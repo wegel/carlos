@@ -15,10 +15,11 @@ extension SessionWorkflowTests {
     @MainActor
     func checkReaderSettles(in transcript: XCUIElement) throws {
         transcript.swipeDown(velocity: .slow)
-        let visible = try XCTUnwrap(transcript.staticTexts.allElementsBoundByIndex.first {
-            !$0.label.isEmpty && $0.frame.minY > transcript.frame.minY + 10
-                && $0.frame.maxY < transcript.frame.maxY - 10
+        let cell = try XCTUnwrap(transcript.cells.allElementsBoundByIndex.first {
+            $0.identifier.hasPrefix("entry.") && $0.frame.maxY > transcript.frame.minY + 10
+                && $0.frame.minY < transcript.frame.maxY - 10
         })
+        let visible = transcript.cells[cell.identifier]
         let frame = visible.frame
         for _ in 0..<4 {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))

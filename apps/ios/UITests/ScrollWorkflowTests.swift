@@ -6,7 +6,7 @@ extension SessionWorkflowTests {
     func testToolExpansionAndNativeUpdatesKeepTheReadersPlace() throws {
         let app = try connectedSession()
         setTools("Auto", in: app)
-        let transcript = app.scrollViews["transcript"]
+        let transcript = app.collectionViews["transcript"]
         let tool = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'tool.' AND label CONTAINS 'history.txt'")).firstMatch
         XCTAssertTrue(wait { tool.exists && tool.isHittable })
         let originalY = tool.frame.minY

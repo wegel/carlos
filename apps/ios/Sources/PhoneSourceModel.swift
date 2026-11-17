@@ -7,7 +7,7 @@ final class PhoneSourceModel {
     let session: String
     let entry: String
     let markup: PhoneMarkdownModel
-    var document: PhoneDocument? { markup.document }
+    var document: PhoneRenderedDocument? { markup.document }
     var acceptedBytes: UInt64 = 0
     var totalBytes: UInt64?
     var done = false
