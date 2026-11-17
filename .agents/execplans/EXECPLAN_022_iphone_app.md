@@ -34,6 +34,59 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Finish the owner's flat composer and the stronger native edit guard. Remove
+  the pill, border and inset capsule; align monospace input with the transcript and
+  retain UIKit's blinking caret and native selection. The visual-only source
+  e73fabc5f617ac99e404 passes exact raw hardware keys, multiline/private text and
+  the five-line bound (flat-composer-keyboard-01.log). Root inspected its actual
+  image. A separate clean scroll run exposes a dropped space: the native peer gets
+  `phonestream`, not `phone stream`. Native edits now update the model without
+  replaying text into UIKit; only explicit Send/Restore/dictation replacements advance
+  a monotonic version. A native regression checks newer text, spaces and selection
+  against stale renders. The current clean build/check logs are flat-native-03,
+  flat-composer-keyboard-03 and flat-composer-scroll-03; results remain pending.
+- [x] Pass the clean native history failure/retry/prepend workflow on
+  b757d93c53abc21091a5/ui-tests-20261117T072244, native fixture
+  phone-codex-557752bcf662. Keep both axes within2pt and reach the original oldest
+  message. The following scroll case passes expansion/collapse but receives the
+  space-less prompt above and fails before streaming. The old-composer sweep was
+  stopped after that child finished; no remaining case or overall pass is claimed.
+- [x] Check earlier app/Rust source6b9031c0aba4cbf06ae8 and pass the18 native
+  checks, live prose/code caret and native Stop,10000-line code fence, complete10MB
+  clipboard, and exact history failure/retry/prepend workflows. Matrix04 logs retain
+  each actual result and request trace. The full remaining sweep is still pending.
+- [ ] Finish the native scroll/history regression before resuming the final sweep. Matrix04's
+  scroll test tapped an already expanded Full-mode row and then expected expansion.
+  The test now explicitly chooses Auto in the actual Settings UI; the running-tool and
+  read-only reference checks do the same. Source2710dc2f61398293938c changes tests only.
+  Both staged source trees have identical runtime SHA256:
+  e06c979322acfc903ab915fac11c51cebc2cc2492cc27507a80df2acfbbcefbd.
+  Matrix05 then reveals a real live-scroll timeout. Removing the global top anchor,
+  restoring the initial bottom edge and adding a temporary touch guard each fail;
+  the guard is removed. The captured native stack spends time finding lazy row
+  placements, not parsing text. Source514ea35f4975b647abd2 measures native bounds
+  anchors at the viewport, with no row querying an ancestor during layout. Its actual
+  scroll check still stalls; its native sample and live screen are retained. A bounded
+  diagnostic on d9561378ba50bd8032ff proves no repeated app offset correction precedes
+  the stall: the last callbacks are interacting/decelerating with restoration off.
+  Sourcec3ed87ebf02d0aa98bb8 explicitly releases the programmatic position when a
+  touch scroll begins; it still times out. Source6948fda55aebdc87358d removes the
+  binding and uses one-shot native jumps; it still stalls in lazy row placement,
+  now without ScrollStateRequestTransform in its captured sample. The next candidate
+  8bcbe1b071c29b677fe6 also removes per-row SwiftUI geometry/preference callbacks,
+  using native marker rectangles only when preserving a position. Its scroll check
+  passes in52.3s with the original2pt assertions and exact native Stop. History no
+  longer stalls but exposes a35.67pt failed-read jump; defer its rectangle read until
+  native layout settles, then rerun. All temporary diagnostic logs are removed. Keep every prior
+  failure and the2pt assertions. The full `cargo test` run passes at scroll-cargo-01.log.
+  Sourceb09c9d632aea980c0f46 fixes the failed-read position but still shifts32pt on
+  prepend. The bounded diagnostic e918b3062af448e6b37d passes and records both a
+  row jump and offset corrections on the same layout turn. The clean candidate
+  b757d93c53abc21091a5 jumps by ID only when the saved native rectangle is absent;
+  otherwise it corrects that measured rectangle after layout. The complete native,
+  functional and simulator-cost sweep is running in final-simulator-matrix-01.log.
+
+
 - [x] Build the actual native app and the narrow Rust bridge for both Apple targets.
 - [x] Prove saved Keychain credentials, last host/session, rejected-token repair and
   cold restart. The physical source232 preview contains the checked token fix.
@@ -59,6 +112,14 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 - [ ] Record final simulator startup/typing/scroll/idle CPU/memory/bridge/size costs,
   frozen CLI perf-session comparisons and authored production growth.
 - [ ] Build/sign/install a new immutable phone preview after the clean simulator gate.
+  The owner separately requested the current progress build now. Source8bcbe1b071c29b677fe6
+  is signed, strictly verified, installed and successfully launched on their specific
+  iPhone18 Pro at12:11UTC. The immutable Mac preview is
+  `previews/8bcbe1b071c29b677fe6-20261117T120943Z/Carlos.app`, executableSHA256
+  2098adbd691688b70eabed0bd5f94ddef533a5aabfae1e027cacd7a348e94ad0.
+  Both install and launch receipts report success. Existing previews and owner
+  daemon/CLI remain untouched. The disclosed failed-history-read jump still needs
+  repair before the final plan-approved build.
 - [ ] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
   review, resolve findings, record delegated approval and archive unchanged.
 
@@ -380,6 +441,37 @@ time. The current acceptance checklist above states what remains before approval
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+- The Mac runs out of disk while linking source5382e8b3ffb7a208ef6e; that candidate
+  never reaches its UI test. A scoped cleanup removes147 inactive reproducible
+  `builds/<20hex>/DerivedData` caches and increases free space from178MB to44.6GB.
+  All source snapshots, test results, screenshots, device builds and signed previews
+  remain. The receipt is `device-check/cache-cleanup-01.json`; the local log is
+  `/tmp/carlos-ep022/mac-cache-cleanup-01.log`. The replacement source also corrects
+  the compiler's GeometryProxy capture warning before testing.
+
+- Real scrolling can stall inside SwiftUI's lazy row placement. Source882f474f0d4243e91591
+  reproduces a sustained99.7% app CPU sample in `ScrollStateRequestTransform.findClosestSubview`;
+  `target/ios-artifacts/scroll-anchor-hang-01.sample` retains that stack. Sources
+  2ca4332c976d1ab8d14e and d49defef3759e7358d03 still time out after the initial
+  bottom-edge and temporary touch-guard changes. No passing result is claimed for them.
+
+Update2026-11-17 Root, final scroll checks: matrix04 fails at expansion because the
+previous workflow left Full mode selected; its saved AX tree shows the tapped row is
+now Collapsed. Matrix05 explicitly selects Auto and passes expansion/collapse, then
+hits the unchanged180s deadline during swipes while a native reply is live. Retain
+2710dc2f61398293938c/ui-tests-20261117T060039 and phone-codex-661b78991fa7.
+Do not call this a proven100%-CPU rendering loop: the subsequent process watcher never
+captures a sustained hot process. A repeat instead catches a20pt expansion jump
+(Y702→722) on the same source, ui-tests-20261117T060726, phone-codex-2a67ea07bb2f.
+Its post-test Home screen is normal teardown, not evidence of a crash.
+
+The history checkpoint added a global .top scroll-position anchor on top of explicit
+per-action anchors. Test removing that default while keeping the history's measured
+row/id/point correction unchanged. The scroll/history pair is pending on882f474f0d4243e91591;
+retain anchor-scroll-01 and anchor-history-01 logs. If the jump remains, reuse the
+existing measured-row adapter for the tapped tool rather than add another scroll engine.
+
 
 Update2026-11-17 Root: final-native01 passes18/18, no skips, on98ebb887daa478d26ce8/
 tests-20261117T052820. Its real Swift/Rust measurements are26.70–28.14ms per1000
@@ -1030,6 +1122,20 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Decision2026-11-17 Root: replace per-row SwiftUI geometry observations with weak native
+view markers. Reading those rectangles does not add a dependency back into the lazy
+stack's placement graph. Use one-shot row jumps plus the existing measured-point
+correction, not a bound programmatic ScrollPosition. Removing the binding alone did
+not cure the stall; removing per-row geometry callbacks does pass the real scroll
+workflow. This supersedes the earlier String-id/top-anchor experiment. Require the
+same actual history and full workflow checks before accepting the replacement.
+
+Decision2026-11-17 Root: honor the owner's new request to install the current progress
+preview before closing EP022. Build/sign source8bcbe1b071c29b677fe6 separately, preserving
+the old232 preview and owner daemon/CLI. Its live-scroll workflow passes; its35.67pt
+failed-history-read jump remains disclosed and under repair. This install is not final
+plan approval and does not replace the remaining simulator/performance/end-review gates.
 
 Decision2026-11-17 Root: keep long tool output inside a320pt native scroll viewport,
 with short results using their actual measured height. Split display text off-main

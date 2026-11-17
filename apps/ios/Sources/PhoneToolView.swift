@@ -19,7 +19,7 @@ struct PhoneToolView: View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 guard let session = host.selected else { return }
-                preservePosition()
+                preservePosition(row.id)
                 preferences.toggle(host: host.id, session: session, entry: row.id)
             } label: { header.contentShape(Rectangle()) }
                 .buttonStyle(.plain).disabled(!tool.hasOutput)
