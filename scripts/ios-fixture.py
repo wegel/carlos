@@ -22,6 +22,7 @@ from support import Fixture
 from native_task_questions import callback_key, form as native_form, question
 from ios_browser_fixture import browser_page
 from ios_history_fixture import configure_history, history_control
+from ios_ralph_fixture import configure_ralph
 
 
 def mac_settings():
@@ -191,6 +192,9 @@ def configure_workflow(fixture, workflow, artifacts, resources):
         directory.mkdir(mode=0o700)
         remote = resources.enter_context(forward(port, directory))
         source["historyControlURL"] = f"http://127.0.0.1:{remote}/release"
+    elif workflow == "ralph":
+        configure_controls(fixture.native)
+        configure_ralph(fixture)
     elif workflow == "tools":
         configure_controls(fixture.native, stream_output=True)
     elif workflow == "source":
@@ -235,7 +239,7 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"],
+    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"],
                 "voice": [], "history": [], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
@@ -255,7 +259,7 @@ def check_native(fixture, backend, workflow, observed, visits):
         assert native.answers == 1 and native.interrupts == 1
         answers = [request for request in native.requests if request.get("id") == "card"]
         assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
-    elif workflow in ("stream", "scroll"):
+    elif workflow in ("stream", "scroll", "ralph"):
         assert native.interrupts == 1 and native.answers == 0
     elif workflow == "questions":
         assert native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
@@ -304,7 +308,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":

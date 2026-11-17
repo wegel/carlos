@@ -34,6 +34,20 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] The real Mac grammar caller passes all15 native tests without skips on
+  484a9f14cdf3e7a34a5d/tests-20261117T041937.xcresult, syntax-native-02.log.
+  The standalone Apple graph compiles fancy-regex with no C regex backend. The
+  first actual code-color/clipboard UI check is still building on9c69953cd7a8f964a6a4.
+  A following file-output view keeps only actual native line numbers, leaves unmarked
+  lines unnumbered, retains typed command/diff/error colors and parses contiguous
+  plain source with one grammar state. All230 client/phone tests pass locally;
+  syntax-cargo-01.log records a full workspace pass. Actual file pixels remain pending.
+
+- [x] Root inspected the real Ralph02 screenshots after its successful exact native
+  traffic check: its engine-confirmed switch, pink status/scanner/composer, mic/Stop
+  and fixed bars are correctly placed without overlap. The current full file/output,
+  keyboard and final visual checks remain incomplete. No reviewer has run.
+
 - [x] History UI07 passes the stronger exact-coordinate checks on the pinned
   c3a71f02db8a30a1680d/ui-tests-20261117T040732.xcresult,
   phone-codex-a8ed61a3b596. The same visible message stays within2pt on both axes
@@ -1500,3 +1514,8 @@ exact coordinates; add a project-local raw HID test tool after proving its API e
 
 Revision2026-11-17: checkpoint the real history failure/retry/prepend pass, retain the
 first-character failure and measure the pending grammar library before adding it.
+
+Revision2026-11-17: record the actual Mac grammar test and inspected Ralph screens.
+The first-character keyboard issue still reproduces after the binding guard; a small
+fixture-only scalar/length trace checks where UIKit loses it. That guard is not called
+a proven fix, and every temporary trace must be removed before the clean final run.
