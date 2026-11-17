@@ -27,6 +27,7 @@ struct PhonePromptInput: UIViewRepresentable {
         view.accessibilityIdentifier = "composer.draft"
         view.delegate = context.coordinator
         view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.prepareKeyboard()
         return view
     }
 
@@ -69,6 +70,45 @@ final class PhonePromptTextView: UITextView {
     var send: (() -> Void)?
     private var handledReturns = Set<UIPress>()
     private var lastReplacement: UInt64?
+    private var idleCaret: PhoneIdleCaret?
+
+    func prepareKeyboard() {
+        idleCaret = PhoneIdleCaret(input: self)
+        let toolbar = UIView(frame: CGRect(x: 0, y: 0, width: 0, height: 44))
+        toolbar.autoresizingMask = .flexibleWidth
+        toolbar.backgroundColor = UIColor(PhoneTheme.mantle)
+        let done = UIButton(type: .system)
+        done.setTitle("Done", for: .normal)
+        done.setTitleColor(UIColor(PhoneTheme.blue), for: .normal)
+        done.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        done.addTarget(self, action: #selector(hideKeyboard), for: .touchUpInside)
+        done.accessibilityLabel = "Hide keyboard"
+        done.accessibilityIdentifier = "composer.keyboardDone"
+        done.translatesAutoresizingMaskIntoConstraints = false
+        toolbar.addSubview(done)
+        NSLayoutConstraint.activate([
+            done.trailingAnchor.constraint(equalTo: toolbar.trailingAnchor, constant: -12),
+            done.topAnchor.constraint(equalTo: toolbar.topAnchor),
+            done.bottomAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            done.widthAnchor.constraint(equalToConstant: 56)
+        ])
+        inputAccessoryView = toolbar
+    }
+
+    @objc private func hideKeyboard() { _ = resignFirstResponder() }
+
+    override func layoutSubviews() { super.layoutSubviews(); idleCaret?.update() }
+    override func didMoveToWindow() { super.didMoveToWindow(); idleCaret?.update() }
+    override func becomeFirstResponder() -> Bool {
+        let accepted = super.becomeFirstResponder()
+        idleCaret?.update()
+        return accepted
+    }
+    override func resignFirstResponder() -> Bool {
+        let accepted = super.resignFirstResponder()
+        idleCaret?.update()
+        return accepted
+    }
 
     // Only explicit model replacements can change UIKit's current text and selection.
     func replaceText(_ text: String, version: UInt64, attributes: [NSAttributedString.Key: Any]) {

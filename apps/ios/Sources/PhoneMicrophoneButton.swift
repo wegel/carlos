@@ -12,12 +12,12 @@ struct PhoneMicrophoneButton: View {
                 if speech.phase == .authorizing || speech.phase == .finishing { ProgressView().tint(PhoneTheme.text) }
                 else {
                     Image(systemName: speech.active ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(.system(size: 16, weight: .regular))
                         .symbolEffect(.pulse, options: .repeating, isActive: speech.active && !reduceMotion)
                 }
             }
-            .frame(width: 44, height: 44).background(speech.active ? PhoneTheme.red : PhoneTheme.surface0)
-            .foregroundStyle(speech.active ? PhoneTheme.crust : PhoneTheme.subtext1).clipShape(Circle())
+            .frame(width: 44, height: 44).contentShape(Rectangle())
+            .foregroundStyle(speech.active ? PhoneTheme.red : PhoneTheme.overlay2)
         }
         .disabled(speech.phase == .authorizing || speech.phase == .finishing)
         .accessibilityLabel(speech.active ? "Stop voice input" : "Voice input")

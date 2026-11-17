@@ -54,26 +54,16 @@ extension SessionWorkflowTests {
 
     @MainActor
     private func codeColors(_ screenshot: XCUIScreenshot, frame: CGRect, screen: CGRect) throws -> [UInt32: Int] {
-        let image = try XCTUnwrap(screenshot.image.cgImage)
-        let scale = CGFloat(image.width) / screen.width
-        let crop = try XCTUnwrap(image.cropping(to: CGRect(x: frame.minX * scale, y: frame.minY * scale,
-            width: frame.width * scale, height: frame.height * scale).integral))
-        var pixels = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
-        return try pixels.withUnsafeMutableBytes { bytes in
-            let context = try XCTUnwrap(CGContext(data: bytes.baseAddress, width: crop.width, height: crop.height,
-                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
-            var found: [UInt32: Int] = [:]
-            for index in stride(from: 0, to: bytes.count, by: 4) {
-                for color: UInt32 in [0xcba6f7, 0xa6e3a1, 0xfab387, 0x7f849c] {
-                    let distance = abs(Int(bytes[index]) - Int((color >> 16) & 255))
-                        + abs(Int(bytes[index + 1]) - Int((color >> 8) & 255))
-                        + abs(Int(bytes[index + 2]) - Int(color & 255))
-                    if distance < 20 { found[color, default: 0] += 1 }
-                }
+        let bytes = try rgbaPixels(screenshot, frame: frame, screen: screen)
+        var found: [UInt32: Int] = [:]
+        for index in stride(from: 0, to: bytes.count, by: 4) {
+            for color: UInt32 in [0xcba6f7, 0xa6e3a1, 0xfab387, 0x7f849c] {
+                let distance = abs(Int(bytes[index]) - Int((color >> 16) & 255))
+                    + abs(Int(bytes[index + 1]) - Int((color >> 8) & 255))
+                    + abs(Int(bytes[index + 2]) - Int(color & 255))
+                if distance < 20 { found[color, default: 0] += 1 }
             }
-            return found
         }
+        return found
     }
 }

@@ -104,20 +104,11 @@ struct PhoneSessionView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: 4) {
             PhonePromptInput(text: Binding(get: { host.draft }, set: { host.editDraft($0) }), replacementVersion: host.draftVersion) {
                 if !sendDisabled && !isStop { speech.cancel(keepText: true); host.send() }
             }
                 .frame(minHeight: 44)
-                .overlay(alignment: .trailing) {
-                    if host.draft.isEmpty && !speech.active {
-                        GeometryReader { geometry in
-                            Text(info?.title ?? "").font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
-                                .lineLimit(1).frame(maxWidth: geometry.size.width * 0.7, alignment: .trailing)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 4)
-                        }.allowsHitTesting(false)
-                    }
-                }
                 .accessibilityLabel("Prompt").accessibilityIdentifier("composer.draft")
             PhoneMicrophoneButton(speech: speech) {
                 let session = host.selected

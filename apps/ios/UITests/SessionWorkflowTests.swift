@@ -121,7 +121,9 @@ final class SessionWorkflowTests: XCTestCase {
             XCTAssertGreaterThan(transcript.staticTexts.count, 0)
             let screenshot = app.screenshot()
             let title = try pixels(screenshot, frame: app.buttons["header.title"].frame, screen: app.frame)
-            let input = try pixels(screenshot, frame: draft.frame, screen: app.frame)
+            // The idle insertion point blinks independently of the transcript layout.
+            let input = try pixels(screenshot, frame: draft.frame.insetBy(dx: 4, dy: 0), screen: app.frame)
+            XCTAssertEqual(draft.value as? String, "")
             if let headerPixels { XCTAssertEqual(title, headerPixels, "Changing the transcript layout must keep the title painted") }
             if let composerPixels { XCTAssertEqual(input, composerPixels, "Changing the transcript layout must keep the draft painted") }
             headerPixels = title

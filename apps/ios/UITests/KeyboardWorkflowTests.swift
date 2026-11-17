@@ -13,6 +13,7 @@ extension SessionWorkflowTests {
                       "Full mode must remain responsive with the real ten-thousand-line native output")
         let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        try checkIdleComposerCaret(app, draft: draft)
         draft.tap()
         draft.typeText("phone")
         XCTAssertEqual(draft.value as? String, "phone", "A native edit must survive an unrelated SwiftUI refresh")
@@ -48,6 +49,13 @@ extension SessionWorkflowTests {
         XCTAssertLessThanOrEqual(draft.frame.height, 137, "The composer must scroll internally beyond five lines")
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)
         capture("A six-line private draft stops growing after five lines", screenshot: app.screenshot())
+        let done = app.buttons["composer.keyboardDone"]
+        XCTAssertTrue(done.waitForExistence(timeout: 15))
+        done.tap()
+        XCTAssertTrue(wait { !app.keyboards.firstMatch.exists }, "Done must close the actual software keyboard")
+        XCTAssertEqual(draft.value as? String, unsent, "Closing the keyboard must keep the private draft")
+        try checkIdleComposerCaret(app, draft: draft)
+        capture("Keyboard closes while the flat draft and insertion point remain", screenshot: app.screenshot())
         app.terminate()
     }
 

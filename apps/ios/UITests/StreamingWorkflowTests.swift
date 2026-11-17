@@ -53,18 +53,7 @@ extension SessionWorkflowTests {
 
     @MainActor
     private func greenPixels(_ screenshot: XCUIScreenshot, frame: CGRect, screen: CGRect) throws -> Int {
-        let nativeImage = screenshot.image
-        let image = try XCTUnwrap(nativeImage.cgImage)
-        let x = CGFloat(image.width) / screen.width, y = CGFloat(image.height) / screen.height
-        let rectangle = CGRect(x: frame.minX * x, y: frame.minY * y, width: frame.width * x, height: frame.height * y).integral
-        let crop = try XCTUnwrap(image.cropping(to: rectangle))
-        var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
-        try bytes.withUnsafeMutableBytes { buffer in
-            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
-                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
-            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
-        }
+        let bytes = try rgbaPixels(screenshot, frame: frame, screen: screen)
         return stride(from: 0, to: bytes.count, by: 4).filter { index in
             Int(bytes[index + 1]) > Int(bytes[index]) + 20 && Int(bytes[index + 1]) > Int(bytes[index + 2]) + 20
         }.count

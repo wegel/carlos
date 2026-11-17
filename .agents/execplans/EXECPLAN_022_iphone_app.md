@@ -34,6 +34,46 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Finish and install the owner's follow-up composer controls: keep a native-positioned blue
+  caret visible/blinking while unfocused, keep it steady under Reduce Motion, remove
+  the duplicate session title, shrink the mic to a plain16pt glyph and add Done above
+  the software keyboard. Keep the44pt mic touch target. A small native layer uses
+  UIKit's actual insertion rectangle and never changes draft/clipboard/AX text.
+  Source354e053cd25cde136538 fails the blue-pixel check. Its actual screenshot shows
+  a gray cursor: UIKit dims the inherited tint after a sheet closes. The bounded
+  diagnostic60eb698d6d7ba73daad0 records a real2x24.33pt attached caret and the tint
+  changing from blue to UIExtendedGrayColorSpace; it also fails the blue assertion.
+  This is not proof of an absent cursor. Clean source3eabf70ebceda78bf8ae uses the
+  explicit caret blue, removes all temporary logs and the unused-result warning,
+  and avoids querying the idle caret while focused/offscreen. Its actual pixel/
+  hardware/Done/private-draft check paints a blue cursor but measures no blink
+  ([438,438,438,438,438,438,438]); ReduceMotionEnabled is0 in the owned simulator.
+  A cancellable550ms native task changes only the idle layer's opacity and stops
+  while focused/offscreen or under Reduce Motion. Source338483d5e3184163d52f passes
+  both idle blue-pixel phases, native keys, Done and retained private text in53.4s;
+  Root inspects its actual images. iOS renders UIBarButtonItem.done as a large blue
+  pill, so replace that accessory with one plain native button on a flat44pt bar.
+  Clean sourceb6045c86fecfa6a6bb65 is checking that final control and building its
+  normal phone release. Its first run misses the injected Shift-Return; preserve
+  plain-keyboard-controls-01.log. The unchanged complete repeat passes in57.3s,
+  ui-tests-20261117T081904, phone-codex-49520e1637ef, including both blue0/438 pixel
+  phases, all original native text, Done and the unsent draft. The normal release
+  passes; its strict signed preview is installed at13:20UTC:
+  `previews/b6045c86fecfa6a6bb65-20261117T132047Z/Carlos.app`, executableSHA256
+  09002e84090a968800a96c371169aef561c3722b7b53a4d16cde0167edf51cf7.
+  Install succeeds; automatic launch is refused only because the phone is locked.
+  The owner explicitly asks to install input first and reports real backbuffer jumps.
+  Input is installed; backbuffer stability and the large-code freeze are the next
+  work. Do not silently erase the first native-key failure or call the whole EP done.
+- [ ] Complete the remaining e240 functional/cost sweep at final-simulator-matrix-02.log.
+  History, credentials, cold relaunch, rejected replacement, exact prompt, offered
+  approval/Stop, running-tool controls, forms/questions, browser, Ralph and both
+  prose/code carets pass. The10000-line code-source case then fails with an actual
+ 30s busy main-thread snapshot timeout; preserve e240/ui-tests-20261117T080756 and
+  phone-codex-6d6189d9f6a8. The sweep stops at that failure. Capture a native busy
+  stack in its next bounded reproduction after the new controls are installed.
+  New composer controls need their
+  own actual checks and the final source must retain all required coverage.
 - [ ] Finish the owner's flat composer and the stronger native edit guard. Remove
   the pill, border and inset capsule; align monospace input with the transcript and
   retain UIKit's blinking caret and native selection. The visual-only source
