@@ -18,9 +18,12 @@ def check_older_windows(case, terminal, model):
     terminal.rewind("history human 104")
     terminal.send(b"\x1b[A")
     terminal.wait(lambda: terminal.input_is("history human 103"), "exact adjacent paged human")
+    terminal.contains("HISTORY_REPLY:103")
+    case.assertEqual(len(terminal.daemon_requests("session/history")), 1,
+                     "rewind loads the selected prompt's transcript row")
     terminal.send(b"\x1b")
     terminal.wait(lambda: terminal.input_is(""), "rewind closes before transcript Home")
-    for count in (1, 2):
+    for count, anchor in enumerate((102, 101), 2):
         terminal.send(b"\x1b[H")
         terminal.wait(lambda: len(terminal.daemon_requests("session/history")) == count,
                       "one explicit older native history read")
@@ -31,6 +34,7 @@ def check_older_windows(case, terminal, model):
                         if message.get("id") == request_id)
         case.assertIn("result", response)
         case.assertTrue(response["result"]["entries"])
+        terminal.contains(f"HISTORY_REPLY:{anchor}")
 
     def oldest_visible():
         if "history human 0" in terminal.text:

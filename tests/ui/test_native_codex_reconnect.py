@@ -105,14 +105,16 @@ class NativeCodexReconnect:
         resumed=self.resume_shared(resume_root,root,socket)
         resumed.contains("Keep this native turn running")
         def rebuilt():
-            rows=[json.loads(line) for line in (terminal.root/"rpc.jsonl").read_text().splitlines()]
+            rows=[json.loads(line) for line in (terminal.root/"rpc.jsonl").read_bytes().splitlines(keepends=True)
+                  if line.endswith(b"\n")]
             return sum(row["connection"]==2 and row["direction"]=="client" and row["message"].get("method")=="thread/read" for row in rows)>=2
         resumed.wait(rebuilt,"initial snapshot installed before normal metadata reconciliation")
         # Native does not persist a display item for clock.sleep; the retained user row is authoritative.
         resumed.paste("Wake the already running native turn")
         resumed.send(b"\r")
         resumed.contains("INITIAL_ATTACH_STEERED")
-        rows=[json.loads(line) for line in (terminal.root/"rpc.jsonl").read_text().splitlines()]
+        rows=[json.loads(line) for line in (terminal.root/"rpc.jsonl").read_bytes().splitlines(keepends=True)
+              if line.endswith(b"\n")]
         writes=[row["message"] for row in rows if row["connection"]==2 and row["direction"]=="client"]
         self.assertEqual([row for row in writes if row.get("method")=="turn/start"],[])
         steer=next(row for row in writes if row.get("method")=="turn/steer")
