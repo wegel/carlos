@@ -381,6 +381,38 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+Update2026-11-17 Root: final-native01 passes18/18, no skips, on98ebb887daa478d26ce8/
+tests-20261117T052820. Its real Swift/Rust measurements are26.70–28.14ms per1000
+bounded Markdown reads and77.70–78.94ms per500 Rust code lines (19000UTF8bytes),
+after grammar warmup. The unit process peaks at46.6MB; this is not app memory.
+Final-keyboard01 passes with Full explicitly selected and real10000-line output loaded:
+98ebb887daa478d26ce8/ui-tests-20261117T052901, phone-codex-e3ed151a5c84,46.93s.
+The earlier eager chunk case passes but takes111.87s and its live sample shows CoreText
+drawing offscreen blocks. Lazy output blocks keep only nearby labels drawn.
+
+The strengthened file-X assertion rejects final-syntax01: the source starts90.33pt
+from its viewport edge instead of beside the gutter. An explicit viewport minimum width
+corrects that, and final-syntax02 passes on776494ab68c6866221ca/ui-tests-20261117T053614,
+phone-codex-3066bdc62224. No assertion was removed. Native checks pass on this source too.
+The same candidate's actual restart/Reopen check passes:
+776494ab68c6866221ca/ui-tests-20261117T053803, phone-codex-f397b0c77fd8. Its
+native evidence proves one original send, two actual resumes (operator recovery and
+explicit Reopen), both private texts retained, no private draft in an independent
+reader's snapshot, and no right for that reader to inspect the original operation.
+
+A direct call-path check shows Reopen alone cannot resume a failed subscription.
+The phone now records its private Reopen operation key and subscribes only after an
+actual accepted reply, with controls busy until that reply. Rejected/uncertain replies
+retain private text. Move explicit native controls into PhoneHostControls.swift so the
+host model stays comfortably below400 lines. Navigation stops microphone capture and
+dismisses the editor before showing another input sheet.
+
+Apply the same bounded text viewport to Markdown code fences, which otherwise retain
+the exact oversized-label hazard proved by the output sample. Add a real10000-line
+native code-fence/complete-clipboard check; keep the existing10MB-source check intact.
+These new shared-view changes and the stronger final matrix remain pending.
+
+
 Update2026-11-17 Root: keyboard12 still freezes at100% CPU before Send on
 9edf61c0acc0cfdf7ae7/ui-tests-20261117T051046. The live sample proves CoreText
 spends its time measuring one10000-line label; bounding only its scroll box is

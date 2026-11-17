@@ -111,6 +111,10 @@ private struct PhoneEchoLayout {
         let known = Set(host.orderedEntries)
         for key in host.operationOrder {
             guard let operation = host.operations[key], operation.session == host.selected, operation.needsEcho else { continue }
+            switch operation.state {
+            case .rejected, .uncertain: continue
+            default: break
+            }
             guard let anchor = host.echoAnchors[key], !anchor.queued else {
                 tail.append(Self.item(operation))
                 continue

@@ -1,5 +1,6 @@
 // Draw the fixed header/composer around real, lazily fetched transcript rows.
 import SwiftUI
+import UIKit
 
 struct PhoneSessionView: View {
     @Bindable var host: PhoneHostModel
@@ -11,6 +12,9 @@ struct PhoneSessionView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private var info: PhoneSession? { host.transcript?.info ?? host.catalog.first { $0.id == host.selected } }
+    private var availability: PhoneAvailability? {
+        host.catalog.first { $0.id == host.selected }?.activity.availability ?? info?.activity.availability
+    }
     private var statusColor: Color {
         if case .disconnected = host.link { return PhoneTheme.red }
         return host.connected && host.transcript?.currentSnapshot == true ? (info?.statusColor ?? PhoneTheme.overlay1) : PhoneTheme.overlay1
@@ -36,7 +40,7 @@ struct PhoneSessionView: View {
                 }.padding(.leading, 16).background(PhoneTheme.base).fixedSessionBar()
             }
             PhoneTranscriptView(host: host, openQuestions: openQuestions)
-            if info?.activity.availability == .closed || info?.activity.availability == .unavailable {
+            if availability == .closed || availability == .unavailable {
                 Button("Reopen session") { host.reopen() }.frame(minHeight: 44)
                     .disabled(!host.connected || host.controlSubmitting).fixedSessionBar()
             }
@@ -63,16 +67,24 @@ struct PhoneSessionView: View {
     }
 
     private func openQuestions(card: PhoneApproval, questions: PhoneQuestions) {
+        speech.cancel(keepText: true)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         let draft = questionDrafts[card.id] ?? PhoneQuestionDraft(card: card.id, editor: questions)
         questionDrafts[card.id] = draft
         editing = draft
     }
 
+    private func openSheet(_ show: () -> Void) {
+        speech.cancel(keepText: true)
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        show()
+    }
+
     private var header: some View {
         HStack(spacing: 2) {
-            Button(action: sessions) { Image(systemName: "list.bullet").frame(width: 44, height: 44) }
+            Button { openSheet(sessions) } label: { Image(systemName: "list.bullet").frame(width: 44, height: 44) }
                 .accessibilityLabel("Sessions").accessibilityIdentifier("header.sessions")
-            Button(action: sessions) {
+            Button { openSheet(sessions) } label: {
                 VStack(spacing: 3) {
                     Text(info?.title ?? "Carlos").font(PhoneTheme.prose(16, weight: .semibold)).lineLimit(1)
                     HStack(spacing: 6) {
@@ -83,7 +95,7 @@ struct PhoneSessionView: View {
                     }
                 }.frame(maxWidth: .infinity, minHeight: 44)
             }.buttonStyle(.plain).accessibilityIdentifier("header.title")
-            Button(action: settings) { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
+            Button { openSheet(settings) } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44) }
                 .accessibilityLabel("Session settings").accessibilityIdentifier("header.settings")
         }
         .padding(.horizontal, 6).padding(.bottom, 6)

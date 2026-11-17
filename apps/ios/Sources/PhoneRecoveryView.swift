@@ -1,6 +1,5 @@
 // Keep failed private text accessible without replacing a newer draft or resending it automatically.
 import SwiftUI
-import UIKit
 
 struct PhoneRecoveryView: View {
     let host: PhoneHostModel
@@ -13,7 +12,8 @@ struct PhoneRecoveryView: View {
             HStack {
                 Button("Restore to empty draft") { host.draft = operation.text ?? "" }
                     .disabled(!host.draft.isEmpty).frame(minHeight: 44)
-                Button("Copy") { UIPasteboard.general.string = operation.text }.frame(minHeight: 44)
+                    .accessibilityIdentifier("recovery.restore.\(operation.key)")
+                PhoneCopyButton(source: .inline(operation.text ?? ""), identifier: "recovery.copy.\(operation.key)")
             }
             Text("Check the outcome before sending it again.").font(PhoneTheme.prose(13))
                 .foregroundStyle(PhoneTheme.overlay2)

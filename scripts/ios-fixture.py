@@ -24,6 +24,7 @@ from ios_browser_fixture import browser_page
 from ios_history_fixture import configure_history, history_control
 from ios_ralph_fixture import configure_ralph
 from ios_syntax_fixture import configure_syntax
+from ios_reconnect_fixture import reconnect_relay, check_reconnect
 
 
 def mac_settings():
@@ -198,6 +199,9 @@ def configure_workflow(fixture, workflow, artifacts, resources):
         configure_ralph(fixture)
     elif workflow == "syntax":
         source = configure_syntax(fixture.native)
+    elif workflow == "reconnect":
+        visits = resources.enter_context(reconnect_relay(fixture))
+        source = {"relayPort": visits.port, "relayControlPath": visits.control}
     elif workflow == "tools":
         configure_controls(fixture.native, stream_output=True)
     elif workflow == "source":
@@ -243,13 +247,15 @@ def observed_prompts(fixture, backend):
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
     expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
-                "voice": [], "history": [], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
+                "voice": [], "history": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
     if backend != "codex":
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
     native = fixture.native
+    if workflow == "reconnect":
+        check_reconnect(fixture, visits)
     if workflow == "history":
         assert native.started == 0 and native.resumed == 1
         assert len(visits.pages) == 3, visits.pages
@@ -288,8 +294,10 @@ def run(workflow, backend="codex"):
     try:
         source, visits = configure_workflow(fixture, workflow, artifacts, resources)
         token = grant(fixture, "native-phone")
-        port = int(fixture.ws_uri.rsplit(":", 1)[1])
+        port = source.pop("relayPort", int(fixture.ws_uri.rsplit(":", 1)[1]))
         with forward(port, artifacts) as remote:
+            if workflow == "reconnect":
+                source["reconnectControlURL"] = f"http://127.0.0.1:{remote}{source.pop('relayControlPath')}"
             config = {"url": f"ws://127.0.0.1:{remote}", "token": token, "backend": backend,
                       "cwd": str(fixture.root), "workflow": workflow, **source}
             inputs = artifacts / "inputs"
@@ -311,7 +319,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":

@@ -22,6 +22,7 @@ enum PhoneCopySource: Sendable {
 struct PhoneCopyButton: View {
     private static let logger = Logger(subsystem: "app.carlos.phone", category: "clipboard")
     let source: PhoneCopySource
+    var identifier = "answer.copy"
     @State private var copied = false
     @State private var copying = false
     @State private var error: String?
@@ -50,7 +51,7 @@ struct PhoneCopyButton: View {
                 Label(copied ? "Copied" : copying ? "Copying…" : "Copy", systemImage: copied ? "checkmark" : "document.on.document")
                     .font(PhoneTheme.mono(11.5)).frame(minWidth: 44, minHeight: 44)
             }
-            .disabled(copying).foregroundStyle(PhoneTheme.overlay2).accessibilityIdentifier("answer.copy")
+            .disabled(copying).foregroundStyle(PhoneTheme.overlay2).accessibilityIdentifier(identifier)
             .accessibilityValue(Text(verbatim: "\(source.byteCount) bytes"))
             if let error { Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red) }
         }
