@@ -4,16 +4,16 @@ import UIKit
 
 struct PhonePromptInput: UIViewRepresentable {
     @Binding var text: String
+    let replacementVersion: UInt64
     let send: () -> Void
 
     func makeUIView(context: Context) -> PhonePromptTextView {
         let view = PhonePromptTextView()
         view.backgroundColor = .clear
         view.clipsToBounds = true
-        view.layer.cornerRadius = 22
         view.textColor = UIColor(PhoneTheme.text)
         view.tintColor = UIColor(PhoneTheme.blue)
-        view.textContainerInset = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
+        view.textContainerInset = UIEdgeInsets(top: 12, left: 0, bottom: 12, right: 0)
         view.textContainer.lineFragmentPadding = 0
         view.keyboardDismissMode = .interactive
         view.autocorrectionType = .no
@@ -34,15 +34,7 @@ struct PhonePromptInput: UIViewRepresentable {
         context.coordinator.parent = self
         view.send = send
         if view.isEditable != context.environment.isEnabled { view.isEditable = context.environment.isEnabled }
-        if context.coordinator.lastBinding != text, view.markedTextRange == nil {
-            context.coordinator.lastBinding = text
-            if view.text != text {
-                let attributes = Self.textAttributes
-                view.attributedText = NSAttributedString(string: text, attributes: attributes)
-                view.typingAttributes = attributes
-                view.selectedRange = NSRange(location: (text as NSString).length, length: 0)
-            }
-        }
+        view.replaceText(text, version: replacementVersion, attributes: Self.textAttributes)
     }
 
     private static var textAttributes: [NSAttributedString.Key: Any] {
@@ -50,7 +42,7 @@ struct PhonePromptInput: UIViewRepresentable {
         paragraph.minimumLineHeight = 22.5
         paragraph.maximumLineHeight = 22.5
         return [
-            .font: UIFont(name: "InterVariable", size: 15) ?? UIFont.systemFont(ofSize: 15),
+            .font: UIFont(name: "JetBrainsMono-Regular", size: 14) ?? UIFont.monospacedSystemFont(ofSize: 14, weight: .regular),
             .foregroundColor: UIColor(PhoneTheme.text), .paragraphStyle: paragraph
         ]
     }
@@ -65,8 +57,6 @@ struct PhonePromptInput: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: PhonePromptInput
-        // Track values SwiftUI rendered, not native edits that can reenter an older render.
-        var lastBinding: String?
         init(_ parent: PhonePromptInput) { self.parent = parent }
 
         func textViewDidChange(_ textView: UITextView) {
@@ -78,6 +68,17 @@ struct PhonePromptInput: UIViewRepresentable {
 final class PhonePromptTextView: UITextView {
     var send: (() -> Void)?
     private var handledReturns = Set<UIPress>()
+    private var lastReplacement: UInt64?
+
+    // Only explicit model replacements can change UIKit's current text and selection.
+    func replaceText(_ text: String, version: UInt64, attributes: [NSAttributedString.Key: Any]) {
+        guard lastReplacement.map({ version > $0 }) ?? true, markedTextRange == nil else { return }
+        lastReplacement = version
+        guard self.text != text else { return }
+        attributedText = NSAttributedString(string: text, attributes: attributes)
+        typingAttributes = attributes
+        selectedRange = NSRange(location: (text as NSString).length, length: 0)
+    }
 
     override func pressesBegan(_ presses: Set<UIPress>, with event: UIPressesEvent?) {
         for press in presses {

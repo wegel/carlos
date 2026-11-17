@@ -4,6 +4,26 @@ import XCTest
 @testable import Carlos
 
 final class PromptInputTests: XCTestCase {
+    func testOldRendersCannotOverwriteNativeKeystrokesOrSelection() async {
+        await MainActor.run {
+            let input = PhonePromptTextView()
+            let attributes: [NSAttributedString.Key: Any] = [.font: UIFont.monospacedSystemFont(ofSize: 14, weight: .regular)]
+            input.replaceText("", version: 0, attributes: attributes)
+            input.insertText("phone stream 🌍")
+            input.selectedRange = NSRange(location: 5, length: 0)
+            input.replaceText("phone", version: 0, attributes: attributes)
+            XCTAssertEqual(input.text, "phone stream 🌍", "An older render cannot erase a space or newer keys")
+            XCTAssertEqual(input.selectedRange.location, 5, "A redraw cannot move the insertion point")
+            input.replaceText("", version: 1, attributes: attributes)
+            XCTAssertEqual(input.text, "", "An explicit Send acknowledgement may clear the draft")
+            input.insertText("new private text")
+            input.replaceText("phone", version: 0, attributes: attributes)
+            XCTAssertEqual(input.text, "new private text", "An older replacement cannot restore a sent prompt")
+            input.replaceText("recovered 🦀", version: 2, attributes: attributes)
+            XCTAssertEqual(input.text, "recovered 🦀", "Explicit recovery must still replace native text")
+        }
+    }
+
     func testNativeReturnPreservesTheDraftAndEditingDelegate() async {
         await MainActor.run {
             let input = PhonePromptTextView()

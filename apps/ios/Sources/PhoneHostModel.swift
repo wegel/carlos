@@ -25,7 +25,12 @@ final class PhoneHostModel: Identifiable {
     var controlSubmitting = false
     let history = PhoneHistoryModel()
     var approvalRequests: [String: ApprovalSubmission] = [:]
-    var draft = ""
+    private var draftText = ""
+    private(set) var draftVersion: UInt64 = 0
+    var draft: String {
+        get { draftText }
+        set { draftVersion += 1; draftText = newValue }
+    }
     var submitting = false
     @ObservationIgnored var reopening: String?
     var creating = false
@@ -47,6 +52,9 @@ final class PhoneHostModel: Identifiable {
     }
 
     func contentChanged() { contentVersion = UUID() }
+
+    // Native keystrokes update the model without asking UIKit to replace its own text.
+    func editDraft(_ text: String) { draftText = text }
 
     func loadedSource(for entry: String) -> PhoneSourceModel? { sources[entry] }
 

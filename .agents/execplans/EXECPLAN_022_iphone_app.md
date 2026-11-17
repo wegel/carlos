@@ -44,7 +44,9 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   replaying text into UIKit; only explicit Send/Restore/dictation replacements advance
   a monotonic version. A native regression checks newer text, spaces and selection
   against stale renders. The current clean build/check logs are flat-native-03,
-  flat-composer-keyboard-03 and flat-composer-scroll-03; results remain pending.
+  flat-composer-keyboard-03 and flat-composer-scroll-03 on e240e77436096c8f4454.
+  All19 native tests pass without skips, including the explicit stale-render/selection
+  regression. The actual keyboard and live-scroll workflows remain pending.
 - [x] Pass the clean native history failure/retry/prepend workflow on
   b757d93c53abc21091a5/ui-tests-20261117T072244, native fixture
   phone-codex-557752bcf662. Keep both axes within2pt and reach the original oldest
@@ -441,6 +443,20 @@ time. The current acceptance checklist above states what remains before approval
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+- The clean live-scroll check on b757d93c53abc21091a5 receives the actual native
+  prompt `phonestream`; it never reaches the streaming stage. This is input loss,
+  not another lazy-stack hang. The old text-value guard can still replay an earlier
+  native edit over a later space. Gate replacements by an explicit model version;
+  native keystrokes update the observed text without advancing that version. All19
+  e240 native tests pass, including ignored stale text/versions, retained insertion
+  point, explicit clear and explicit recovery.
+
+- Swift6.2 crashes while generating a closure reabstraction in PhoneSessionView on
+  source64c749f7a5d46bf4ad6b. No UI test runs for that source. An explicit Binding
+  setter closure avoids the compiler defect; no compiler setting or toolchain changes.
+  Keep flat-composer-keyboard-02.log. The replacement e240 source builds and passes
+  its19 native tests.
 
 - The Mac runs out of disk while linking source5382e8b3ffb7a208ef6e; that candidate
   never reaches its UI test. A scoped cleanup removes147 inactive reproducible

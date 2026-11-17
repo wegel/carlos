@@ -105,21 +105,16 @@ struct PhoneSessionView: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            PhonePromptInput(text: $host.draft) {
+            PhonePromptInput(text: Binding(get: { host.draft }, set: { host.editDraft($0) }), replacementVersion: host.draftVersion) {
                 if !sendDisabled && !isStop { speech.cancel(keepText: true); host.send() }
             }
-                .frame(minHeight: 44).background(PhoneTheme.base)
-                .clipShape(RoundedRectangle(cornerRadius: 22))
-                .overlay { RoundedRectangle(cornerRadius: 22).stroke(info?.activity.ralph == true ? PhoneTheme.pink.opacity(0.6) : PhoneTheme.surface0, lineWidth: 1) }
-                .overlay(alignment: .leading) {
-                    if info?.activity.ralph == true { Capsule().fill(PhoneTheme.pink).frame(width: 3).padding(.vertical, 10).padding(.leading, 6) }
-                }
+                .frame(minHeight: 44)
                 .overlay(alignment: .trailing) {
                     if host.draft.isEmpty && !speech.active {
                         GeometryReader { geometry in
                             Text(info?.title ?? "").font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
                                 .lineLimit(1).frame(maxWidth: geometry.size.width * 0.7, alignment: .trailing)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 14)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing).padding(.trailing, 4)
                         }.allowsHitTesting(false)
                     }
                 }
@@ -141,7 +136,7 @@ struct PhoneSessionView: View {
             .disabled(sendDisabled)
             .accessibilityLabel(isStop ? "Stop" : "Send").accessibilityIdentifier(isStop ? "composer.stop" : "composer.send")
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .padding(.leading, 16).padding(.trailing, 12).padding(.vertical, 8)
     }
 }
 
