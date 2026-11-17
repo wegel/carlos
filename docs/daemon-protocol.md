@@ -21,8 +21,15 @@ and mutation calls. No arbitrary native method enters the public protocol.
 ## Clients and commands
 
 `session/send` captures an explicit `steer` or `queue` policy with each message.
-The phone keeps Queue as its default and offers a Steer/Queue menu while a response
-runs and the composer has text. Its empty composer still replaces Send with Stop.
+The phone starts each new draft with Steer and offers a Steer/Queue menu while a
+response runs and the composer has text. Queue applies to that draft only; the
+phone does not restore an older saved Queue preference. Its empty composer still
+replaces Send with Stop.
+
+Session settings offers Rename session through the existing `session/rename`
+command. A separate name draft leaves the message composer untouched. The phone
+changes the visible title only after daemon facts confirm it, keeps an unconfirmed
+name and never automatically retries a rename whose outcome is unknown.
 
 An old-message editor first sends `prompt/select` with `source: human`,
 `direction: at_entry` and the visible transcript entry as `anchor`. The owner
@@ -128,6 +135,12 @@ The owner numbers every shared session fact. Every subscriber receives that
 single stream, including small output-change facts for collapsed tools. Expanded
 tools use separate entry-bound output cursors. A client never advances its
 session cursor by filtering out a bulk output notification.
+
+For a subscribed session, the daemon queues the numbered facts through a body
+chunk's sequence before sending that source/output reply or watch update. A
+completed body read keeps its reserved bytes while those facts catch up. This
+lets the client retire an older body version before a reply describes its
+replacement. Direct reads without a session subscription need no such wait.
 
 A live subscriber whose replay prefix has expired receives `session/snapshot`
 with a complete bounded replacement page and its actual sequence. The server

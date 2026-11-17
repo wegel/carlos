@@ -35,6 +35,45 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Finish checking/installing the body-before-facts ordering repair for the
+  owner's remaining F5 report. The actual zmx footer captures InvalidBody while
+  a tool source loads (reconnect-07-carlos.txt); it is an ordinary transcript
+  placeholder, not a separate viewer. Both live terminals/daemon runfa5890c2.
+  Observer06/09 scroll this real session without reproducing it; observer08
+  separately catches queue pressure, which is not claimed as its cause.
+  A deterministic manager test fails before the fix: source/output replies
+  withseq2 are sent before the peer receivesseq2 identifying their new version.
+  Keep those completed reads charged to their original budget until the facts
+  are queued first, and request fresh owner facts while waiting. All four
+  direct/watch/source/output cases pass after the fix; a caller without a
+  session stream must still receive its direct read immediately. The actual
+  terminal replacement/byte-order check passes on both pairs; it covers the
+  workflow, while the unit test forces the race. Full release/native checks run
+  in body-order-release-gate-01.log. The earlier pending upgrade helper was
+  stopped only after verifying it was still Python waiting for idle; the live
+  daemon PID1723001 and its service are untouched. Re-arm the upgrade with the
+  final checked package after checks, not the now-superseded6d95 package.
+- [x] (2026-11-17 23:57Z) Add phone Session settings → Rename session through the existing typed
+  session/rename command. Keep a separate name draft, close only on actual
+  acceptance, retain rejected names and never replay unknown outcomes. Preserve
+  the message draft and update the header/session list from daemon facts.
+  The phone facade and sheet are implemented; all34 phone Rust tests pass.
+  Commit47ec832b also follows the owner's later request: Steer defaults for
+  every new message; Queue is explicit for the current draft and never restored
+  from old saved preferences. Native source6cb590365ff8b4e6aa02 passes25 units,
+  rename65.254s and Steer-default88.050s actual app/native-traffic checks. Its
+  signed Release build is installed and launched on the exact iPhone18 Pro.
+  The first rename UI test wrongly assumed a
+  native error was definitely rejected; the engine conservatively marks it
+  uncertain. Preserve that test failure. The corrected test checks the kept
+  name/disabled immediate retry, closes and inspects the actual unchanged name,
+  then explicitly opens a new editor for a successful name. The earlier debug
+  gate passes225/226 daemon cases; the known Claude disk outcome timeout remains
+  preserved, and that same case passes in all226 final release daemon checks.
+  The remaining release terminal/native checks run againstsourcee77e5a338758f2193504033f0d68e278.
+  No active daemon has been restarted. Final checked install/activation still
+  remain; see exec022-rename-body-order-handoff.md for sources and receipts.
+
 - [x] (2026-11-17 23:29Z) Install final phone controls on the exact iPhone18 Pro.
   Source803de11aabdd9e72988f builds Release, passes strict signing and installs
   successfully. Launch is denied only because the phone is locked; the owner
@@ -46,8 +85,9 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   ~/.local/lib/carlos/backups/20261117T232124Z. The running daemon remains
   PID1723001/sourcefa5890c2 and hosts this active turn. Its existing
   carlos-phone-daemon.service must not be stopped during this turn. The new
-  carlos-phone-controls-daemon.service is armed separately, currently waiting
-  for every saved session to be idle. It targets the exact old PID/birth and
+  carlos-phone-controls-daemon.service was armed separately, then stopped while
+  still a verified idle waiter to include the body-order repair. Re-arm with
+  the final checked source after the release gate. It targets the exact old PID/birth and
   preserves its normal-shell environment, state, socket, config and device
   grants. The old service recovery plan is pinned to its immutable fa589
   package. The new checker writes phone-controls/normal-phone-connectivity.json
@@ -1094,6 +1134,14 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+2026-11-17 rename/body order: the actual F5 footer remains InvalidBody onfa589,
+despite the prior watch cancellation fix. A deterministic manager check exposes
+a second race: a body query can finish before the independent owner-facts query
+publishes its version to that peer. The corrected manager waits without releasing
+the read's original byte reservation. The native rename UI check also proves
+the engine deliberately marks a backend name error uncertain; preserve that
+guard rather than enabling an immediate retry based on error text.
+
 2026-11-17 phone controls: final native screenshots confirm the separate editor
 retains a rejected edit and cannot replace a nonempty main draft. They also
 expose the existing backend JSON error wrapper; keep that error-label polish
@@ -1858,6 +1906,18 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+2026-11-17, later owner instruction: Steer must default while work runs. This
+supersedes the earlier Queue-default decision below. Queue applies only to the
+current private draft; clearing/sending it restores Steer and saved Queue
+preferences from an older build do not override the new default.
+
+2026-11-17 body read order: keep completed source/output reads behind the
+numbered facts that identify their version for an existing session subscriber.
+Retain their original byte reservation while waiting, and request current owner
+facts. A direct reader without a subscription waits for no invented stream.
+The old deterministic manager test sends the new body first and fails; the new
+code sends the facts first. Preserve strict client revision/cursor/byte checks.
+
 2026-11-17 phone controls: preserve Queue as the existing phone default and let
 the user choose Steer explicitly while composing during a running response.
 Keep the main Stop/Send replacement when the draft is empty; the owner says this
@@ -2143,6 +2203,16 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+2026-11-17 23:57Z checkpoint: session renaming and per-draft Steer default are
+implemented, committed, checked in the actual simulator app and installed/launched
+on the iPhone18 Pro. The body-order repair is committed and its deterministic
+before/after check passes; all226 release daemon cases pass. Full terminal/native
+checks still run on e77e5a338758f2193504033f0d68e278. The installer is verified
+but not executed, and the separately named idle upgrade helper is deliberately
+stopped until that final package passes. The active daemon remains PID1723001
+in carlos-phone-daemon.service. Do not stop it during this turn. EP022 remains
+open for its final polish/cost matrix and end-only review.
 
 2026-11-17 phone-controls checkpoint: the exact-row prompt read, typed send
 modes and separate editor are implemented and committed. All24 final native
@@ -2701,3 +2771,5 @@ Revision2026-11-17: save the owner-requested sandbox restart checkpoint, verifie
 Revision2026-11-17: resume after the sandbox restart and prioritize the newly reported oversized Codex history response; diagnose with isolated private copies before modifying paging or limits.
 
 Revision2026-11-17: prove explicit phone send modes and exact old-message forks on the final simulator source, preserve failed-run evidence and drafts, install the checked Linux package, and stage the separately named idle daemon upgrade without killing this turn. Keep EP022 open for final app polish and end-only review.
+
+Revision2026-11-17: install checked session renaming and the owner-requested Steer default; retain the actual remaining F5 capture, force the body-before-facts race in a deterministic test, and keep the replacement daemon pending its final release gate without restarting active work.

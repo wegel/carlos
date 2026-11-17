@@ -61,6 +61,10 @@ and Grok’s native client protocol.
 
     target/ui-venv/bin/python scripts/ios-fixture.py
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow controls
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow send-mode
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow edit
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow edit-rejected
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow rename
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow credentials
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow relaunch
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow source
@@ -83,6 +87,14 @@ and Grok’s native client protocol.
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow token-update
     target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
     target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
+
+The send-mode check verifies that a new message steers the running response by
+default, while explicitly choosing Queue delays that message until the next turn.
+The edit checks cancel and submit an earlier message through its exact saved
+prompt, and preserve both drafts when the backend refuses the fork. The rename
+check opens Session settings, cancels a private name, retains an unconfirmed name,
+then confirms a new name in both the header and session list without sending a
+prompt. Each check also verifies the actual requests received by the native peer.
 
 The native-flick check compares Carlos with a plain iOS text scroller in the same
 viewport. It follows visible text, rather than counting offset changes caused by
