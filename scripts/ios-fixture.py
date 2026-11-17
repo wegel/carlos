@@ -194,6 +194,11 @@ def configure_workflow(fixture, workflow, artifacts, resources):
         configure_controls(fixture.native)
     elif workflow in ("native-flick", "native-motion"):
         configure_motion(fixture)
+    elif workflow in ("hosts", "host-duplicates"):
+        alias = artifacts / "host-alias"
+        alias.mkdir(mode=0o700)
+        remote = resources.enter_context(forward(int(fixture.ws_uri.rsplit(":", 1)[1]), alias))
+        source["hostAliasURL"] = f"ws://127.0.0.1:{remote}"
     elif workflow == "history":
         visits = configure_history(fixture)
         port = resources.enter_context(history_control(visits))
@@ -256,7 +261,11 @@ def check_native(fixture, backend, workflow, observed, visits):
     expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
                 "voice": [], "quota": ["native quotas"], "claude-tools": ["read source"], "history": [], "native-flick": [], "native-motion": [], "idle-perf": [], "launch-perf": [], "typing-perf": [], "scroll-perf": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
-    assert observed == expected[workflow], observed
+    if workflow in ("hosts", "host-duplicates"):
+        assert observed == [], observed
+        assert fixture.native.started == 1 and fixture.native.interrupts == 0, "Managing saved hosts must not create or stop native sessions"
+    else:
+        assert observed == expected[workflow], observed
     if backend != "codex":
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
@@ -330,7 +339,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion", "hosts", "host-duplicates"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.workflow in ("quota", "claude-tools") and arguments.backend != "claude":

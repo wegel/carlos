@@ -7,7 +7,10 @@ package hashes match. The fresh standalone package smoke passes, including the
 matching daemon, hostile working directory, explicit environment and helper
 self-worker checks. These checks use isolated fixtures, not owner sessions.
 
-The install has not happened. The tool container mounts~/.local/bin read-only;
+The normal-shell install is now visible: CLI, daemon and helper match all three
+checked package hashes exactly. The owner reports running the auto-started daemon.
+
+Earlier, the install could not run in the tool environment. The tool container mounts~/.local/bin read-only;
 both the ordinary and escalated attempts fail with EROFS before swapping a file.
 The container's unmounted home paths are private too, so the handover uses the
 shared checkout. It contains the full package with notices/checksums and the old
@@ -27,9 +30,11 @@ No carlosd was previously installed beside them.
 Plain Carlos starts/connects the default managed local daemon. The current iPhone
 uses a separately started daemon/socket/catalogue in the preview directory. An
 async question asks the owner whether they want to share it by default or retain
-explicit attachment. That preference remains unanswered. Do not confuse installing
+explicit attachment. The owner now asks to add the newly auto-started normal daemon to the phone and
+reports that daemon idle. It has only a local Unix socket; prepare its separate
+WebSocket listener/device token after the requested sandbox restart. Do not confuse installing
 the matching files with moving a live native owner or migrating the catalogue.
 
 The iPhone18 Pro remains on checked de74, which the owner calls awesome after
-trying its native scrolling. No installed phone/daemon was changed by the failed
-CLI install attempt. EP022's final cost/sweep/review work is still incomplete.
+trying its native scrolling. No phone daemon was changed by the failed CLI install attempts or the later
+normal-shell executable install. EP022's final cost/sweep/review work is still incomplete.

@@ -41,6 +41,7 @@ final class PhoneHostModel: Identifiable {
     @ObservationIgnored private var creation: String?
     @ObservationIgnored private let bodyBudget: PhoneBodyBudget
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let restoringSession: Bool
     @ObservationIgnored private var sources: [String: PhoneSourceModel] = [:]
     @ObservationIgnored private var outputs: [String: PhoneOutputModel] = [:]
     @ObservationIgnored private let inlineDocuments: NSCache<NSString, PhoneMarkdownModel> = {
@@ -50,11 +51,13 @@ final class PhoneHostModel: Identifiable {
         return cache
     }()
 
-    init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget(), defaults: UserDefaults = .standard) {
+    init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget(), defaults: UserDefaults = .standard,
+         restoringSession: Bool = true) {
         id = configuration.id
         self.configuration = configuration
         self.bodyBudget = bodyBudget
         self.defaults = defaults
+        self.restoringSession = restoringSession
     }
 
     func contentChanged() { contentVersion = UUID() }
@@ -138,6 +141,10 @@ final class PhoneHostModel: Identifiable {
 
     func cancelConnection(_ identity: UUID) {
         guard connectionIdentity == identity else { return }
+        disconnect()
+    }
+
+    func disconnect() {
         connectionIdentity = nil
         transport.disconnect()
         changedLink(.disconnected(nil))
@@ -237,7 +244,7 @@ final class PhoneHostModel: Identifiable {
                 }
             }
         }
-        if case .connected = state, selected == nil,
+        if case .connected = state, restoringSession, selected == nil,
            let saved = defaults.string(forKey: "carlos.hosts.\(id).session") {
             select(saved)
         }

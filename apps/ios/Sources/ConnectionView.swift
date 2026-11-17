@@ -27,7 +27,7 @@ struct ConnectionView: View {
     }
 
     private var usesSavedToken: Bool {
-        existing?.address == address.trimmingCharacters(in: .whitespacesAndNewlines)
+        existing?.connectionKey == PhoneHost.connectionKey(address)
     }
 
     var body: some View {
@@ -136,7 +136,8 @@ struct ConnectionView: View {
         do {
             error = nil
             field = nil
-            pending = try store.beginConnection(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
+            pending = try store.beginConnection(name: host, address: address, token: token,
+                                                privateWebSocket: privateWebSocket, existingID: existing?.id)
         } catch { self.error = PhoneFailureMessage.describe(error) }
     }
 }

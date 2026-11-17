@@ -230,9 +230,9 @@ final class SessionWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    func connectedSession() throws -> XCUIApplication {
+    func connectedSession(hostName: String = "Native fixture") throws -> XCUIApplication {
         let fixture = try settings()
-        let app = try connectedHost()
+        let app = try connectedHost(name: hostName)
         let cwd = app.textFields["sessions.cwd"]
         XCTAssertTrue(cwd.waitForExistence(timeout: 15))
         cwd.tap()
@@ -247,7 +247,7 @@ final class SessionWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    func connectedHost(token suppliedToken: String? = nil) throws -> XCUIApplication {
+    func connectedHost(token suppliedToken: String? = nil, name: String = "Native fixture") throws -> XCUIApplication {
         continueAfterFailure = false
         let fixture = try settings()
         let app = XCUIApplication(bundleIdentifier: "app.carlos.phone.fixture")
@@ -259,7 +259,7 @@ final class SessionWorkflowTests: XCTestCase {
         address.typeText(fixture.url)
         let host = app.textFields["connection.host"]
         host.tap()
-        host.typeText("Native fixture")
+        host.typeText(name)
         let token = app.secureTextFields["connection.token"]
         token.tap()
         token.typeText(suppliedToken ?? fixture.token)

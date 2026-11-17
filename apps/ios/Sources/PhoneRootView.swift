@@ -10,7 +10,7 @@ struct PhoneRootView: View {
     var body: some View {
         Group {
             if let host = store.current {
-                PhoneSessionView(host: host, sessions: { sessions = true }, settings: { settings = true }).id(host.id)
+                PhoneSessionView(host: host, sessions: { sessions = true }, settings: { settings = true }).id(ObjectIdentifier(host))
             } else {
                 ConnectionView(store: store, completed: { sessions = true })
             }

@@ -8,6 +8,17 @@ struct PhoneHost: Codable, Identifiable, Sendable {
     let address: String
     let allowsPrivateWebSocket: Bool
 
+    var connectionKey: String { Self.connectionKey(address) }
+
+    static func connectionKey(_ address: String) -> String {
+        guard var parts = URLComponents(string: address.trimmingCharacters(in: .whitespacesAndNewlines)) else { return address }
+        parts.scheme = parts.scheme?.lowercased()
+        parts.host = parts.host?.lowercased()
+        if parts.path == "/" { parts.path = "" }
+        if parts.scheme == "ws" && parts.port == 80 || parts.scheme == "wss" && parts.port == 443 { parts.port = nil }
+        return parts.string ?? address
+    }
+
     func url() throws -> URL {
         guard let parts = URLComponents(string: address), let url = parts.url,
               let host = parts.host, !host.isEmpty, parts.user == nil, parts.password == nil,

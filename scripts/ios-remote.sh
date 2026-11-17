@@ -80,6 +80,8 @@ ui-test)
         reference-perf) test_case=testReadOnlyReferenceScrollPerformance ;;
         reference-motion) test_case=testReadOnlyReferenceScrollsThroughOlderRows ;;
         reference-flick) test_case=testFastFlickKeepsNativeMomentum ;;
+        hosts) test_case=testEditedServerKeepsItsEntryThroughRestartAndRemoval ;;
+        host-duplicates) test_case=testSameNamedServersShowAddressesAndRemoveOnlyTheChosenEntry ;;
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
         token-update) test_case=testRejectedReplacementKeepsTheSavedTokenThroughCancelAndRestart ;;

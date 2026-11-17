@@ -34,23 +34,41 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Complete the owner's newly requested normal local installation. The owner
-  asks to use this branch as normal Carlos under~/.local/bin. This supersedes the
-  earlier no-install scope for this explicitly requested install only. Current
-  Rust source remains92d3a53538102e52153236eb9c0b4ba0; the full release/native gate04
-  already passes, a fresh release build is current,515 package hashes match, and
-  normal-install-package-smoke-01 passes. The tool container binds~/.local/bin
-  read-only; a require_escalated retry still fails with EROFS. No installed file
-  changed. Container-private~/.local/lib is NOT the host home, so do not give the
-  owner its paths. The complete verified package, old CLI/helper backups and
-  reviewed installer are in the shared checkout at tmp/install-carlos-92d3a535/.
-  The installer --check passes. The owner must run, without sudo, from their shell:
-  python3 /home/wegel/work/perso/carlos-daemon/tmp/install-carlos-92d3a535/install.py
-  It installs helper/daemon before CLI, saves the full package and backups under
-  their real~/.local/lib/carlos, verifies identities, and starts/stops no daemon.
-  An async preference asks whether plain Carlos should share the phone daemon
-  or use its own managed default; no answer has arrived. Do not alter that route
-  or restart the owner daemon without settling the actual normal-shell handover.
+- [ ] Resume after the owner's requested sandbox restart. The owner offers writable
+  access to the real Carlos binary/config/state/runtime directories and asks Root
+  to stop at a convenient checkpoint. No tests/builds remain running. Current host
+  management source23952a4b8d31245275a0 is saved but not deployed. Source713e524dd1050306d293
+  compiles and passes24 native units and1795 Rust tests (12 ignored). Both new UI
+  runs reach remove confirmation, then fail on an ambiguous XCTest selector for
+  nested Remove buttons. The selector now uses host.confirmRemove.firstMatch;
+  that correction is staged in23952 and has not been rerun. Preserve both failed
+  result bundles. Read .agents/reports/exec022-restart-handoff.md before resuming.
+- [ ] Finish saved-server management. Server headers now show name and address
+  with Manage/Edit/Remove, and Add server is visible in the Sessions toolbar.
+  Address edits retain their saved ID and authenticate on a separate model/client
+  before replacing a working connection; a changed address requires its own token.
+  Equivalent addresses cannot add another entry, and a removed editor cannot save
+  late. Removal clears only that entry's token/session preference and disconnects
+  its local client. Other hosts/native sessions remain. Native tests cover these
+  boundaries. Actual hosts/host-duplicates UI checks and credential regressions
+  must pass before a new signed phone install. Keep accepted native scroll physics.
+- [ ] Enable phone access to the owner's new NORMAL daemon after restart. The
+  owner says it started automatically from Carlos and is idle. That default has
+  only a Unix socket; it needs an explicit --listen IP:PORT and a device token.
+  Keep the preview daemon on33731 untouched. Use a separate port such as33732
+  for normal Carlos, the same normal socket/catalogue, and the real normal-shell
+  daemon. No restart, token grant or setup script has been performed/prepared yet.
+  Do not start the user's normal daemon from the tool container. After mounts are
+  corrected, inspect actual paths and prepare a concrete normal-shell handover.
+
+- [x] Verify the normal local installation is now visible. Installed~/.local/bin
+  carlos/carlosd/helper hashes match the checked source92d3a535 package exactly:
+  7167fb9c... / fefa8834... / 9b201307... . The owner is running its automatically
+  started daemon. The tool's bin mount remains read-only until the requested
+  sandbox restart. Earlier failed copy attempts changed no installed files; the
+  shared tmp/install-carlos-92d3a535 installer/package/backups remain preserved.
+  The installer saves its normal-shell receipt/backups under~/.local/lib/carlos;
+  inspect that real directory after it is mounted, not the private overlay home.
 - [x] Measure the prefetch-only large-source probe39c0e5c6fadc2526a385. It passes
   the identical10MB/exact-copy test47.51s and samples447560KiB peak RSS versus
   de74's1126612KiB, about60% lower. Keep no-prefetch-source-01, memory-01 and
@@ -1621,6 +1639,14 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+- Decision: preserve a saved server's ID when editing its address, but use a fresh
+  transport/model for a changed endpoint until authentication succeeds.
+  Rationale: matching only by address created a second saved entry. Reusing an old
+  client with another server risks stale session facts/credentials. A failed edit
+  must leave the working entry intact; a new endpoint requires an explicit token.
+  Date/Author:2026-11-17, Root.
+
+
 - Decision: use UIKit's plain compositional list and remove flow-layout gesture
   offset compensation. Retain only explicit idle history/tool anchors.
   Rationale: direct offset calls stop momentum; bounds-only correction retains a
@@ -1860,6 +1886,15 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+At the owner's sandbox-restart checkpoint, the installed CLI/daemon/helper match
+checked92d3a535 and the phone remains on owner-acceptedde74. The new server-manager
+UI is buildable with24 native units green, but its complete removal UI check has
+not yet passed because the original test matched nested native buttons. The
+selector fix is saved for retry after restart. No normal/preview daemon was stopped.
+The owner reports the new normal daemon idle. Root waits for the real writable
+state/config/runtime mounts before continuing its phone listener/token handover.
+
 
 The owner tests installed de74 on iPhone18 Pro and calls the scrolling "awesome".
 This closes the physical jerk/momentum report. Keep the proven normal-session
@@ -2363,3 +2398,5 @@ Revision2026-11-17: record the checked native-list phone install and locked-devi
 Revision2026-11-17: record the owner’s successful physical-phone scroll check and close the moving jerk/momentum task while keeping the remaining EP checks open.
 
 Revision2026-11-17: record the explicit normal-install request, read-only mount blocker, checked shared installer and outstanding daemon-route preference; retain the measured prefetch memory reduction without changing accepted phone scrolling.
+
+Revision2026-11-17: save the owner-requested sandbox restart checkpoint, verified normal install, idle local-only daemon facts, server-manager changes and exact UI test-selector retry state. No EP approval or new phone deployment.

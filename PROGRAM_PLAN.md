@@ -111,8 +111,14 @@ CLI/daemon/helper install with backups; it does not authorize a daemon restart,
 merge, push or changing frozen previews. The tool environment mounts~/.local/bin
 read-only even after an escalated retry. Root prepared the checked package and a
 normal-shell installer at tmp/install-carlos-92d3a535/install.py in the shared spike
-checkout. Installation remains pending the owner's shell command. The old installed
-CLI/helper are unchanged. Keep the owner's working phone daemon running.
+checkout. The normal-shell installation is now visible: all three installed executable
+hashes match checked source92d3a535. The owner runs its automatically started daemon
+and reports it idle. That daemon currently has only local Unix access; phone access
+still needs its own listener/token. Keep the working preview phone daemon running.
+The owner now requests a convenient stop to restart the sandbox with the real Carlos
+binary/config/state/runtime directories writable. The current handoff is
+.agents/reports/exec022-restart-handoff.md; server management UI changes are saved
+but not deployed, and the corrected Remove test selector still needs its repeat.
 
 The owner can test `target/preview-9cc99ff/try-carlos`, a fully checked snapshot that predates
 only the narrow final API/compiler corrections; it keeps separate Carlos session state.

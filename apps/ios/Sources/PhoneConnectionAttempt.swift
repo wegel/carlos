@@ -5,12 +5,14 @@ import Foundation
 struct PhoneConnectionAttempt {
     let host: PhoneHostModel
     let configuration: PhoneHost
+    let existingID: String?
     private let identity: UUID
     private let token: String?
 
-    init(host: PhoneHostModel, configuration: PhoneHost, identity: UUID, token: String?) {
+    init(host: PhoneHostModel, configuration: PhoneHost, identity: UUID, token: String?, existingID: String? = nil) {
         self.host = host
         self.configuration = configuration
+        self.existingID = existingID
         self.identity = identity
         self.token = token
     }
