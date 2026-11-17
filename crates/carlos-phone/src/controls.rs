@@ -7,6 +7,27 @@ use crate::{PhoneClient, PhoneError, PhoneSubmission};
 
 #[uniffi::export]
 impl PhoneClient {
+    /// Rename the selected native session without changing its prompt or starting a turn.
+    pub fn rename_session(
+        &self,
+        session: String,
+        name: String,
+    ) -> Result<PhoneSubmission, PhoneError> {
+        let session = session_id(&session)?;
+        if name.len() > 4096 || name.chars().any(char::is_control) {
+            return Err(PhoneError::InvalidInput {
+                message: "Use a single-line name of at most 4 KiB".into(),
+            });
+        }
+        let mut state = self.lock()?;
+        state.require_ready_session(&session)?;
+        state.submit(|operation| Command::Rename {
+            session,
+            operation,
+            name,
+        })
+    }
+
     /// Interrupt the actual current turn without guessing its result or denying unrelated cards.
     pub fn interrupt(&self, session: String) -> Result<PhoneSubmission, PhoneError> {
         let session = session_id(&session)?;

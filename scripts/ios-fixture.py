@@ -261,7 +261,7 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"send-mode":["phone mode run", "phone queued exact 🌍"], "edit":["phone edited exact 🌍"], "edit-rejected":[], "controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
+    expected = {"rename":[], "send-mode":["phone mode run", "phone queued exact 🌍"], "edit":["phone edited exact 🌍"], "edit-rejected":[], "controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
                 "voice": [], "quota": ["native quotas"], "claude-tools": ["read source"], "history": [], "native-flick": [], "native-motion": [], "idle-perf": [], "launch-perf": [], "typing-perf": [], "scroll-perf": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     if workflow in ("hosts", "host-duplicates"):
@@ -273,6 +273,10 @@ def check_native(fixture, backend, workflow, observed, visits):
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
     native = fixture.native
+    if workflow == "rename":
+        names = [request["params"]["name"] for request in native.requests if request.get("method") == "thread/name/set"]
+        assert names == ["reject rename", "Phone project 🌍"], names
+        assert native.interrupts == 0
     if workflow in ("send-mode", "edit", "edit-rejected"):
         check_prompt_controls(native, workflow)
     assert native.started == (0 if workflow in ("history", "credentials", "native-flick", "native-motion") else 1), "A phone workflow must not create duplicate native owners"
@@ -344,7 +348,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("send-mode", "edit", "edit-rejected", "prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion", "hosts", "host-duplicates"), default="prompt")
+    parser.add_argument("--workflow", choices=("rename", "send-mode", "edit", "edit-rejected", "prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion", "hosts", "host-duplicates"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.workflow in ("quota", "claude-tools") and arguments.backend != "claude":

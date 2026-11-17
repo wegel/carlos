@@ -2,6 +2,12 @@
 import Foundation
 
 extension PhoneHostModel {
+    func editSessionName() {
+        guard connected, let info = transcript?.info, transcript?.ready == true,
+              info.backend != .grok, renameEditor == nil else { return }
+        renameEditor = PhoneSessionRename(session: info, transport: transport)
+    }
+
     func editFrom(_ row: PhoneEntry) {
         guard let selected, connected, transcript?.currentSnapshot == true,
               row.kind == .user, promptEditor == nil else { return }

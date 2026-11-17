@@ -11,7 +11,7 @@ final class PhoneHostModel: Identifiable {
     var selected: String? {
         didSet {
             defaults.set(selected, forKey: "carlos.hosts.\(id).session")
-            if oldValue != selected { promptEditor = nil }
+            if oldValue != selected { promptEditor = nil; renameEditor = nil }
         }
     }
     var transcript: PhoneTranscript?
@@ -27,16 +27,15 @@ final class PhoneHostModel: Identifiable {
     var followRequest = UUID()
     var controlSubmitting = false
     var promptEditor: PhonePromptEditor?
-    var sendMode: PhoneSendMode = .queue {
-        didSet { defaults.set(sendMode == .steer ? "steer" : "queue", forKey: "carlos.hosts.\(id).sendMode") }
-    }
+    var renameEditor: PhoneSessionRename?
+    var sendMode: PhoneSendMode = .steer
     let history = PhoneHistoryModel()
     var approvalRequests: [String: ApprovalSubmission] = [:]
     private var draftText = ""
     private(set) var draftVersion: UInt64 = 0
     var draft: String {
         get { draftText }
-        set { draftVersion += 1; draftText = newValue }
+        set { draftVersion += 1; draftText = newValue; if newValue.isEmpty { sendMode = .steer } }
     }
     var submitting = false
     @ObservationIgnored var reopening: String?
@@ -64,14 +63,13 @@ final class PhoneHostModel: Identifiable {
         self.configuration = configuration
         self.bodyBudget = bodyBudget
         self.defaults = defaults
-        sendMode = defaults.string(forKey: "carlos.hosts.\(id).sendMode") == "steer" ? .steer : .queue
         self.restoringSession = restoringSession
     }
 
     func contentChanged() { contentVersion = UUID() }
 
     // Native keystrokes update the model without asking UIKit to replace its own text.
-    func editDraft(_ text: String) { draftText = text }
+    func editDraft(_ text: String) { draftText = text; if text.isEmpty { sendMode = .steer } }
 
     func loadedSource(for entry: String) -> PhoneSourceModel? { sources[entry] }
 
@@ -258,7 +256,7 @@ final class PhoneHostModel: Identifiable {
             select(saved)
         }
         if case .disconnected(let message) = state, let message { error = message }
-        if case .disconnected = state { promptEditor?.disconnected() }
+        if case .disconnected = state { promptEditor?.disconnected(); renameEditor?.disconnected() }
     }
 
     private func received(_ batch: PhoneBatch) {
@@ -314,11 +312,13 @@ final class PhoneHostModel: Identifiable {
     }
 
     func accept(_ operation: PhoneOperation) {
+        let renaming = renameEditor?.operation?.key == operation.key
         if operations[operation.key] == nil { operationOrder.append(operation.key) }
         operations[operation.key] = operation
         if ralphRequest?.key == operation.key { ralphRequest = operation }
         completeCreation(operation)
         completeReopen(operation)
+        if renameEditor?.observe(operation) == true { renameEditor = nil }
         if promptEditor?.observe(operation) == true {
             promptEditor = nil
             followRequest = UUID()
@@ -330,7 +330,7 @@ final class PhoneHostModel: Identifiable {
             operationOrder.removeAll { $0 == operation.key }
             let key = operation.key
             transport.read({ try $0.forgetOperation(operation: key) }, completion: report)
-        case .rejected(let message), .uncertain(let message): error = message
+        case .rejected(let message), .uncertain(let message): if !renaming { error = message }
         default: break
         }
     }

@@ -14,7 +14,6 @@ extension SessionWorkflowTests {
         draft.tap()
         draft.typeText("phone steer exact 🌍")
         XCTAssertFalse(app.buttons["composer.stop"].exists, "Stop stays out of the draft's send action")
-        chooseSendMode("Steer the current response", app: app)
         XCTAssertEqual(app.buttons["composer.mode"].value as? String, "Steer")
         capture("Explicit Steer beside a private draft", screenshot: app.screenshot())
         app.buttons["composer.send"].tap()

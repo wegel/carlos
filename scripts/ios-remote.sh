@@ -74,6 +74,7 @@ ui-test)
         quota) test_case=testClaudeWeeklyQuotaSitsBesideContext ;;
         claude-tools) test_case=testClaudeCallAndResultShareOneCompactHeader ;;
         controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
+        rename) test_case=testRenameWaitsForAcknowledgementAndKeepsTheMainDraft ;;
         send-mode) test_case=testSteerAndQueueKeepTheirChosenNativeMeaning ;;
         edit) test_case=testEditingAnEarlierMessageKeepsTheMainDraft ;;
         edit-rejected) test_case=testRejectedBranchKeepsEditedTextAndTheMainDraft ;;

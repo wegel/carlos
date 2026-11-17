@@ -21,6 +21,13 @@ struct SessionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section("Session") {
+                    Text(info?.title ?? "No session selected")
+                    Button("Rename session", systemImage: "pencil") { host.editSessionName() }
+                        .frame(minHeight: 44)
+                        .disabled(!host.connected || host.transcript?.ready != true || info?.backend == .grok)
+                        .accessibilityIdentifier("settings.rename")
+                }
                 Section("Tool output") {
                     Picker("Tool output", selection: $preferences.toolMode) {
                         ForEach(PhoneToolMode.allCases) { Text($0.rawValue).tag($0) }
@@ -56,5 +63,6 @@ struct SessionSettingsSheet: View {
         .font(PhoneTheme.prose()).foregroundStyle(PhoneTheme.text)
         .presentationDetents([.fraction(0.8)]).presentationDragIndicator(.visible)
         .presentationCornerRadius(22)
+        .sheet(item: $host.renameEditor) { editor in RenameSessionSheet(host: host, editor: editor) }
     }
 }

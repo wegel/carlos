@@ -4,13 +4,61 @@ use std::sync::Arc;
 
 use serde_json::json;
 
-use crate::test_support::{connected, info, reply, request, SESSION};
+use crate::test_support::{connected, info, reply, request, subscribed, SESSION};
 use crate::{
     PhoneApprovalInput, PhoneClient, PhoneDecision, PhoneError, PhonePhase, PhoneSendMode,
 };
 
 const CARD: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001";
 const TURN: &str = "cccccccccccccccccccccccccccccccc";
+
+#[test]
+fn rename_sends_the_exact_name_once_without_changing_the_visible_title() {
+    for name in ["Work 日本語 🌍", ""] {
+        let client = subscribed("ready");
+        let before = client
+            .transcript(SESSION.into())
+            .expect("current")
+            .expect("snapshot")
+            .info
+            .name;
+        let renamed = client
+            .rename_session(SESSION.into(), name.into())
+            .expect("explicit rename");
+        let command = request(&renamed.frame);
+        assert_eq!(command["method"], "session/rename");
+        assert_eq!(command["params"]["session"], SESSION);
+        assert_eq!(command["params"]["name"], name);
+        assert_eq!(client.operations().expect("one rename").len(), 1);
+        assert_eq!(
+            client
+                .transcript(SESSION.into())
+                .expect("no local rename")
+                .expect("snapshot")
+                .info
+                .name,
+            before
+        );
+    }
+}
+
+#[test]
+fn rename_rejects_bad_names_and_stale_sessions_before_submitting() {
+    let client = subscribed("ready");
+    for name in ["two\nlines".into(), "nul\0name".into(), "🌍".repeat(1025)] {
+        assert!(matches!(
+            client.rename_session(SESSION.into(), name),
+            Err(PhoneError::InvalidInput { .. })
+        ));
+    }
+    assert!(client.operations().expect("nothing sent").is_empty());
+    let client = connected();
+    assert!(matches!(
+        client.rename_session(SESSION.into(), "private name".into()),
+        Err(PhoneError::State { .. })
+    ));
+    assert!(client.operations().expect("still nothing sent").is_empty());
+}
 
 fn with_card(starting: bool, input: bool) -> Arc<PhoneClient> {
     let client = connected();
