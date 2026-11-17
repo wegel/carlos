@@ -23,12 +23,34 @@ impl Transcript {
         if key.durable() {
             self.sources.insert(id, key.clone());
         }
+        self.refresh_tool_result(&key);
         self.aliases.entry(id).or_default().push(key);
     }
 
     /// Borrow the native source before accepting a printable cursor alias.
     pub fn source(&self, id: EntryId) -> Option<&BackendEntryKey> {
         self.sources.get(&id)
+    }
+
+    /// Publish a late call's relationship without replacing either source row.
+    pub(in crate::session) fn refresh_tool_result(&mut self, call: &BackendEntryKey) {
+        if !matches!(call.item, NativeEntryKey::ClaudeTool { result: false, .. }) {
+            return;
+        }
+        let mut result = call.clone();
+        let NativeEntryKey::ClaudeTool { result: part, .. } = &mut result.item else {
+            return;
+        };
+        if *part {
+            return;
+        }
+        *part = true;
+        if let Some(index) = self
+            .entry_id_for_item(&result)
+            .and_then(|id| self.position(id))
+        {
+            self.record_facts(index);
+        }
     }
 
     /// Return the number of parts currently addressable by a cursor.

@@ -67,6 +67,7 @@ pub(in crate::app) fn draft(message: EntryDraft) -> PerfRow {
 
 fn tool(details: ToolOutputDetails, revision: OutputRevision) -> Tool {
     Tool {
+        call: None,
         kind: ToolKind::Other,
         label: details.summary,
         label_source: if details.generated {

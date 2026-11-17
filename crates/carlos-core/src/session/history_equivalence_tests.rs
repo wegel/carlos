@@ -43,6 +43,12 @@ fn snapshot(session: &mut SessionState) -> Value {
             panel.remove("overview_revision");
         }
     }
+    let ids: Vec<_> = value["entries"]
+        .as_array()
+        .expect("entries")
+        .iter()
+        .map(|entry| entry["id"].clone())
+        .collect();
     for (index, entry) in value["entries"]
         .as_array_mut()
         .expect("entries")
@@ -50,6 +56,12 @@ fn snapshot(session: &mut SessionState) -> Value {
         .enumerate()
     {
         entry["id"] = json!(index);
+        if let Some(call) = entry["tool"].get_mut("call") {
+            *call = json!(ids
+                .iter()
+                .position(|id| id == call)
+                .expect("original tool call"));
+        }
     }
     value
 }

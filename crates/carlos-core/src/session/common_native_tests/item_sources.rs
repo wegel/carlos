@@ -98,3 +98,71 @@ fn an_unrelated_claude_flag_cannot_unbind_codex_or_grok_native_keys() {
         }
     }
 }
+
+#[test]
+fn separate_claude_results_reference_their_native_calls_even_with_equal_commands() {
+    let mut app = app(BackendKind::Claude);
+    for id in ["one", "two"] {
+        for (part, item) in [
+            (
+                "call",
+                json!({"id":id,"type":"toolCall","name":"Bash","input":{"command":"pwd"}}),
+            ),
+            (
+                "result",
+                json!({"id":format!("{id}:result"),"type":"toolResult","tool":"Bash","command":"pwd","output":"original output","isError":false}),
+            ),
+        ] {
+            super::identity_support::notify(
+                &mut app,
+                "item/completed",
+                item,
+                json!({"sessionId":"native-root","kind":"tool","id":id,"part":part}),
+            );
+        }
+    }
+    let rows = app.publish().snapshot(100).entries;
+    assert_eq!(rows.len(), 4);
+    for pair in rows.as_chunks::<2>().0 {
+        assert_eq!(
+            pair[1].tool.as_ref().expect("result").call.as_ref(),
+            Some(&pair[0].id)
+        );
+        assert!(pair[0].tool.as_ref().expect("call").call.is_none());
+    }
+    assert!(app.messages()[1].text.contains("original output"));
+    assert!(app.messages()[3].text.contains("original output"));
+}
+
+#[test]
+fn a_late_native_call_refreshes_an_already_published_result() {
+    let mut app = app(BackendKind::Claude);
+    super::identity_support::notify(
+        &mut app,
+        "item/completed",
+        json!({"id":"x:result","type":"toolResult","tool":"Bash","command":"pwd","output":"original output"}),
+        json!({"sessionId":"native-root","kind":"tool","id":"x","part":"result"}),
+    );
+    let before = app.publish().snapshot(100).entries.remove(0);
+    assert!(before.tool.expect("result").call.is_none());
+    let line = json!({"method":"item/completed","params":{"threadId":app.thread_id(),
+        "turnId":"turn","item":{"id":"x","type":"toolCall","name":"Bash","input":{"command":"pwd"}},
+        "sourceKey":{"sessionId":"native-root","kind":"tool","id":"x","part":"call"}}})
+    .to_string();
+    app.handle_backend_line(&line, &super::context(&app));
+    let published = app.publish();
+    assert!(
+        published
+            .records()
+            .iter()
+            .any(|record| matches!(record.change,
+        crate::session::events::Change::Facts(id) if id.to_wire() == before.id)),
+        "{:?}",
+        published.records()
+    );
+    let rows = published.snapshot(100).entries;
+    assert_eq!(
+        rows[0].tool.as_ref().expect("result").call.as_ref(),
+        Some(&rows[1].id)
+    );
+}

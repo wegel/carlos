@@ -43,6 +43,7 @@ mod task_state;
 mod task_watches;
 mod task_windows;
 mod tasks;
+mod tool_results;
 mod windows;
 
 use carlos_proto::ids::{EntryId, Sequence, SessionId};

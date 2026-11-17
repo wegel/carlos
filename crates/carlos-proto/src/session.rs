@@ -134,6 +134,9 @@ pub enum LabelSource {
 /// Compact tool facts; large output is read separately through entry/output.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Tool {
+    /// The original call for a separate native result; absent without proven identity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub call: Option<EntryId>,
     pub kind: ToolKind,
     pub label: String,
     pub label_source: LabelSource,

@@ -87,6 +87,45 @@ fn older_claude_rows_preserve_live_text_pending_prompt_and_numbered_changes() {
 }
 
 #[test]
+fn an_older_call_refreshes_its_result_already_in_the_live_window() {
+    let mut state = state();
+    state.receive_claude_message("item/completed", &json!({"history":true,
+        "sourceKey":{"sessionId":"root","kind":"tool","id":"tool","part":"result"},
+        "item":{"id":"tool:result","type":"toolResult","tool":"Bash","command":"pwd","output":"original output"}}));
+    let before = state.publish().snapshot(100).entries.remove(1);
+    assert!(before.tool.expect("native result").call.is_none());
+    let line = json!({"method":"item/completed","params":{"history":true,
+        "sourceKey":{"sessionId":"root","kind":"tool","id":"tool","part":"call"},
+        "item":{"id":"tool","type":"toolCall","name":"Bash","input":{"command":"pwd"}}}})
+    .to_string();
+    state
+        .accept_older_claude_history(
+            &cursor(),
+            HistoryPage {
+                lines: vec![line],
+                older: None,
+                read_bytes: 0,
+            },
+        )
+        .expect("older call source");
+    let published = state.publish();
+    assert!(published
+        .records()
+        .iter()
+        .any(|record| matches!(record.change,
+        Change::Facts(id) if id.to_wire() == before.id)));
+    let rows = published.snapshot(100).entries;
+    assert_eq!(
+        rows[2].tool.as_ref().expect("result").call.as_ref(),
+        Some(&rows[0].id)
+    );
+    assert!(!published
+        .records()
+        .iter()
+        .any(|record| matches!(record.change, Change::Reset { .. } | Change::Added(_))));
+}
+
+#[test]
 fn replaced_helpers_and_changed_roots_cannot_adopt_an_old_claude_window() {
     let mut state = state();
     state.claude.generation += 1;

@@ -6,6 +6,7 @@ use carlos_proto::session::{
     Entry, EntryFormat, EntryKind, LabelSource, Tool, ToolKind, ToolStatus,
 };
 
+use super::entry_key::NativeEntryKey;
 use super::models::{Message, MessageKind, Role};
 use super::state::SessionState;
 
@@ -92,8 +93,11 @@ impl SessionState {
             MessageKind::Diff => EntryFormat::Diff,
         };
         let done = self.messages.is_complete(message.id);
-        let tool = is_tool(message)
-            .then(|| export_tool(message, done, self.messages.output_revision(message.id)));
+        let tool = is_tool(message).then(|| {
+            let mut tool = export_tool(message, done, self.messages.output_revision(message.id));
+            tool.call = self.result_call(message);
+            tool
+        });
         EntryFacts {
             kind,
             format,
@@ -101,6 +105,22 @@ impl SessionState {
             done,
             tool,
         }
+    }
+
+    fn result_call(&self, message: &Message) -> Option<carlos_proto::ids::EntryId> {
+        if message.role != Role::ToolOutput {
+            return None;
+        }
+        let mut key = self.messages.source(message.id)?.clone();
+        let NativeEntryKey::ClaudeTool { result, .. } = &mut key.item else {
+            return None;
+        };
+        if !*result {
+            return None;
+        }
+        *result = false;
+        let call = self.messages.entry_id_for_item(&key)?;
+        (self.messages.entry(call)?.role == Role::ToolCall).then(|| call.to_wire())
     }
 }
 
@@ -130,6 +150,7 @@ fn export_tool(message: &Message, done: bool, revision: u64) -> Tool {
     );
     let status = tool_status(message, done);
     Tool {
+        call: None,
         kind,
         label: label.to_owned(),
         label_source: if details.is_some_and(|tool| tool.generated) {

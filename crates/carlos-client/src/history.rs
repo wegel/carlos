@@ -77,9 +77,16 @@ impl Replica {
             entries: page.entries.iter().map(|entry| entry.id.clone()).collect(),
             ..Default::default()
         };
+        changed.entries.extend(
+            page.entries
+                .iter()
+                .filter_map(crate::rows::result_call)
+                .filter(|call| self.rows.get(call).is_some())
+                .cloned(),
+        );
         self.rows.prepend(page.entries)?;
         self.older = page.has_older;
-        changed.removed_back = self.rows.bound(false)?;
+        changed.removed_back = self.rows.bound(false, &mut changed.entries)?;
         self.newer |= changed.removed_back > 0;
         Ok(changed)
     }

@@ -17,6 +17,9 @@ use super::view_models::RenderedLine;
 pub(super) trait TranscriptSource {
     fn len(&self) -> usize;
     fn row(&self, index: usize) -> Option<RowSource<'_>>;
+    fn folded_tool_call(&self, _index: usize) -> bool {
+        false
+    }
     fn input(&self, index: usize) -> Option<RenderInput<'_>> {
         self.row(index)?.input
     }
@@ -218,7 +221,8 @@ impl RenderCacheState {
                 width: self.format.width,
                 compact: self.format.compact,
                 theme: self.format.theme,
-                hidden: self.format.hidden == Some(index) && row.facts.role == Role::User,
+                hidden: (self.format.hidden == Some(index) && row.facts.role == Role::User)
+                    || (self.format.compact && source.folded_tool_call(index)),
             };
             let row = self.entries.prepare(
                 row,

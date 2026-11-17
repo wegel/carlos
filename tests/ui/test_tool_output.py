@@ -83,6 +83,7 @@ class ToolOutput:
         terminal.send(b"\r")
         terminal.contains("Answer: read source")
         self.assert_folded_row(terminal, "source.rs")
+        self.assertEqual(terminal.text.count("source.rs"), 1, "One native Read must have one compact header")
         self.assertNotIn("let claude_read_7", terminal.text)
         self.tools_command(terminal, "/tools full", "full")
         terminal.contains("let claude_read_7 = 7;")

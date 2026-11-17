@@ -57,14 +57,44 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   remaining-quota meaning. PhoneUsage already carries the data; PhoneActivityLine
   currently hides it for Claude with a Codex-only check and places it after the
   model. Remove that restriction and keep adjacent percentages with honest absence
-  for unknown quota. Do this after the current scroll work.
+  for unknown quota. The implementation now also hides expired/nonfinite values and
+  matches TUI rounding/clamping and pace colors. Native Claude quota run01 receives
+  the real rate_limit_event and visibly paints W60%/1.0d beside26% context; Root inspects
+  its actual screen recording frame at /tmp/carlos-ep022/quota-failure-01.png. Its AX
+  identifier query fails because the enclosing footer overwrites child identifiers.
+  Give the footer an explicit children-containing accessibility group and rerun the
+  unchanged native text/percentage/coordinate/private-draft assertions as
+  claude-quota-02.log, frozen phone source73d31286f2da9e061214. That actual native
+  check passes in36.3s at ui-tests-20261117T091512, phone-claude-e77426b72b49, including
+  adjacent coordinates and an unsent Unicode draft. The owner explicitly supersedes
+  the prototype's Codex-only quota text; do not retain that backend restriction.
 - [ ] Fold each Claude execution into one expandable header without erasing original
   call/result source or merging different executions with equal labels. The owner
   reports repeated run labels; the captured real reference has23 tool calls and23
   results, with22 adjacent call/result pairs and18 equal labels. Both the terminal
   compact formatter and phone currently print a call header and a result header.
   Native fixture source keys keep the same tool identity with separate call/result
-  parts. Preserve that identity rather than deduplicating strings.
+  parts. Preserve that identity rather than deduplicating strings. Add only an
+  optional Tool.call entry link derived from those scoped native source keys. Keep
+  original rows and output untouched. The shared client's bounded row store indexes
+  actual results and folds a call only when exactly one linked result is in the
+  current window. Both terminal Compact/Auto and phone Compact/Auto use this fact;
+  Full retains the separate sources. Result arrival invalidates the original call.
+  Late calls and history prefixes refresh an already published result's link.
+  Native equal-command/late-call and shared client replace/ambiguous/partial-page
+  checks cover the relation. cargo run01 catches a comparison fixture which normalizes
+  row IDs but not the new linked IDs; normalizing both to their actual row positions
+  preserves the full/history equality assertion, and cargo run02 passes. Run03 checks
+  the late-call publisher change; the last late-call regression still needs its own
+  updated run. Runs04/late-call-01 expose that the common test feed already calls
+  publish(), so the test must inspect the direct reducer before that helper consumes
+  its records. Run05 passes with that correct observation. Run06 additionally checks
+  source-budget eviction unfolds and invalidates a retained call. Run07 adds an actual
+  older-Claude-prefix case and keeps the original no-new-message/no-reset history
+  invariant. All pass; no assertion is weakened. Release gate01 fails the new
+  chunks_exact-to-as_chunks lint, fixed with as_chunks::<2>(). The complete corrected
+  release/native gate02 is still running. Actual phone Claude call/result and terminal
+  Read workflows remain pending. No frozen owner daemon or preview binary is replaced.
 - [x] Shorten the phone's right-hand output count from e.g. `26 lines` to a small
   muted `26`, retaining full accessible wording and other result/status facts. The
   c4d33d61c14bf8d45580 code-source/history/scroll build checks it; final reference

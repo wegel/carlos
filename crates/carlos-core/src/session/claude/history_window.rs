@@ -109,9 +109,24 @@ impl SessionState {
             }
         }
         let mut journal = std::mem::take(&mut self.messages.journal);
+        let calls: Vec<_> = prefix
+            .messages
+            .iter()
+            .filter_map(|row| prefix.messages.source(row.id))
+            .filter(|key| {
+                matches!(
+                    key.item,
+                    crate::session::entry_key::NativeEntryKey::ClaudeTool { result: false, .. }
+                )
+            })
+            .cloned()
+            .collect();
         self.messages.prepend_transcript(prefix.messages);
         journal.prepend_stored(count);
         self.messages.journal = journal;
+        for call in calls {
+            self.messages.refresh_tool_result(&call);
+        }
         self.input_history.prepend_history(prompts);
         for record in prefix.claude.history.records.into_iter().rev() {
             self.claude.history.records.push_front(record);

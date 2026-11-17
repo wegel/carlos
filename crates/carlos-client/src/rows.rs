@@ -1,20 +1,32 @@
 //! Keep a contiguous bounded client window and constant-time stable-id lookups while paging.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use carlos_proto::ids::EntryId;
-use carlos_proto::session::Entry;
+use carlos_proto::session::{Entry, EntryKind};
 
 use crate::ClientError;
 
 pub(crate) const MAX_ROWS: usize = 100_000;
 pub(crate) const MAX_ROW_BYTES: usize = 32 * 1024 * 1024;
 
+impl crate::Replica {
+    /// Count chronological rows without walking their source strings.
+    pub fn entry_count(&self) -> usize {
+        self.rows.len()
+    }
+    /// Fold only a call whose single proven native result is in this client window.
+    pub fn has_tool_result(&self, call: &EntryId) -> bool {
+        self.rows.has_tool_result(call)
+    }
+}
+
 pub(crate) struct Rows {
     entries: VecDeque<Entry>,
     positions: HashMap<EntryId, i128>,
     first: i128,
     bytes: usize,
+    results: HashMap<EntryId, HashSet<EntryId>>,
 }
 
 impl Rows {
@@ -27,6 +39,7 @@ impl Rows {
             positions: HashMap::new(),
             first: 0,
             bytes: 0,
+            results: HashMap::new(),
         };
         for entry in entries {
             rows.push(entry)?;
@@ -60,6 +73,15 @@ impl Rows {
             .get_mut(usize::try_from(*self.positions.get(id)? - self.first).ok()?)
     }
 
+    pub(crate) fn has_tool_result(&self, id: &EntryId) -> bool {
+        self.get(id)
+            .is_some_and(|entry| entry.kind == EntryKind::ToolCall)
+            && self
+                .results
+                .get(id)
+                .is_some_and(|results| results.len() == 1)
+    }
+
     pub fn front(&self) -> Option<&Entry> {
         self.entries.front()
     }
@@ -74,6 +96,7 @@ impl Rows {
             .ok_or(ClientError::Capacity("client row positions exhausted"))?;
         self.bytes = self.bytes.saturating_add(weight(&entry));
         self.positions.insert(entry.id.clone(), position);
+        self.index_result(&entry);
         self.entries.push_back(entry);
         Ok(())
     }
@@ -89,19 +112,31 @@ impl Rows {
                 .ok_or(ClientError::Capacity("client row positions exhausted"))?;
             self.bytes = self.bytes.saturating_add(weight(&entry));
             self.positions.insert(entry.id.clone(), self.first);
+            self.index_result(&entry);
             self.entries.push_front(entry);
         }
         Ok(())
     }
 
-    pub fn changed(&mut self, old_weight: usize, entry: &EntryId) {
+    pub fn changed(&mut self, old_weight: usize, old_call: Option<&EntryId>, entry: &EntryId) {
+        let call = self.get(entry).and_then(result_call).cloned();
+        if old_call != call.as_ref() {
+            self.unindex_result(old_call, entry);
+            if let Some(call) = call {
+                self.results.entry(call).or_default().insert(entry.clone());
+            }
+        }
         self.bytes = self
             .bytes
             .saturating_sub(old_weight)
             .saturating_add(self.get(entry).map_or(0, weight));
     }
 
-    pub fn bound(&mut self, oldest: bool) -> Result<usize, ClientError> {
+    pub fn bound(
+        &mut self,
+        oldest: bool,
+        changed: &mut Vec<EntryId>,
+    ) -> Result<usize, ClientError> {
         let mut removed = 0;
         while self.entries.len() > MAX_ROWS || self.bytes > MAX_ROW_BYTES {
             let entry = if oldest {
@@ -118,10 +153,46 @@ impl Rows {
             };
             self.bytes = self.bytes.saturating_sub(weight(&entry));
             self.positions.remove(&entry.id);
+            changed.extend(
+                result_call(&entry)
+                    .filter(|call| self.get(call).is_some())
+                    .cloned(),
+            );
+            self.unindex_result(result_call(&entry), &entry.id);
             removed += 1;
         }
         Ok(removed)
     }
+
+    fn index_result(&mut self, entry: &Entry) {
+        if let Some(call) = result_call(entry) {
+            self.results
+                .entry(call.clone())
+                .or_default()
+                .insert(entry.id.clone());
+        }
+    }
+
+    fn unindex_result(&mut self, call: Option<&EntryId>, result: &EntryId) {
+        if let Some(call) = call {
+            if let Some(results) = self.results.get_mut(call) {
+                results.remove(result);
+                if results.is_empty() {
+                    self.results.remove(call);
+                }
+            }
+        }
+    }
+}
+
+pub(crate) fn result_call(entry: &Entry) -> Option<&EntryId> {
+    (entry.kind == EntryKind::Tool).then_some(())?;
+    entry
+        .tool
+        .as_ref()?
+        .call
+        .as_ref()
+        .filter(|call| *call != &entry.id)
 }
 
 pub(crate) fn weight(entry: &Entry) -> usize {

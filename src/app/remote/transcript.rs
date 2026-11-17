@@ -41,6 +41,11 @@ impl<'a> Transcript<'a> {
 }
 
 impl TranscriptSource for Transcript<'_> {
+    fn folded_tool_call(&self, index: usize) -> bool {
+        self.replica
+            .entry_at(index)
+            .is_some_and(|entry| self.replica.has_tool_result(&entry.id))
+    }
     fn len(&self) -> usize {
         self.replica.entry_count() + self.echoes.len()
     }

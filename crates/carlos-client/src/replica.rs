@@ -7,7 +7,7 @@ use carlos_proto::task_facts::TaskFacts;
 
 use crate::cards::Cards;
 use crate::history::HistoryFence;
-use crate::rows::{weight, Rows};
+use crate::rows::{result_call, weight, Rows};
 use crate::ClientError;
 
 /// Platforms redraw changed rows and invalidate body caches without rescanning the transcript.
@@ -85,7 +85,7 @@ impl Replica {
     /// Adopt a full snapshot atomically; duplicate ids fail before replacing an existing copy.
     pub fn new(snapshot: Snapshot) -> Result<Self, ClientError> {
         let mut rows = Rows::new(snapshot.entries)?;
-        let removed = rows.bound(true)?;
+        let removed = rows.bound(true, &mut Vec::new())?;
         let older = snapshot.has_older || removed > 0;
         for card in &snapshot.approvals {
             if rows.get(&card.id).is_some() {
@@ -137,10 +137,7 @@ impl Replica {
     pub fn entries(&self) -> impl DoubleEndedIterator<Item = &Entry> {
         self.rows.iter()
     }
-    /// Count chronological rows without walking their source strings.
-    pub fn entry_count(&self) -> usize {
-        self.rows.len()
-    }
+
     /// Borrow one chronological row for lazy terminal layout.
     pub fn entry_at(&self, index: usize) -> Option<&Entry> {
         self.rows.at(index)
@@ -278,7 +275,7 @@ impl Replica {
             }
             Event::Reset { .. } => unreachable!("checked replacement"),
         }
-        changed.removed_front = self.rows.bound(true)?;
+        changed.removed_front = self.rows.bound(true, &mut changed.entries)?;
         self.older |= changed.removed_front > 0;
         Ok(changed)
     }
@@ -323,6 +320,9 @@ impl Replica {
             return Err(ClientError::DuplicateEntry(entry.id));
         }
         if !self.newer {
+            if let Some(call) = result_call(&entry).filter(|call| self.rows.get(call).is_some()) {
+                changed.entries.push(call.clone());
+            }
             changed.entries.push(entry.id.clone());
             self.rows.push(entry)?;
         }
@@ -364,8 +364,18 @@ impl Replica {
     ) {
         if let Some(row) = self.rows.get_mut(&entry) {
             let before = weight(row);
+            let old_call = result_call(row).cloned();
             update(row);
-            self.rows.changed(before, &entry);
+            let new_call = result_call(row).cloned();
+            self.rows.changed(before, old_call.as_ref(), &entry);
+            if old_call != new_call {
+                changed.entries.extend(
+                    old_call
+                        .into_iter()
+                        .chain(new_call)
+                        .filter(|call| self.rows.get(call).is_some()),
+                );
+            }
             changed.entries.push(entry);
         } else {
             self.history.changed_unknown(entry, seq);
