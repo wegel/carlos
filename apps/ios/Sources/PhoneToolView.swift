@@ -28,7 +28,8 @@ struct PhoneToolView: View {
             if expanded {
                 Group {
                     if let output {
-                        PhoneOutputView(model: output).frame(minHeight: output.window == nil ? retainedHeight : 0)
+                        PhoneOutputView(model: output, filePath: row.format == .plain ? row.filePath : nil)
+                            .frame(minHeight: output.window == nil ? retainedHeight : 0)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { retainedHeight = $0 }
                     } else { Color.clear.frame(height: retainedHeight).accessibilityHidden(true) }
                 }.padding(.leading, 24).padding(.top, 8)
@@ -42,7 +43,7 @@ struct PhoneToolView: View {
     private var header: some View {
         HStack(spacing: 10) {
             Text(glyph).font(PhoneTheme.mono(13)).bold().foregroundStyle(color).frame(width: 14)
-            Text(PhoneEntryLayout.toolLabel(tool, glyph: glyph))
+            Text(PhoneEntryLayout.toolLabel(tool))
                 .font(tool.labelSource == .ai ? PhoneTheme.prose(13.5) : PhoneTheme.mono(12.5))
                 .lineLimit(tool.labelSource == .ai ? nil : 1).foregroundStyle(PhoneTheme.subtext1)
                 .lineSpacing(tool.labelSource == .ai ? PhoneTheme.toolLeading : 0)

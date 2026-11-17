@@ -23,6 +23,7 @@ from native_task_questions import callback_key, form as native_form, question
 from ios_browser_fixture import browser_page
 from ios_history_fixture import configure_history, history_control
 from ios_ralph_fixture import configure_ralph
+from ios_syntax_fixture import configure_syntax
 
 
 def mac_settings():
@@ -195,6 +196,8 @@ def configure_workflow(fixture, workflow, artifacts, resources):
     elif workflow == "ralph":
         configure_controls(fixture.native)
         configure_ralph(fixture)
+    elif workflow == "syntax":
+        source = configure_syntax(fixture.native)
     elif workflow == "tools":
         configure_controls(fixture.native, stream_output=True)
     elif workflow == "source":
@@ -239,7 +242,7 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"],
+    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
                 "voice": [], "history": [], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
@@ -308,7 +311,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":

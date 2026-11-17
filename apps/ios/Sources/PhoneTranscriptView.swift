@@ -53,6 +53,8 @@ struct PhoneTranscriptView: View {
             .scrollPosition($position, anchor: .top)
             .environment(\.preserveTranscriptPosition) {
                 following = false
+                metrics.anchor = nil
+                metrics.restoring = false
                 position.scrollTo(y: metrics.value.offset)
             }
             .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
@@ -100,6 +102,8 @@ struct PhoneTranscriptView: View {
             }
             .onChange(of: host.followRequest) { _, _ in
                 following = true
+                metrics.anchor = nil
+                metrics.restoring = false
                 position.scrollTo(id: "transcript.bottom", anchor: .bottom)
             }
             .overlay(alignment: .bottom) {

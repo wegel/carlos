@@ -19,10 +19,10 @@ enum PhoneEntryLayout {
         return measured <= max(0, width - 24) ? .compact : .block
     }
 
-    static func toolLabel(_ tool: PhoneTool, glyph: String) -> String {
-        // Old saved rows can already include the same decorative glyph as this native column.
-        let prefix = glyph + " "
-        return tool.labelSource != .ai && tool.label.hasPrefix(prefix)
-            ? String(tool.label.dropFirst(prefix.count)) : tool.label
+    static func toolLabel(_ tool: PhoneTool) -> String {
+        // Old literal rows can contain a decorative glyph that predates typed tool kinds.
+        guard tool.labelSource != .ai,
+              let prefix = ["$ ", "→ ", "✱ ", "Δ "].first(where: tool.label.hasPrefix) else { return tool.label }
+        return String(tool.label.dropFirst(prefix.count))
     }
 }

@@ -6,6 +6,11 @@ extension SessionWorkflowTests {
     @MainActor
     func testHardwareReturnSendsAndModifiedReturnKeepsNewlines() async throws {
         let app = try connectedSession()
+        app.buttons["header.settings"].tap()
+        app.segmentedControls["settings.tools"].buttons["Full"].tap()
+        app.navigationBars["Session settings"].buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'history-output 0'")).firstMatch.waitForExistence(timeout: 15),
+                      "Full mode must remain responsive with the real ten-thousand-line native output")
         let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()

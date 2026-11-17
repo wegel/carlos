@@ -34,7 +34,41 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [x] Move the terminal's existing native read-gutter split into the pure shared
+- [x] Build the actual native app and the narrow Rust bridge for both Apple targets.
+- [x] Prove saved Keychain credentials, last host/session, rejected-token repair and
+  cold restart. The physical source232 preview contains the checked token fix.
+- [x] Complete native forms/questions/browser approvals, actual backend prompts,
+  running-tool controls, original source Copy, streaming cursor and engine Ralph.
+- [x] Prove exact old-history failure/retry/prepend coordinates and reader position.
+- [x] Fix native first-character loss and prove raw Shift/Option/Return through UIKit.
+  The clean keyboard13 pass records one exact multiline prompt and a bounded private
+  draft; source9ce87585e585e605c9ae/ui-tests-20261117T052147, native fixture
+  phone-codex-792961a82e26. It includes the large Full-mode result, but its eager
+  output blocks still do unnecessary offscreen drawing; check the lazy viewport next.
+- [x] Prove code colors, native file numbers and exact Markdown clipboard through
+  the actual app. Syntax06 passes on9edf61c0acc0cfdf7ae7/ui-tests-20261117T051940,
+  phone-codex-3cd62bea7b7d. Root inspected its image and corrected the centered short
+  file box; the final check also asserts the source starts beside the gutter.
+- [x] Pass the complete release terminal/native checks after the shared gutter move.
+  syntax-terminal-release-02.log includes all23 Codex and10 packaged Claude cases.
+- [ ] Pass the final native/keyboard/syntax/restart checks on one frozen source.
+  final-candidate-source points to the current source; final-native-01 and the
+  following final-keyboard/syntax/reconnect-01 logs remain pending.
+- [ ] Repeat the remaining simulator workflows, inspect actual screens and the real
+  captured Claude reference in Flow and Gutter. Preserve owner phone/daemon state.
+- [ ] Record final simulator startup/typing/scroll/idle CPU/memory/bridge/size costs,
+  frozen CLI perf-session comparisons and authored production growth.
+- [ ] Build/sign/install a new immutable phone preview after the clean simulator gate.
+- [ ] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
+  review, resolve findings, record delegated approval and archive unchanged.
+
+### Earlier milestone notes
+
+The notes below preserve earlier attempts, including checks that were pending at the
+time. The current acceptance checklist above states what remains before approval.
+
+
+- Move the terminal's existing native read-gutter split into the pure shared
   client without changing its rules. The terminal delegates to the same functions;
   the phone uses the actual prefix, never a guessed line1 offset or a display label.
   The new prefix/body test proves byte-for-byte recombination for boxed, arrow, tab
@@ -42,7 +76,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   checks and full syntax-cargo-01 workspace run pass. Run the full terminal/release
   checks after this shared formatter move before final acceptance.
 
-- [ ] Fix the now-proven native text reentrancy. Raw HID UI07 captures the complete
+- Fix the now-proven native text reentrancy. Raw HID UI07 captures the complete
   causal trace on8c1df7d6d8c41528e373/ui-tests-20261117T043052.xcresult:
   first synthetic scalar112 enters an empty view; the delegate reports length1;
   an external old1/new0 render runs before insertText returns length0. The earlier
@@ -54,7 +88,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   9c69953cd7a8f964a6a4/ui-tests-20261117T042737.xcresult. No test assertion or timeout
   has been weakened, and no hardware success is claimed yet.
 
-- [x] The real Mac grammar caller passes all15 native tests without skips on
+- The real Mac grammar caller passes all15 native tests without skips on
   484a9f14cdf3e7a34a5d/tests-20261117T041937.xcresult, syntax-native-02.log.
   The standalone Apple graph compiles fancy-regex with no C regex backend. The
   first actual code-color/clipboard UI check is still building on9c69953cd7a8f964a6a4.
@@ -63,12 +97,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   plain source with one grammar state. All230 client/phone tests pass locally;
   syntax-cargo-01.log records a full workspace pass. Actual file pixels remain pending.
 
-- [x] Root inspected the real Ralph02 screenshots after its successful exact native
+- Root inspected the real Ralph02 screenshots after its successful exact native
   traffic check: its engine-confirmed switch, pink status/scanner/composer, mic/Stop
   and fixed bars are correctly placed without overlap. The current full file/output,
   keyboard and final visual checks remain incomplete. No reviewer has run.
 
-- [x] History UI07 passes the stronger exact-coordinate checks on the pinned
+- History UI07 passes the stronger exact-coordinate checks on the pinned
   c3a71f02db8a30a1680d/ui-tests-20261117T040732.xcresult,
   phone-codex-a8ed61a3b596. The same visible message stays within2pt on both axes
   across a real native read failure, explicit retry of the original cursor and
@@ -78,7 +112,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Full workspace cargo test passes at history-cargo-01.log. A diagnostic-free source
   rerun and the existing scroll/source regressions remain final requirements.
 
-- [ ] Verify the first-character editor fix and raw physical Return. Raw HID UI04
+- Verify the first-character editor fix and raw physical Return. Raw HID UI04
   stops before the new raw x probe: the original software phone becomes hone, then
   XCTest's printable x gives honex. Five native insert callbacks are recorded, so
   unrelated SwiftUI refreshes may replace native text before its editing callback.
@@ -88,7 +122,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   in da63d52 and an actual nested-source/root-build probe passes. Rerun the checked
   input after the complete dependency copy; no hardware pass is claimed.
 
-- [ ] Require exact before/after history measurements against a held native page.
+- Require exact before/after history measurements against a held native page.
   The first three UI cases assumed where the previous row should appear instead of
   measuring before the reply; their failures remain evidence but cannot alone prove
   the size of a jump. The stronger workflow resumes an actual saved native thread,
@@ -100,7 +134,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   History UI04 fails in the Mac Bash3 empty-array wrapper; UI05 fails to compile
   unisolated test helpers. Both are setup failures. UI06 checks their concrete fixes.
 
-- [ ] Check hardware Return through raw simulator HID, bypassing XCTest's character
+- Check hardware Return through raw simulator HID, bypassing XCTest's character
   translation. The bounded Mac helper finds only a named Carlos simulator and sends
   Return/Shift/Option press/release events; it never links into the app. Its read-only
   API probe passes without GUI login or keyboard-setting changes. The UI keeps the
@@ -108,7 +142,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Bash3 wrapper; UI02 catches Swift6's test-helper actor requirement; UI03 checks those
   fixes. No end-to-end hardware pass is claimed yet.
 
-- [x] Ralph UI02 passes on30b5dc9007a393132442/ui-tests-20261117T034813.xcresult,
+- Ralph UI02 passes on30b5dc9007a393132442/ui-tests-20261117T034813.xcresult,
   phone-codex-9d25ae112a08. The real engine enables Ralph and sends exactly the
   configured automatic prompt; its active turn keeps Stop available after Ralph is
   turned off; the original native interrupt completes the turn. UI01 correctly saw no
@@ -116,14 +150,14 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   queue and goal methods, as the existing engine Ralph fixtures do; do not fake a phone
   phase or bypass those checks. Inspect its actual retained images before final approval.
 
-- [ ] Wire the actual older-history call to the transcript top and verify unchanged
+- Wire the actual older-history call to the transcript top and verify unchanged
   reading position. PhoneHistoryModel tracks only this device's pending read; Rust
   retains the original history cursor/fence. Read failures now expose their existing
   numeric request address so an unrelated failure cannot clear another read's spinner.
   The deterministic history workflow uses130 actual native rows with sparse visible
   messages and no inference. history-ui-01.log and history-cargo-01.log are pending.
 
-- [x] Native input, speech and scroll checkpoint2de6b7c7100c7c369398 passes all14
+- Native input, speech and scroll checkpoint2de6b7c7100c7c369398 passes all14
   native tests without skips at tests-20261117T033135.xcresult,
   input-checkpoint-native-02.log. Full workspace cargo test passes at
   input-checkpoint-cargo-01.log. The clean voice/scroll and complete10MB-source checks
@@ -131,13 +165,13 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   assertion stays enabled. The next work adds older-history reads and preserves the
   reader's exact position before final visual and whole-EP checks.
 
-- [x] The10MB complete-source/clipboard regression passes after the render fix on
+- The10MB complete-source/clipboard regression passes after the render fix on
   3486232fd60908005d44/ui-tests-20261117T030801.xcresult,
   phone-codex-670e773c4b74, source-ui-18-clean.log. Original source length and SHA256,
   actual system clipboard bytes and Copy reset all pass. Source UI17 lost SSH before
   XCTest and is not a pass. The private request/reply assertions and waits are unchanged.
 
-- [x] Diagnostic-free checkpointb9aff18f402f4279cd6a compiles and passes native14
+- Diagnostic-free checkpointb9aff18f402f4279cd6a compiles and passes native14
   (tests-20261117T025611), full scroll UI10 (ui-tests-20261117T025650,
   phone-codex-62300724a55e) and actual first-use denied-Speech UI07 (025839,
   phone-codex-231fd5066f25). The10MB source-copy rerun is pending; do not call that
@@ -145,7 +179,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   from shortcut registration to physical press handling after the printable x probe
   succeeds but modified Return still fails. No Mac login is required to continue.
 
-- [x] Full scrolling UI09 passes on6afb267a52703562c5b3,
+- Full scrolling UI09 passes on6afb267a52703562c5b3,
   ui-tests-20261117T024330.xcresult, phone-codex-c4d4d7dc236f. The original2pt X/Y
   checks pass across tool expansion/collapse; two manual swipes stop following;
   native Stop completes without moving the selected older text; Latest returns to
@@ -153,7 +187,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   and the10MB original-source check after this fix. Native voice denial also passes;
   actual hardware Return remains incomplete.
 
-- [x] Voice UI06 passes the actual first-use Speech denial and original private draft
+- Voice UI06 passes the actual first-use Speech denial and original private draft
   on1509cf822de25f5d2656/ui-tests-20261117T020908.xcresult,
   phone-codex-888b6e43bbc5. The new Sendable boundary lets authorization return on
   its native queue, then the main actor receives denied/same-attempt and shows the
@@ -162,7 +196,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   audio is recorded. Speech/scene diagnostics are removed locally; require a clean
   final pass. Hardware keyboard and the complete scrolling workflow remain pending.
 
-- [x] Private prompt echoes precede their own answer on source8ed2cec1d2b216555c99,
+- Private prompt echoes precede their own answer on source8ed2cec1d2b216555c99,
   ui-tests-20261117T012930.xcresult, phone-codex-c137582457f1. Root inspected both
   live/stopped images: the blue user band precedes the green answer; the caret blinks
   and disappears after the original native interrupt. The small Swift layout hint
@@ -171,7 +205,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   workspace cargo test passes at composer-cargo-01.log. Keyboard/voice/scroll checks
   remain pending and the earlier failures remain recorded below.
 
-- [ ] Check the native composer and on-device speech on the owned simulator.
+- Check the native composer and on-device speech on the owned simulator.
   PhonePromptInput keeps native selection and five-line sizing; actual physical-key
   events must prove Return sends one exact prompt and Shift/Option+Return preserve
   newlines. PhoneDictation requests permissions only after a tap, requires on-device
@@ -183,29 +217,29 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   three remain pending. Temporary command/offset diagnostics must be removed before
   a clean final pass. No physical microphone accuracy or completed input gate is claimed.
 
-- [x] (2026-11-17) Credential staging and trace-free caret pass on589f3adae575cb5d84ca:
+- (2026-11-17) Credential staging and trace-free caret pass on589f3adae575cb5d84ca:
   stream04 (ui-tests-20261117T003806), rejected-new-token repair
   (ui-tests-20261117T004433), saved-token/session relaunch (004534) and rejected
   replacement/Cancel/cold-restart (004648) all pass their exact native traffic checks.
   Local artifacts are phone-codex-527840feb882, edd76833420f,522b48d0af0e and8562385c4e48.
   All13 native tests pass without skips at tests-20261117T003735.xcresult; full workspace
   cargo test passes at native-polish-cargo-01.log. No traces remain in product code.
-- [x] Current-status polish compiles and passes all13 native checks on89ce36e8545f4ba7b2ed,
+- Current-status polish compiles and passes all13 native checks on89ce36e8545f4ba7b2ed,
   tests-20261117T005608.xcresult, current-status-native-01.log:
   connecting/loading session labels and a muted status dot must distinguish retained
   facts from a fresh current snapshot. This does not change native state or controls.
 
-- [x] Protect a working saved token when the person types a rejected replacement (token-update03 passes).
+- Protect a working saved token when the person types a rejected replacement (token-update03 passes).
   Direct code inspection shows PhoneStore.connect writes Keychain before the greeting
   accepts that token. Add a real existing-host rejection/Cancel/relaunch workflow, then
   commit the new credential only after its exact connection authenticates. Keep this
   native attempt small; no Rust outbox, persistent operation ledger or auth wizard.
 
-- [x] (2026-11-17) Reconnect commit4d60ba7 passes the fresh full Rust/terminal/Codex
+- (2026-11-17) Reconnect commit4d60ba7 passes the fresh full Rust/terminal/Codex
   check at reconnect-terminal-gate-01.log, artifacts source-terminal-PYEmq3:
   all225 daemon,330 terminal and23 native contract checks pass unchanged. The empty
   replay regression and actual Safari round trip pass as recorded below.
-- [ ] Finish the next visual checkpoint. Source4068648d0d3bd0edc21f compiles the opaque
+- Finish the next visual checkpoint. Source4068648d0d3bd0edc21f compiles the opaque
   1024px icon, native named launch-background asset and scanner’s actual-turn guard;
   native test bundle tests-20261117T000834.xcresult passes with13 tests. The editable SVG and PNG
   need no build-time image dependency. A native TextRenderer is being checked to paint a green caret
@@ -216,7 +250,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   actor warning in its screenshot helper is corrected locally; verify the final run.
   Root inspected visual-polish-launch-01’s actual initial screen oned1692fe352dba5ba41a. Its low-contrast placeholders and technical setup copy are improved locally; launch02 checks those changes.
 
-- [x] (2026-11-17) Browser05 passes on5621087dafe487fb5108,
+- (2026-11-17) Browser05 passes on5621087dafe487fb5108,
   ui-tests-20261116T235815.xcresult, local phone-codex-7ac042eb4735. It opens Safari,
   reads the actual page heading, returns to usable unchanged approval controls, sends
   no consent on page visit and exactly one original native accept after Allow. Stop
@@ -225,18 +259,18 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   regression. Native tests13/13 pass on the same source, tests-20261116T235956.xcresult.
   The fresh full reconnect-terminal-gate-01 check is still running.
 
-- [x] (2026-11-17) Actual Claude and Grok prompt workflows pass on013def396f66309592be:
+- (2026-11-17) Actual Claude and Grok prompt workflows pass on013def396f66309592be:
   ui-tests-20261116T235051 and235216.xcresult, local phone-claude-7a77458b4096 and
   phone-grok-e57273ab1b52. Each selects its actual backend, creates one native process,
   sends exactly phone exact prompt 🦀 once and shows the matching native answer. No user
   account/session or inference is involved. Inspect the retained screenshots before
   final UI approval. The test script separates native setup, traffic reads and assertions.
 
-- [x] (2026-11-17) Commit27853ca adds flat native form fields, exact integer/boolean/enum
+- (2026-11-17) Commit27853ca adds flat native form fields, exact integer/boolean/enum
   replies, explicit optional omission, stable sheets with retained private edits, per-card
   pending states and top-bar keyboard actions. Full cargo test passes in its commit hook;
   actual form/question/credential and native evidence is recorded below.
-- [x] Finish browser approval checks with an owned local Safari page (browser05). The app now reads
+- Finish browser approval checks with an owned local Safari page (browser05). The app now reads
   whether an actual native turn exists so browser consent without a turn cannot offer
   enabled Stop. All23 phone tests pass after this narrow facade fact. Browser fixture01
   captured a wrong test selector variable before the correction; its frozen source must
@@ -244,7 +278,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   must leave native consent unanswered, then exactly one explicit Allow response must
   reach the original native callback. No external website, account or inference is used.
 
-- [ ] (2026-11-17, owner steering) Treat saved credentials and finished UX as hard
+- (2026-11-17, owner steering) Treat saved credentials and finished UX as hard
   acceptance criteria. The owner reports entering a token again when reopening the
   installed early app and explicitly expects a polished app at the end of EP022.
   First reproduce a real terminate/relaunch and saved-token reconnect in the simulator;
@@ -253,25 +287,25 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   app screenshots and complete flows, not only whether controls exist. Do not install
   the already built intermediate5635510dc076454c0a87 phone product as the final fix.
 
-- [x] (2026-11-16) Close EP021b under the owner's grant, archive its completed plan
+- (2026-11-16) Close EP021b under the owner's grant, archive its completed plan
   unchanged and retain its corrected gate06/fresh frozen-pair baseline.
-- [x] (2026-11-16) Read the full phone spec, architecture, client API and Mac build notes.
+- (2026-11-16) Read the full phone spec, architecture, client API and Mac build notes.
   The earlier read-only Mac check passed. No app source or Mac build was created during
   EP021b; preparation notes are `/tmp/carlos-ep021b/ep022-preparation.md`.
-- [x] (2026-11-16 21:10Z) Prove the small real Swift caller before expanding the UI.
+- (2026-11-16 21:10Z) Prove the small real Swift caller before expanding the UI.
   Both Rust boundary tests and both Swift XCTest cases pass for actual greeting/reconnect
   rights, typed invalid-input/frame errors and stale socket callbacks. The SwiftUI shell
   compiles and links both generated Swift and the actual Rust static library. Evidence:
   `/tmp/carlos-ep022/first-swift-test.log`; Mac bundle3303d44c00c224ba856c,
   tests-20261116T160903.xcresult, owned simulator4C821FE4-54D8-452D-A46C-3187AAED6C61.
-- [x] (2026-11-16 21:35Z) Finish the repeatable offline build/cache path and capture the launched shell.
+- (2026-11-16 21:35Z) Finish the repeatable offline build/cache path and capture the launched shell.
   Completed: project-local pinned Rust/LLVM tools, both Apple library slices,
   generated Swift/headers/XCFramework, XcodeGen project and successful real simulator
   test. The launched shell's actual screenshot is
   `target/ios-artifacts/first-shell/screen.png`. The current wrapper passes generic
   Intel/arm64 simulator app compilation and both actual native tests with all three
   Rust targets: bundle324d2d6bcadf1f77cbea, tests-20261116T163525.xcresult.
-- [ ] Connect the actual app to a deterministic daemon over WebSocket; prove greeting,
+- Connect the actual app to a deterministic daemon over WebSocket; prove greeting,
   session selection/create, private prompt submission, reconnect and uncertain-write handling.
   Completed: narrow typed catalogue/session/prompt/private-result/row calls, five Rust
   tests and native socket/Keychain/model code compile. The partial-write test retains
@@ -290,7 +324,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   held. Evidence: target/ios-artifacts/phone-af93de0d4684, Mac source98d2edadc173a4374eed,
   ui-tests-20261116T180837.xcresult. A real native completion, not a local optimistic
   phase change, makes the Stop button return to Send.
-- [x] (2026-11-16 22:55Z) Build, sign and install the checked early preview on the owner’s
+- (2026-11-16 22:55Z) Build, sign and install the checked early preview on the owner’s
   iPhone18 Pro after the Mac reboot restores live device access. The exact simulator-checked
   bundle b7744b8a156a9c2b8287 builds Release for arm64; the existing development profile
   includes this phone, and strict signature/entitlement checks pass. Apple’s install receipt
@@ -298,7 +332,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   owner has been told to unlock/open it. A separate frozen EP021b daemon is ready on the
   private LAN, with a new private device-token file and an empty catalogue. No model call
   was made. Complete app acceptance remains below.
-- [ ] Implement the specified header, transcript, composer, activity line, Latest button,
+- Implement the specified header, transcript, composer, activity line, Latest button,
   sessions/settings sheets, native approval inputs and complete source/output reads.
   Update (2026-11-16 23:43Z): native settings/activity, both basic entry layouts, the
   whole-document pure Rust Markdown parser and original-source reader now compile.
@@ -318,7 +352,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   and measurements remain ignored under target/ios-artifacts/private-reference-render-03.
   The temporary visual test contains no transcript or credentials and was removed from
   normal source after staging; its scratch copy remains under /tmp/carlos-ep022.
-- [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
+- Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
   on-device dictation and honest permission/unavailable states.
   Update (2026-11-17): the saved-host/token/last-session and connection-screen fixes are
   committed as23475bb and39b4f70. The signed source2327bf4307aa3d527804 preview is
@@ -340,12 +374,31 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   final fix targets the stable bottom row by id and follows actual visible-block
   completion, rather than trusting the estimated physical height of unmeasured lazy
   paragraphs. Running-tool expansion, full scroll checks and remaining features stay open.
-- [ ] Run actual simulator workflows with daemon/native traces, memory/latency/size checks,
+- Run actual simulator workflows with daemon/native traces, memory/latency/size checks,
   Rust and terminal/native gates, then freeze exact checked artifacts.
-- [ ] Complete Root's engineering review and the single end-only Fable review, resolve or
+- Complete Root's engineering review and the single end-only Fable review, resolve or
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+Update2026-11-17 Root: keyboard12 still freezes at100% CPU before Send on
+9edf61c0acc0cfdf7ae7/ui-tests-20261117T051046. The live sample proves CoreText
+spends its time measuring one10000-line label; bounding only its scroll box is
+insufficient. Keep target/ios-artifacts/keyboard-12-hang.sample and keyboard-12-live.png.
+Split normalized display output into at most64-line text blocks off the UI thread,
+keeping colors/native numbers and the original read unchanged. The small scroll box
+retains every block and uses natural height for short output. Keyboard13 checks
+this exact new source; its result is pending. The later final keyboard check explicitly
+sets Full and waits for history-output0 before typing, so it cannot pass accidentally
+under a previous test's collapsed global preference. Reconnect03 hit the same early
+Full-output freeze before reaching the actual restart; it proves nothing new about
+the catalog-based Reopen fix. Retain9edf61c0acc0cfdf7ae7/ui-tests-20261117T051535.
+
+Add repeatable native XCTest measurements for saved launch, private typing, scrolling,
+idle CPU/resident pages and generated Rust calls. These remain test-only; no runtime
+observer or product test hook is added. Grammar licenses now include the pinned Sublime
+default set and its separate Rust syntax notice, in addition to syntect's MIT text.
+
 
 Update2026-11-17 Root, clean simulator checks: the release terminal/native gate02
 passes, including all23 public Codex and10 packaged Claude cases. Keyboard11
@@ -945,6 +998,18 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Decision2026-11-17 Root: keep long tool output inside a320pt native scroll viewport,
+with short results using their actual measured height. Split display text off-main
+into64-line blocks and draw only visible blocks; do not change the checked output
+window or original source. This adapter follows actual CoreText samples rather than
+adding a second transcript engine or silently omitting displayed lines. Use explicit
+top-left content alignment for a short result, proven by an exact file-text X check.
+
+Decision2026-11-17 Root: use the current catalog for lifecycle availability when the
+cached transcript cannot refresh after a stopped owner. Keep the old transcript for
+reading; expose the real Reopen control instead of hiding it behind stale ready facts.
+
 
 - Decision: try syntect5.3 with only bundled syntax grammars and the pure Rust
   fancy-regex engine in carlos-phone, not carlos-client/core. Before adding it, the

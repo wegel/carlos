@@ -84,6 +84,7 @@ ui-test)
         scroll) test_case=testToolExpansionAndNativeUpdatesKeepTheReadersPlace ;;
         history) test_case=testReachingTheTopLoadsOlderHistoryWithoutMovingText ;;
         ralph) test_case=testRalphUsesEngineFactsAndKeepsStopAvailable ;;
+        syntax) test_case=testCodeColorsKeepTheOriginalMarkdownOnTheClipboard ;;
         voice)
             # Reset only this synthetic app so the real native permission prompt repeats.
             xcrun simctl privacy "$2" reset all app.carlos.phone.fixture
