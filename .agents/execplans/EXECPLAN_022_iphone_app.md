@@ -34,7 +34,44 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Finish the normal-shell phone reconnect after the owner reports “Daemon
+- [ ] Replace the transcript's SwiftUI LazyVStack/ScrollPosition/native-marker
+  corrections with UIKit reusable collection cells and stable visible-row anchors.
+  The owner confirms the corrected normal-shell connection works, then makes real
+  history jumps the next priority and questions whether the current long-buffer
+  scroller follows best practice. Keep this inside EP022 and Root direct. Apple
+  documents UIHostingConfiguration for SwiftUI cells in native collections, stable-ID
+  diffable data sources and self-sizing layout invalidation/contentOffsetAdjustment.
+  Keep the existing semantic row views, exact source readers, private expansion
+  choices and shared client. Remove the replaced scroller/marker path rather than
+  retain competing scroll controllers. Add native coordinate tests across mixed
+  real-sized rows, failed/retried/prepended history, tools and live output. Check
+  complete paragraph rendering as well: the real reference video shows truncated
+  list/quote text. No new reviewer before the end.
+- [x] The owner confirms the phone reconnects to their normal-shell daemon after
+  the shared catalogue copy. Read-only hello and sessions/watch accept the unchanged
+  phone token and show one saved session; device/list shows its one registered
+  phone. Receipt: normal-shell-phone-auth-check.json. The native session is not
+  started by that check. Answered side questions: automatic local daemon behavior,
+  how to run the phone listener in the normal shell, and absolute CLI/socket paths.
+- [x] Frozen phone source56e36e29e767c7c9471b passes all19 native units plus keyboard,
+ 10000-line code, history failure/retry, tool anchors/live updates,10MB original-
+  byte/clipboard, syntax, actual Claude tools and Claude quota in matrix03. The real
+  reference03 XCTest passes but its temporary replay helper rejects legitimate
+  entry/output and session/history reads. Fix the helper to serve only captured
+  prefix rows, return an explicit unavailable error for uncaptured bodies, and
+  still reject every mutation. In matrix04 the real reference then fails because
+  its test assumes a fully visible small Text element after scrolling. Preserve
+  ui-tests-20261117T094742 and reference-short-1306b2803d; inspect its actual video
+  and screenshot before changing the position assertions. The screen remains
+  populated but contains text truncation, and the owner still sees real jumps.
+- [x] Full corrected terminal/native release gate04 passes, including the new
+  one-header terminal Read case. Keep gate03's single Claude partial-settings timeout:
+  native set_model replied success but its helper promise did not settle before8s;
+  unchanged focused repeat passes0.461s and complete gate04 passes. Do not increase
+  deadlines or call that earlier timeout a repaired product bug. Runtime source
+ 92d3a53538102e52153236eb9c0b4ba0 matches CLI/daemon/helper.
+
+- [x] Finish the normal-shell phone reconnect after the owner reports “Daemon
   rejected this connection.” The normal-shell daemon listens on the expected LAN
   port and shared Unix socket, but device/list returns no devices. The /var/tmp
   directory inside this execution environment is private; the earlier handover
