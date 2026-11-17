@@ -125,6 +125,21 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Surprises & Discoveries
 
+The connection editor now waits for the actual authenticated greeting before opening
+Sessions. Credentials run01 and relaunch04 exposed that the keyboard could cover the
+old Form-row Connect action; the captured hierarchy placed its center under the
+keyboard toolbar. A fixed safe-area action bar corrects that workflow. Credentials02
+and relaunch05 both pass on2327bf4307aa3d527804 at
+ui-tests-20261116T220323.xcresult and ui-tests-20261116T220455.xcresult, local
+phone-34ae0a53b15c and phone-b2fd77a9aae3. They check a rejected token remains editable,
+correcting it authenticates, saved-token reuse, edited-address protection, background/
+relaunch and last-session restoration, with no duplicate native creation or prompts.
+Root inspected the actual rejected/accepted screenshots. A new helper assertion also
+requires Connect above the keyboard. Native tests pass11/11 on the preceding e5d044
+source, tests-20261116T220237.xcresult; cargo test passes at token-cargo-test.log.
+The connection form has themed rows, explicit keyboard Next/Go/Done, Cancel for sheets
+and a15-second greeting deadline. These checks do not close the overall EP.
+
 The physical phone's saved preferences were copied read-only with devicectl. They
 contain two host configurations and no token: the first has a mistyped out-of-range
 port337310, and the second has the working33731 address. The early app always chooses
@@ -325,6 +340,11 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Decision (2026-11-17,Root): keep connection errors in the editable form and show an
+explicit connecting state until the shared client accepts the daemon's greeting. Keep
+Connect and errors above the keyboard. Bound the greeting wait to15 seconds, cancelling
+only that attempt on timeout. Keep every saved token and private operation intact.
 
 Decision (2026-11-17,Root): read saved tokens only while the app is active and protected
 device data is available. Retry disconnected hosts on activation/unlock, and reconnect

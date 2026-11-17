@@ -39,7 +39,7 @@ final class PhoneStore {
         }
     }
 
-    func connect(name: String, address: String, token: String, privateWebSocket: Bool) throws {
+    func connect(name: String, address: String, token: String, privateWebSocket: Bool) throws -> PhoneHostModel {
         let address = address.trimmingCharacters(in: .whitespacesAndNewlines)
         let candidate = PhoneHost(id: UUID().uuidString, name: name, address: address,
                                   allowsPrivateWebSocket: privateWebSocket)
@@ -54,9 +54,8 @@ final class PhoneStore {
             let saved = hosts.map { $0.id == existing.id ? configuration : $0.configuration }
             defaults.set(try JSONEncoder().encode(saved), forKey: key)
             existing.configuration = configuration
-            selectedHost = existing.id
             existing.connect()
-            return
+            return existing
         }
         guard !token.isEmpty else { throw HostError.message("Enter a device token for this host") }
         let configuration = PhoneHost(id: candidate.id, name: label.isEmpty ? (url.host ?? "Host") : label,
@@ -66,7 +65,7 @@ final class PhoneStore {
         defaults.set(saved, forKey: key)
         let host = PhoneHostModel(configuration: configuration, bodyBudget: bodyBudget, defaults: defaults)
         hosts.append(host)
-        selectedHost = host.id
         host.connect()
+        return host
     }
 }

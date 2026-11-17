@@ -145,10 +145,12 @@ def run(workflow):
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
             expected = {"controls": ["held"], "source": ["phone long source"],
-                        "prompt": ["phone exact prompt 🦀"], "relaunch": []}[workflow]
+                        "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": []}[workflow]
             assert observed == expected, observed
             if workflow == "relaunch":
                 assert fixture.native.started == 1, "Relaunch must not create another native session"
+            elif workflow == "credentials":
+                assert fixture.native.started == 0, "Connecting must not create a native session"
             if workflow == "controls":
                 assert fixture.native.answers == 1 and fixture.native.interrupts == 1
                 answers = [request for request in fixture.native.requests if request.get("id") == "card"]
@@ -161,5 +163,5 @@ def run(workflow):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials"), default="prompt")
     run(parser.parse_args().workflow)

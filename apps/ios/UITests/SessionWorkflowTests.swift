@@ -6,6 +6,30 @@ import XCTest
 
 final class SessionWorkflowTests: XCTestCase {
     @MainActor
+    func testInvalidTokenKeepsTheFormAndAllowsCorrection() throws {
+        let invalid = String(repeating: "a", count: 32) + "." + String(repeating: "b", count: 64)
+        let app = try connectedHost(token: invalid)
+        XCTAssertTrue(app.staticTexts["connection.error"].waitForExistence(timeout: 15))
+        let token = app.secureTextFields["connection.token"]
+        XCTAssertTrue(token.exists, "A rejected token must leave the connection form open")
+        let rejected = XCTAttachment(screenshot: app.screenshot())
+        rejected.name = "Rejected token stays editable"
+        rejected.lifetime = .keepAlways
+        add(rejected)
+        token.tap()
+        token.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: invalid.count))
+        token.typeText(try settings().token)
+        app.buttons["connection.connect"].tap()
+        XCTAssertTrue(app.textFields["sessions.cwd"].waitForExistence(timeout: 15))
+        XCTAssertFalse(token.exists)
+        let connected = XCTAttachment(screenshot: app.screenshot())
+        connected.name = "Authenticated host opens sessions"
+        connected.lifetime = .keepAlways
+        add(connected)
+        app.terminate()
+    }
+
+    @MainActor
     func testRelaunchReusesSavedConnectionAndToken() throws {
         let app = try connectedSession()
         XCTAssertTrue(app.buttons["header.sessions"].waitForExistence(timeout: 15))
@@ -199,7 +223,7 @@ final class SessionWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    private func connectedHost() throws -> XCUIApplication {
+    private func connectedHost(token suppliedToken: String? = nil) throws -> XCUIApplication {
         continueAfterFailure = false
         let fixture = try settings()
         let app = XCUIApplication(bundleIdentifier: "app.carlos.phone.fixture")
@@ -214,11 +238,17 @@ final class SessionWorkflowTests: XCTestCase {
         host.typeText("Native fixture")
         let token = app.secureTextFields["connection.token"]
         token.tap()
-        token.typeText(fixture.token)
+        token.typeText(suppliedToken ?? fixture.token)
         let privateSwitch = app.switches["connection.private"]
         privateSwitch.switches.firstMatch.tap()
         XCTAssertEqual(privateSwitch.value as? String, "1")
-        app.buttons["connection.connect"].tap()
+        let connect = app.buttons["connection.connect"]
+        XCTAssertTrue(connect.isHittable)
+        if app.keyboards.firstMatch.exists {
+            XCTAssertLessThanOrEqual(connect.frame.maxY, app.keyboards.firstMatch.frame.minY,
+                                     "The connection action must stay above the keyboard")
+        }
+        connect.tap()
         return app
     }
 

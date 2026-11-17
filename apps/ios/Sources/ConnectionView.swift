@@ -11,6 +11,10 @@ struct ConnectionView: View {
     @State private var token = ""
     @State private var privateWebSocket = false
     @State private var error: String?
+    @State private var pending: PhoneHostModel?
+    @FocusState private var field: Field?
+
+    private enum Field: Hashable { case host, address, token }
 
     init(store: PhoneStore, existing: PhoneHost? = nil, completed: @escaping () -> Void = {}) {
         self.store = store
@@ -28,51 +32,94 @@ struct ConnectionView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Carlos daemon") {
-                    TextField("Host name", text: $host).accessibilityIdentifier("connection.host")
-                    TextField("wss://host:port", text: $address)
-                        .textContentType(.URL).keyboardType(.URL)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .accessibilityIdentifier("connection.address")
-                    SecureField("Device token", text: $token)
-                        .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        .accessibilityIdentifier("connection.token")
-                    if usesSavedToken {
-                        Text("Leave the token blank to keep using the saved token.")
-                            .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
-                    }
-                    Toggle("Allow unencrypted WebSocket on a private network", isOn: $privateWebSocket)
-                        .accessibilityIdentifier("connection.private")
-                }
+                fields
                 Section {
-                    Button("Connect", action: connect)
-                        .disabled(address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
-                                  (token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !usesSavedToken))
-                        .frame(minHeight: 44).accessibilityIdentifier("connection.connect")
                     Text("Use a device token provisioned by your Carlos daemon. Carlos stores it in this device’s Keychain.")
                         .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
-                    if let message = error ?? store.error {
-                        Text(message).foregroundStyle(PhoneTheme.red)
-                            .accessibilityIdentifier("connection.error")
-                    }
-                }
+                }.listRowBackground(PhoneTheme.base)
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) { actionBar }
+            .scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden).background(PhoneTheme.mantle)
-            .navigationTitle("Connect to Carlos")
+            .navigationTitle(existing == nil ? "Connect to Carlos" : "Connection")
+            .navigationBarTitleDisplayMode(existing == nil ? .large : .inline)
             .toolbar {
-                if !store.hosts.isEmpty {
+                if existing != nil || store.current != nil {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { field = nil }
                 }
             }
             .font(PhoneTheme.prose()).tint(PhoneTheme.blue)
+            .foregroundStyle(PhoneTheme.text)
+            .onChange(of: pending?.connected) { _, connected in
+                guard connected == true, let host = pending, host.error == nil else { return }
+                store.selectedHost = host.id
+                pending = nil
+                token = ""
+                completed()
+            }
+            .onChange(of: pending?.error) { _, message in
+                guard let message else { return }
+                error = message
+                pending = nil
+            }
         }
+    }
+
+    private var fields: some View {
+        Section("Carlos daemon") {
+            TextField("Host name", text: $host).accessibilityIdentifier("connection.host")
+                .focused($field, equals: .host).submitLabel(.next).onSubmit { field = .address }
+            TextField("wss://host:port", text: $address)
+                .textContentType(.URL).keyboardType(.URL)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("connection.address")
+                .focused($field, equals: .address).submitLabel(.next).onSubmit { field = .token }
+            SecureField(usesSavedToken ? "Saved token (unchanged)" : "Device token", text: $token)
+                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                .accessibilityIdentifier("connection.token")
+                .focused($field, equals: .token).submitLabel(.go).onSubmit { if canConnect { connect() } }
+            if usesSavedToken {
+                Text("Leave the token blank to keep using the saved token.")
+                    .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
+            }
+            Toggle("Allow unencrypted WebSocket on a private network", isOn: $privateWebSocket)
+                .accessibilityIdentifier("connection.private")
+        }.disabled(pending != nil).listRowBackground(PhoneTheme.base)
+    }
+
+    private var actionBar: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let message = error ?? store.error {
+                Text(message).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
+                    .accessibilityIdentifier("connection.error")
+            }
+            Button(action: connect) {
+                HStack(spacing: 8) {
+                    if pending != nil { ProgressView().controlSize(.small).tint(PhoneTheme.crust) }
+                    Text(pending == nil ? "Connect" : "Connecting…").font(PhoneTheme.prose(15, weight: .semibold))
+                }.frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.plain).disabled(!canConnect || pending != nil)
+            .background(canConnect ? PhoneTheme.blue : PhoneTheme.surface0)
+            .foregroundStyle(canConnect ? PhoneTheme.crust : PhoneTheme.overlay1)
+            .clipShape(RoundedRectangle(cornerRadius: 12)).accessibilityIdentifier("connection.connect")
+        }.padding(16).background(PhoneTheme.mantle)
+    }
+
+    private var canConnect: Bool {
+        !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        (!token.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || usesSavedToken)
     }
 
     private func connect() {
         do {
-            try store.connect(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
-            token = ""
-            completed()
+            error = nil
+            field = nil
+            pending = try store.connect(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
         } catch { self.error = error.localizedDescription }
     }
 }

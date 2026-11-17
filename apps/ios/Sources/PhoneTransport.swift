@@ -24,6 +24,7 @@ final class PhoneTransport: @unchecked Sendable {
     private var writes: [PhoneFrame] = []
     private var writing = false
     private var greeted = false
+    private var greetingDeadline: DispatchWorkItem?
 
     deinit { session.invalidateAndCancel() }
 
@@ -41,6 +42,12 @@ final class PhoneTransport: @unchecked Sendable {
                 socket.resume()
                 try self.enqueue([greeting])
                 self.receive(socket, generation: greeting.generation)
+                let deadline = DispatchWorkItem { [weak self] in
+                    guard let self, self.generation == greeting.generation, !self.greeted else { return }
+                    self.close(message: "The daemon did not respond. Check its address and network, then try again.")
+                }
+                self.greetingDeadline = deadline
+                self.queue.asyncAfter(deadline: .now() + 15, execute: deadline)
             } catch {
                 self.close(message: error.localizedDescription)
             }
@@ -153,7 +160,12 @@ final class PhoneTransport: @unchecked Sendable {
             }
             let batch = try client.receive(generation: generation, message: data)
             try enqueue(batch.outgoing)
-            if batch.ready && !greeted { greeted = true; emit(.connected) }
+            if batch.ready && !greeted {
+                greetingDeadline?.cancel()
+                greetingDeadline = nil
+                greeted = true
+                emit(.connected)
+            }
             let rejected = !batch.ready && !batch.failures.isEmpty
             guard let callbacks else { return }
             DispatchQueue.main.async {
@@ -179,6 +191,8 @@ final class PhoneTransport: @unchecked Sendable {
     }
 
     private func close(message: String? = nil) {
+        greetingDeadline?.cancel()
+        greetingDeadline = nil
         if let generation { try? client.disconnect(generation: generation) }
         socket?.cancel(with: .goingAway, reason: nil)
         socket = nil
