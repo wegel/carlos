@@ -5,11 +5,12 @@ struct PhoneMarkdownView: View {
     let document: PhoneDocument
     let color: Color
     var role: PhoneEntryKind = .answer
+    var changed: @MainActor () -> Void = {}
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 10) {
+        LazyVStack(alignment: .leading, spacing: PhoneTheme.paragraphGap) {
             ForEach(0..<Int(document.blockCount()), id: \.self) { index in
-                PhoneMarkdownBlockView(document: document, index: UInt32(index), color: color, role: role)
+                PhoneMarkdownBlockView(document: document, index: UInt32(index), color: color, role: role, changed: changed)
             }
         }
     }
@@ -20,6 +21,7 @@ struct PhoneMarkdownBlockView: View {
     let index: UInt32
     let color: Color
     var role: PhoneEntryKind = .answer
+    var changed: @MainActor () -> Void = {}
     @State private var block: PhoneMarkdownBlock?
     @State private var error: String?
 
@@ -41,13 +43,15 @@ struct PhoneMarkdownBlockView: View {
             let result = await Task.detached(priority: .userInitiated) { Result { try document.block(index: index) } }.value
             guard !Task.isCancelled else { return }
             switch result { case .success(let value): block = value; case .failure(let failure): error = failure.localizedDescription }
+            changed()
         }
     }
 
     @ViewBuilder private func content(_ block: PhoneMarkdownBlock) -> some View {
         switch block.kind {
         case .paragraph:
-            Text(styled(block.spans, size: role == .notice ? 11.5 : 15)).lineSpacing(6).textSelection(.enabled)
+            Text(styled(block.spans, size: role == .notice ? 11.5 : 15))
+                .lineSpacing(role == .notice ? 0 : PhoneTheme.proseLeading).textSelection(.enabled)
         case .heading(let level):
             Text(styled(block.spans, size: max(15, 25 - CGFloat(level) * 2), strong: true)).textSelection(.enabled)
         case .code(let language):

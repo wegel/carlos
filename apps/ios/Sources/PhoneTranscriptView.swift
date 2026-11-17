@@ -1,16 +1,18 @@
-// Start with native lazy rows; the full entry renderer and measured scroll checks extend this view.
+// Keep stable native rows and follow only real transcript changes while the reader stays at the bottom.
 import SwiftUI
 
 struct PhoneTranscriptView: View {
     let host: PhoneHostModel
+    @Environment(PhonePreferences.self) private var preferences
+    @State private var position = ScrollPosition(edge: .bottom)
     @State private var following = true
     @State private var userScrolling = false
     @State private var metrics = TranscriptMetrics()
 
     var body: some View {
-        ScrollViewReader { proxy in
+        GeometryReader { geometry in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 0) {
                     if host.selected == nil {
                         Text("Choose a session").font(PhoneTheme.prose(15, weight: .semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -19,22 +21,24 @@ struct PhoneTranscriptView: View {
                             .font(PhoneTheme.prose(15, weight: .semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
                     }
-                    ForEach(host.orderedEntries, id: \.self) { id in
-                        Group {
-                            if let row = host.rows[id] { entry(row) }
-                            else { ProgressView().frame(height: 26).onAppear { host.loadRows([id]) } }
-                        }.id(id).accessibilityIdentifier("entry.\(id)")
+                    ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
+                        PhoneTranscriptItemView(host: host, item: item).id(item.id)
                     }
                     ForEach(privateEchoes, id: \.key) { operation in
-                        Text(operation.text ?? "").font(PhoneTheme.prose(15, weight: .semibold))
-                            .padding(12).frame(maxWidth: .infinity, alignment: .leading).background(PhoneTheme.userBand)
+                        PhoneUserMessage {
+                            Text(operation.text ?? "").font(PhoneTheme.prose(15, weight: .semibold))
+                                .lineSpacing(PhoneTheme.proseLeading).foregroundStyle(PhoneTheme.text)
+                        }.padding(.top, 18)
                     }
-                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card) }
-                    ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation) }
+                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card).padding(.top, 18) }
+                    ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.top, 18) }
                     Color.clear.frame(height: 1).id("transcript.bottom")
-                }.padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 20)
+                }.scrollTargetLayout().frame(width: max(0, geometry.size.width - 32), alignment: .leading)
+                    .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 20)
             }
-            .scrollIndicators(.hidden).defaultScrollAnchor(.bottom)
+            .clipped().scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
+            .defaultScrollAnchor(following ? .bottom : nil, for: .sizeChanges)
+            .scrollPosition($position)
             .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
                 TranscriptMetrics(height: geometry.contentSize.height,
                     viewport: geometry.containerSize.height,
@@ -43,13 +47,11 @@ struct PhoneTranscriptView: View {
             } action: { old, new in
                 metrics = new
                 if userScrolling { following = new.distance <= 40 }
-                if following && !userScrolling && (old.height != new.height || old.viewport != new.viewport) {
-                    proxy.scrollTo("transcript.bottom", anchor: .bottom)
-                }
             }
             .onScrollPhaseChange { _, phase in
                 switch phase {
-                case .tracking, .interacting, .decelerating: userScrolling = true
+                case .interacting, .decelerating: userScrolling = true
+                case .tracking: break
                 case .idle:
                     if userScrolling { following = metrics.distance <= 40 }
                     userScrolling = false
@@ -59,17 +61,20 @@ struct PhoneTranscriptView: View {
             }
             .onChange(of: host.selected) { _, _ in
                 following = true
-                proxy.scrollTo("transcript.bottom", anchor: .bottom)
+                position.scrollTo(id: "transcript.bottom", anchor: .bottom)
+            }
+            .onChange(of: host.contentVersion) { _, _ in
+                if following && !userScrolling { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
             }
             .onChange(of: host.followRequest) { _, _ in
                 following = true
-                proxy.scrollTo("transcript.bottom", anchor: .bottom)
+                position.scrollTo(id: "transcript.bottom", anchor: .bottom)
             }
             .overlay(alignment: .bottom) {
                 if !following && metrics.distance > 260 {
                     Button {
                         following = true
-                        withAnimation { proxy.scrollTo("transcript.bottom", anchor: .bottom) }
+                        withAnimation { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
                     } label: {
                         Label("Latest", systemImage: "arrow.down").font(PhoneTheme.mono(12))
                             .padding(.horizontal, 16).frame(minHeight: 44)
@@ -92,42 +97,6 @@ struct PhoneTranscriptView: View {
         }
     }
 
-    private func entry(_ row: PhoneEntry) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let tool = row.tool {
-                HStack {
-                    Text(tool.label).font(PhoneTheme.mono(12.5)).lineLimit(tool.labelSource == .ai ? nil : 1)
-                    Spacer()
-                    if tool.status == .running { ProgressView().controlSize(.small) }
-                    else if let summary = tool.summary { Text(summary).font(PhoneTheme.mono(11.5)) }
-                }.frame(minHeight: 26)
-            } else {
-                Text(label(row.kind)).font(PhoneTheme.mono()).foregroundStyle(color(row.kind))
-                Text(row.text.preview).font(PhoneTheme.prose(15, weight: row.kind == .user ? .semibold : .regular))
-                    .textSelection(.enabled).foregroundStyle(color(row.kind))
-                if row.text.sourceBytes != nil {
-                    Text("Original source has not loaded yet").font(PhoneTheme.mono(11.5)).foregroundStyle(PhoneTheme.overlay2)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(row.kind == .user ? 12 : 0)
-        .background(row.kind == .user ? PhoneTheme.userBand : .clear)
-    }
-
-    private func label(_ kind: PhoneEntryKind) -> String {
-        switch kind {
-        case .user: "❯ you"; case .reasoning: "◆ reasoning"; case .commentary: "• commentary"
-        case .answer: "✓ answer"; case .notice: "notice"; case .toolCall, .tool: "tool"
-        }
-    }
-
-    private func color(_ kind: PhoneEntryKind) -> Color {
-        switch kind {
-        case .user: PhoneTheme.blue; case .reasoning: PhoneTheme.mauve; case .commentary: PhoneTheme.flamingo
-        case .answer: PhoneTheme.text; case .notice: PhoneTheme.overlay2; case .toolCall, .tool: PhoneTheme.subtext1
-        }
-    }
 }
 
 private struct TranscriptMetrics: Equatable {

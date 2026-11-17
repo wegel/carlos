@@ -1,5 +1,6 @@
 // Use the phone spec's bundled fonts and Catppuccin Mocha colors in one place.
 import SwiftUI
+import UIKit
 
 enum PhoneTheme {
     static let crust = color(0x11111b)
@@ -23,6 +24,11 @@ enum PhoneTheme {
     static let yellow = color(0xf9e2af)
     static let peach = color(0xfab387)
     static let teal = color(0x94e2d5)
+    static let scannerTip = color(0xf5e0ff)
+    static let ralphScannerTip = color(0xfff0fa)
+    static let proseLeading = leading(size: 15, multiple: 1.5)
+    static let toolLeading = leading(size: 13.5, multiple: 1.35)
+    static let paragraphGap: CGFloat = 9
 
     static func prose(_ size: CGFloat = 15, weight: Font.Weight = .regular) -> Font {
         .custom("InterVariable", size: size).weight(weight)
@@ -30,6 +36,11 @@ enum PhoneTheme {
 
     static func mono(_ size: CGFloat = 12) -> Font {
         .custom("JetBrainsMono-Regular", size: size)
+    }
+
+    private static func leading(size: CGFloat, multiple: CGFloat) -> CGFloat {
+        let font = UIFont(name: "InterVariable", size: size) ?? .systemFont(ofSize: size)
+        return max(0, size * multiple - font.lineHeight)
     }
 
     private static func color(_ rgb: UInt32) -> Color {
@@ -65,7 +76,7 @@ extension PhoneSession {
         switch activity.phase {
         case .approval: PhoneTheme.yellow
         case .running: activity.ralph ? PhoneTheme.pink : PhoneTheme.mauve
-        case .idle: PhoneTheme.overlay2
+        case .idle: PhoneTheme.overlay1
         }
     }
 }

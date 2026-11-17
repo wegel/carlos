@@ -19,7 +19,11 @@ struct PhoneActivityLine: View {
         .padding(.horizontal, 16).frame(height: 28)
         .overlay(alignment: .top) {
             Rectangle().fill(PhoneTheme.surface0).frame(height: 1)
-            if active { PhoneScanner(color: info?.activity.ralph == true ? PhoneTheme.pink : PhoneTheme.mauve, reduceMotion: reduceMotion) }
+            if active {
+                PhoneScanner(color: info?.activity.ralph == true ? PhoneTheme.pink : PhoneTheme.mauve,
+                    tip: info?.activity.ralph == true ? PhoneTheme.ralphScannerTip : PhoneTheme.scannerTip,
+                    reduceMotion: reduceMotion)
+            }
         }
         .accessibilityIdentifier("session.activity")
     }
@@ -70,16 +74,20 @@ struct PhoneActivityLine: View {
 
 private struct PhoneScanner: View {
     let color: Color
+    let tip: Color
     let reduceMotion: Bool
     @State private var end = false
 
     var body: some View {
         GeometryReader { geometry in
-            Capsule().fill(color).frame(width: min(110, geometry.size.width), height: 2)
-                .offset(x: end ? max(0, geometry.size.width - 110) : 0)
-                .onAppear {
-                    if !reduceMotion { withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) { end = true } }
-                }
-        }.frame(height: 2).allowsHitTesting(false).accessibilityHidden(true)
+            Rectangle().fill(LinearGradient(stops: [
+                .init(color: .clear, location: 0), .init(color: color, location: 0.7), .init(color: tip, location: 1)
+            ], startPoint: .leading, endPoint: .trailing))
+                .frame(width: 110, height: 2)
+                .offset(x: reduceMotion ? 0 : end ? geometry.size.width : -110)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: end)
+                .onAppear { end = !reduceMotion }
+                .onChange(of: reduceMotion) { _, value in end = !value }
+        }.frame(height: 2).clipped().allowsHitTesting(false).accessibilityHidden(true)
     }
 }

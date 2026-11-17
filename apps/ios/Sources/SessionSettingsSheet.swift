@@ -51,6 +51,7 @@ struct SessionSettingsSheet: View {
             }
             .scrollContentBackground(.hidden).background(PhoneTheme.base)
             .navigationTitle("Session settings").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
         .font(PhoneTheme.prose()).foregroundStyle(PhoneTheme.text)
         .presentationDetents([.fraction(0.8)]).presentationDragIndicator(.visible)

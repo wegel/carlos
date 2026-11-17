@@ -34,6 +34,15 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] (2026-11-17, owner steering) Treat saved credentials and finished UX as hard
+  acceptance criteria. The owner reports entering a token again when reopening the
+  installed early app and explicitly expects a polished app at the end of EP022.
+  First reproduce a real terminate/relaunch and saved-token reconnect in the simulator;
+  inspect physical saved settings read-only when available. Never clear credentials on
+  an ordinary disconnect or force the owner to type a saved token again. Check actual
+  app screenshots and complete flows, not only whether controls exist. Do not install
+  the already built intermediate5635510dc076454c0a87 phone product as the final fix.
+
 - [x] (2026-11-16) Close EP021b under the owner's grant, archive its completed plan
   unchanged and retain its corrected gate06/fresh frozen-pair baseline.
 - [x] (2026-11-16) Read the full phone spec, architecture, client API and Mac build notes.
@@ -81,14 +90,107 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   was made. Complete app acceptance remains below.
 - [ ] Implement the specified header, transcript, composer, activity line, Latest button,
   sessions/settings sheets, native approval inputs and complete source/output reads.
+  Update (2026-11-16 23:43Z): native settings/activity, both basic entry layouts, the
+  whole-document pure Rust Markdown parser and original-source reader now compile.
+  Source2171feece10489f25490 passes all8 native tests,0 skips, at
+  tests-20261116T183512.xcresult. These include actual generated Markdown records,
+  exact temporary-file prefixes, capacity preserving accepted bytes/releasing space,
+  and local preference persistence. All200 shared-client and12 phone tests pass, as do
+  strict phone/client lints and21 architecture tests. The source UI/full terminal gates
+  are running; tool expansion, complete row grouping and other checks remain.
+  Update (2026-11-17 01:02Z): private real-Claude renders pass through the actual typed
+  Rust snapshot reader without a socket or credentials. Reference source6b3e10c8aacd9d1b2d01
+  passes11 native tests, including10 ordinary cases and the one temporary visual check,
+  with0 skips at tests-20261116T200114.xcresult. The private reference's literal tool rows
+  now all measure26pt. Before the fix, short status summaries wrapped into near-zero
+  remaining width and made result rows32–111pt tall. The regression test measures a real
+  hosted row, checks26pt for a long command and allows real AI labels to wrap. Screenshots
+  and measurements remain ignored under target/ios-artifacts/private-reference-render-03.
+  The temporary visual test contains no transcript or credentials and was removed from
+  normal source after staging; its scratch copy remains under /tmp/carlos-ep022.
 - [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
   on-device dictation and honest permission/unavailable states.
+  Update (2026-11-17 01:35Z): the actual long-original-source UI workflow passes on
+  source5635510dc076454c0a87, ui-tests-20261116T203335.xcresult, local
+  phone-e3ad2c7d29a0. All10483884 source bytes match the system clipboard's byte count
+  and SHA256 after a real Copy tap; Copied appears and returns to Copy. The fixture
+  trace contains exactly the one expected native prompt and no native errors. The
+  final fix targets the stable bottom row by id and follows actual visible-block
+  completion, rather than trusting the estimated physical height of unmeasured lazy
+  paragraphs. Running-tool expansion, full scroll checks and remaining features stay open.
 - [ ] Run actual simulator workflows with daemon/native traces, memory/latency/size checks,
   Rust and terminal/native gates, then freeze exact checked artifacts.
 - [ ] Complete Root's engineering review and the single end-only Fable review, resolve or
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+The actual-app read-only replay is more reliable than the temporary in-process window
+helper. Do not run more variants of that helper. A private replay serves only hello,
+sessions/watch and session/subscribe from the captured Claude snapshot, accepts a fresh
+synthetic token, rejects every mutation and never connects to the owner's daemon.
+The full76-row and short5-row cases traverse the actual connection/session/settings UI
+and both layouts. Short replay969dfdca38 and full replay427397ec4a pass their geometry
+and interaction checks, but the short Gutter screenshot reveals that valid/hittable
+fixed controls can still lose their painted contents. Opaque fixed bars above the scroll
+view correct this; reference-short-ad77e24c37 passes an additional exact title/draft
+pixel comparison across Flow and Gutter. Its source is0fd6685d4cb84aae104c. Real input
+and screenshots remain private. The temporary helper's partial images are not a product
+pass or a reliable diagnosis of geometry.
+
+The installed b7744b8 host store writes configuration to UserDefaults and the token to
+Keychain, but reconnecting through its connection editor always requires a nonempty
+token. It also attempts Keychain reads during app initialization and has no foreground/
+unlock retry. These are concrete gaps; the precise physical reopen cause still needs
+the new real relaunch check. Current run: /tmp/carlos-ep022/token-relaunch-01.log. Keep
+its launch reset only for initial setup, then remove launch arguments before relaunch
+so the test exercises the actual saved host/token. Require no extra native session or
+prompt. The owner's installed version remains the early b7744b8 bundle.
+
+The owner confirms that the early installed app and their resumed Claude CLI session
+work together, then asks Root to match the HTML demo using that actual conversation.
+The read-only reference at target/ios-artifacts/owner-claude-reference/snapshot.json
+contains76 rows, including empty completed reasoning and adjacent distinct tool calls
+and results. Never commit the conversation, token or screenshots. The live engine now
+owns the owner's work: do not stop or restart it. Its actual shared Unix socket is
+tmp/phone-preview-b7744b8/daemon.sock, exposed to the strict private daemon path through
+an owned bind mount. The separate shared-socket-identity.json receipt records that change.
+
+Source UI runs06–09 remain failed, not passing. Run06 spooled all10483884 original bytes;
+its one-second main-thread sample was mostly idle, with350.8MB footprint and512.2MB peak
+in a debug build. Do not call this proof of an endless CPU loop. Runs07–09 reached the
+tail-existence assertion but timed out around Copy. A separate Linux-only real-daemon
+check, /tmp/carlos-ep022/check-source-state.py, proves the streamed answer has done=true
+and source.bytes=10483884. The missing item/completed hypothesis is disproved; keep the
+valid bounded-delta fixture. Match Copy by its actual announced original byte count and
+record read/pasteboard phases without source text before another diagnostic run.
+
+Runs10–11 failed the tail-visible check, rather than proving a clipboard failure. Their
+retained samples are mostly idle. Run12 puts the complete source's last paragraph and
+Copy on screen after long Markdown blocks become siblings in the transcript's lazy
+list. Its remaining failure is an exact automation-value mismatch: SwiftUI localized
+10483884 to10,483,884. Use an explicit verbatim accessible byte count. Run13 reaches
+Copy, sees Copied and writes the OS pasteboard in41ms, then hangs because the runner
+reads UIPasteboard on its own main thread and cannot answer its cross-app Allow Paste
+dialog. Both the screenshot and runner sample confirm this, not a product inference.
+Keep source13-diagnostic and source-ui-13.log. Info-level OSLog records require --info.
+
+The simctl pbcopy/pbpaste fallback segfaults on this Mac, even for a short sentinel in
+run14, so it is removed rather than weakening the clipboard check or changing privacy
+settings. Run15 keeps the original byte count/SHA256, real Copy/Copied/reset UI assertions
+and original deadlines. It uses the SDK's explicitly Sendable UIPasteboard on a detached
+task, while the runner answers the actual system Allow Paste dialog. Its result is
+pending at /tmp/carlos-ep022/source-ui-15.log. Scripts keep the owned simulator booted
+before XCTest and serialize all compiler/simulator jobs. No other simulator is touched.
+
+Run15 failed at the tail precondition after viewport changes, before Copy. Its later
+automation failures are downstream noise, not another clipboard defect or evidence of
+an exact-copy pass. The async workflow now returns immediately after a failed required
+tail/Copy check. Keep source15-first-hierarchy.txt: it shows an enormous measured
+paragraph where the estimated bottom position should have been. Run16 passes in44.7s
+after native scroll requests target the stable bottom id, and each newly decoded visible
+block reports its real size change. The asynchronous reader/system-Paste handling and
+all original clipboard assertions pass too. Do not re-label previous runs as passing.
 
 EP021b ends at runtime `6de40a2`, checked documentation tree `fb5ed10`, source
 `67a1a38a348a6343400594a6d06dbe4a`. Its exact checked CLI/daemon/helper/probe live under
@@ -184,7 +286,34 @@ The corrected native scroll geometry and user-scroll phase checks preserve follo
 near the bottom, stop following beyond40pt and expose Latest beyond260pt. The actual
 held-control rerun passes. Pixel-anchor/prepend/expansion tests still remain.
 
+The first ten-megabyte UI fixture incorrectly emitted its entire answer as one native
+Codex frame. The existing native8MiB guard correctly closed that connection; no source
+reader or formatter success was claimed. Retain phone-7f2b296870c8 and Mac sourcea782741a4e88462421da,
+ui-tests-20261116T183620.xcresult. The corrected fixture streams16K-character deltas and
+leaves the native guard unchanged. The full terminal gate also first stops at a private
+state-directory ancestor owned by UID1000 while this execution environment reports UID0.
+Keep source-terminal-gate.log and run-dQnf4r. The rerun script is an exact copy of
+scripts/test.sh with only cd and the artifact root changed to /tmp/carlos-ep022; this is
+how the prior EP's preserved gate handled the same environment. No assertion, deadline,
+permission check or runtime invariant was weakened.
+
 ## Decision Log
+
+Decision (2026-11-17,Root): use the owner's checked snapshot only as a private read-only
+visual example. Keep real credentials off the simulator and do not send a prompt or
+control to the running session. Fix the demo's concrete spacing, full-width user band,
+centered header and width-measured compact reasoning. Hide only completed reasoning
+whose complete inline text is empty; a source descriptor must still load its real text.
+Keep distinct call/result rows distinct until an actual checked relationship exists.
+
+Decision (2026-11-17,Root): flatten long answer/commentary documents into individually
+addressed Markdown blocks in the transcript's single lazy list. Nesting lazy lists made
+the huge answer's body blank while its footer was visible. Keep one original file and
+one parsed Rust document, and attach checked reader lifetimes to visible blocks. Native
+edge-based ScrollPosition and size-change anchors follow new content; body-only or empty
+close batches must not trigger another host-facts read or scroll request. The current
+viewport fixes the list width, and the user band's background bleeds to the screen edge
+without widening its parent. The latest geometry/source checks remain pending.
 
 Decision (2026-11-16,Root): keep one EP with small buildable milestones. Start with an
 actual generated Swift caller and native app shell, then add only the interface needed by
@@ -230,7 +359,54 @@ Rust tests prove original Unicode/control bytes, foreign-host rejection and old-
 safety; all12 phone tests and phone clippy pass. The generated Swift app links this
 larger real boundary in the passing held-control run. Native body consumers remain to do.
 
+Decision (2026-11-16,Root): spool accepted original bytes to private device temporary
+files, under a shared32MiB original-byte allowance for all currently open phone bodies.
+The weakly owned opaque Rust handles still decide validity, revision and cursors. Swift
+only appends their accepted UTF-8 slices to the private display/copy cache. A closed row
+releases its file, and capacity/I/O failures preserve the accepted prefix. Preserve that
+prefix while reconnect re-establishes a cursor; only an actual checked different source
+revision can replace it. One formatter per visible document runs separately from the
+socket queue, keeps only the newest pending target and parses a complete observed source.
+This is bounded work, not a timed delta merger. Rust retains the parsed blocks and Swift
+requests visible blocks only. Exact Copy reads the original file, not rendered spans.
+Measure these policies on the actual app before final approval.
+
+Decision (2026-11-16,Root): put the first actual Markdown parser in carlos-client, so
+later native/web clients can reuse its semantic blocks. The phone only binds the block
+reader. Use the already locked pulldown-cmark0.13.6 with default features disabled; no
+package versions change. The graph guard reviews its pure parser dependencies, including
+optional HTML/CLI formatting packages unified by the terminal in an all-features graph.
+Keep the stricter protocol-only package set intact. Parse late reference definitions
+against the whole source; keep code bytes, nested emphasis, table cells and list numbers.
+Literal user/reasoning text uses the same block reader without Markdown interpretation.
+
 ## Outcomes & Retrospective
+
+The owner now explicitly requires polished appearance, complete flows and durable saved
+credentials before EP approval. EP022 remains incomplete. The larger UI renderer passes
+real source/copy, prompt, held-control and native checks; credential relaunch, remaining
+features and final reviews are still required. No new physical preview was installed
+during the visual work, and the live owner engine/socket/token remain unchanged.
+
+The owner now confirms the physical preview works with their actual Claude session.
+The installed bundle still has the basic renderer; native Markdown/settings/source and
+the current visual fixes are not installed yet. EP022 remains open. The full corrected
+debug terminal gate and8 native units pass, but source Copy, later visual checks and the
+remaining end-to-end/release/performance gates are not complete.
+
+Small buildable commits dec3de5 and766276f add native display settings/activity and the
+bounded original-body/Markdown reader. The latter's full workspace Cargo pre-commit
+checks pass; the actual typed phone tests pass12/12 separately. The corrected full
+release terminal gate is running under /tmp/carlos-ep022/visual-terminal-release-01.log
+with the already documented artifact-root-only environment fix. It has not passed yet.
+
+Update (2026-11-17 01:35Z): that complete release gate now passes, including21 architecture
+cases, workspace release tests/lints/build, both75-test compiled Claude helper suites,
+225 daemon cases,330 terminal workflows and selection/source-failure/dictation/ANSI
+checks. Artifacts are /tmp/carlos-ep022/source-terminal-CR6gTR. Source10e1e1bf71d226124cce
+also passes10 native tests with0 skips, the real prompt workflow and held approval/Stop
+workflow. Repeat these narrower app checks for the final5635510dc076454c0a87 block-follow
+change; the large-source/clipboard case already passes. No review or final approval yet.
 
 The actual app now passes an authenticated connect/create/send/answer workflow against
 a real daemon and deterministic native Codex peer. All9 Rust boundary tests and4 native
@@ -496,3 +672,39 @@ started. Keep this daemon/package alive for the owner’s test and do not replac
 Update (2026-11-16 23:10Z,Root): recorded the actual held-control test, its initial
 scroll failure and the checked body-reader boundary. Continue native long-body/output
 rendering and complete the remaining phone screens; no intermediate reviewer was run.
+
+Update (2026-11-16 23:43Z,Root): recorded checked native settings/source milestones,
+current original-byte/formatter policies and the two retained gate failures. The installed
+phone preview remains the original b7744b8 bundle. Its executable is3977344bytes and its
+signed app bundle totals6067945bytes before adding a syntax-color library. Current source
+UI rerun is source-ui-02.log, Mac a782741a4e88462421da/ui-tests-20261116T184122.xcresult.
+Full terminal rerun is source-terminal-gate-02.log. Neither pending check is called passing.
+
+Update (2026-11-16 23:55Z,Root): shared Markdown/FFI code is committed in51b6f10;
+settings/native-source views remain a working milestone. The complete corrected debug
+terminal gate passes: source-terminal-gate-02.log, artifacts source-terminal-Ngvd6e,
+all225 daemon/330 terminal cases, selection2/source failures5/dictation2/ANSI1 and both
+75-test compiled Claude helper runs. Native units8/8 passed separately. No release/native
+contracts or final performance gate is claimed yet.
+
+The second source UI run uses valid bounded native deltas and reaches idle, but its
+transcript is blank; retain phone-04674c5b2765/a782741a4e88462421da/ui-tests-20261116T184122.xcresult.
+A third variant uses native size-change anchoring and shows older history instead of
+following the new source; a live screenshot is target/ios-artifacts/source-live-03.png.
+Its app sampled257392KiB RSS/100% CPU and had no active source spool files at that instant,
+so this is a scroll/view-lifetime failure, not proof that a10MB body needs a larger cache.
+Keep phone-2ef17f67b3bc/92b1251fd7e7162b508f/ui-tests-20261116T184823.xcresult.
+Root conservatively interrupted the next run while checking the third run's exit.
+The retained timestamps show no concurrent simulator XCTest: run3 ended18:51:16 Mac
+wall time; run4's result bundle began18:51:45. Correct the earlier in-band assumption
+of an overlap. Run4 is interrupted, not passed, at d41e79f991863aec8aa7/ui-tests-20261116T185145.xcresult.
+
+The current source-ui-05.log tests e65db7e92af8450409c6/ui-tests-20261116T185422.xcresult.
+It uses native bound scroll ids and one deferred follow after actual data/formatter
+changes rather than recursive geometry-size scroll calls. Parent accessibility ids no
+longer overwrite Copy identifiers. The common ios-build.sh now holds an advisory lock
+for the shared Mac/simulator, and the UI test uses a180second execution limit while
+keeping every existing visible/native/clipboard assertion and its original wait intact.
+Do not start another simulator run until this one has exited. If native lazy rows still
+cannot hold the actual last source paragraph, inspect the retained screen/file state
+and fix the view structure; do not increase waits, hide source or weaken Copy checks.

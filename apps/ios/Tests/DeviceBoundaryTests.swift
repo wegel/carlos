@@ -9,6 +9,10 @@ final class DeviceBoundaryTests: XCTestCase {
             for name in ["InterVariable", "InterVariableItalic", "JetBrainsMono-Regular"] {
                 XCTAssertNotNil(UIFont(name: name, size: 15), "Missing bundled font \(name)")
             }
+            let prose = try XCTUnwrap(UIFont(name: "InterVariable", size: 15))
+            XCTAssertEqual(prose.lineHeight + PhoneTheme.proseLeading, 22.5, accuracy: 0.05)
+            let tool = try XCTUnwrap(UIFont(name: "InterVariable", size: 13.5))
+            XCTAssertEqual(tool.lineHeight + PhoneTheme.toolLeading, 18.225, accuracy: 0.05)
             let account = "fixture-" + UUID().uuidString
             defer { try? HostTokens.remove(for: account) }
             try HostTokens.store("private synthetic token", for: account)

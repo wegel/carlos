@@ -51,7 +51,7 @@ struct PhoneCopyButton: View {
                     .font(PhoneTheme.mono(11.5)).frame(minWidth: 44, minHeight: 44)
             }
             .disabled(copying).foregroundStyle(PhoneTheme.overlay2).accessibilityIdentifier("answer.copy")
-            .accessibilityValue("\(source.byteCount) bytes")
+            .accessibilityValue(Text(verbatim: "\(source.byteCount) bytes"))
             if let error { Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red) }
         }
         .task(id: notice) {

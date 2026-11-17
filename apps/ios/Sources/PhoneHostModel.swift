@@ -17,6 +17,7 @@ final class PhoneHostModel: Identifiable {
     var approvals: [PhoneApproval] = []
     var ralphRequest: PhoneOperation?
     var desiredRalph: Bool?
+    var contentVersion = UUID()
     var followRequest = UUID()
     var controlSubmitting = false
     var draft = ""
@@ -26,8 +27,27 @@ final class PhoneHostModel: Identifiable {
     @ObservationIgnored let transport = PhoneTransport()
     @ObservationIgnored private var catalogRequested = false
     @ObservationIgnored private var creation: String?
+    @ObservationIgnored private let bodyBudget: PhoneBodyBudget
+    @ObservationIgnored private var sources: [String: PhoneSourceModel] = [:]
 
-    init(configuration: PhoneHost) { self.configuration = configuration }
+    init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget()) {
+        self.configuration = configuration
+        self.bodyBudget = bodyBudget
+    }
+
+    func contentChanged() { contentVersion = UUID() }
+
+    func loadedSource(for entry: String) -> PhoneSourceModel? { sources[entry] }
+
+    func source(for entry: String) -> PhoneSourceModel? {
+        guard let selected else { return nil }
+        if let source = sources[entry] { return source }
+        let kind = rows[entry]?.kind
+        let source = PhoneSourceModel(session: selected, entry: entry, transport: transport, budget: bodyBudget, markdown: kind == .answer || kind == .commentary, changed: { [weak self] in self?.contentChanged() })
+        sources[entry] = source
+        return source
+    }
+
 
     var connected: Bool {
         if case .connected = link { return true }
@@ -51,6 +71,8 @@ final class PhoneHostModel: Identifiable {
         guard selected != session else { return }
         let old = selected
         selected = session
+        for source in sources.values { source.close() }
+        sources = [:]
         transcript = nil
         orderedEntries = []
         rows = [:]
@@ -157,6 +179,7 @@ final class PhoneHostModel: Identifiable {
 
     private func changedLink(_ state: PhoneLinkState) {
         link = state
+        if case .connected = state {} else { for source in sources.values { source.suspend() } }
         if case .connected = state {} else if var cached = transcript {
             cached.currentSnapshot = false
             cached.ready = false
@@ -176,6 +199,10 @@ final class PhoneHostModel: Identifiable {
 
     private func received(_ batch: PhoneBatch) {
         for failure in batch.failures { error = failure.message }
+        for body in batch.bodies where body.session() == selected && body.isSource() {
+            sources[body.entry()]?.refresh(body)
+        }
+        guard batch.catalogChanged || !batch.operations.isEmpty || !batch.sessions.isEmpty else { return }
         let selected = selected
         let known = Set(orderedEntries)
         let cached = Set(rows.keys)
@@ -188,7 +215,10 @@ final class PhoneHostModel: Identifiable {
                 if let catalog = update.catalog { self.catalog = catalog }
                 if self.selected == selected {
                     if let approvals = update.approvals { self.approvals = approvals }
-                    if let transcript = update.transcript { self.transcript = transcript }
+                    if let transcript = update.transcript {
+                        self.transcript = transcript
+                        if transcript.currentSnapshot { for source in sources.values { source.resume() } }
+                    }
                     if let order = update.order {
                         orderedEntries = order
                         let retained = Set(order)
@@ -198,6 +228,9 @@ final class PhoneHostModel: Identifiable {
                 }
                 for operation in update.operations {
                     accept(operation)
+                }
+                if update.order != nil || !update.rows.isEmpty || update.approvals != nil || !update.operations.isEmpty {
+                    contentChanged()
                 }
             case .failure(let failure): error = failure.localizedDescription
             }
