@@ -34,6 +34,45 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Native input, speech and scroll checkpoint2de6b7c7100c7c369398 passes all14
+  native tests without skips at tests-20261117T033135.xcresult,
+  input-checkpoint-native-02.log. Full workspace cargo test passes at
+  input-checkpoint-cargo-01.log. The clean voice/scroll and complete10MB-source checks
+  below pass. Hardware Return remains explicitly unverified; its failing end-to-end
+  assertion stays enabled. The next work adds older-history reads and preserves the
+  reader's exact position before final visual and whole-EP checks.
+
+- [x] The10MB complete-source/clipboard regression passes after the render fix on
+  3486232fd60908005d44/ui-tests-20261117T030801.xcresult,
+  phone-codex-670e773c4b74, source-ui-18-clean.log. Original source length and SHA256,
+  actual system clipboard bytes and Copy reset all pass. Source UI17 lost SSH before
+  XCTest and is not a pass. The private request/reply assertions and waits are unchanged.
+
+- [x] Diagnostic-free checkpointb9aff18f402f4279cd6a compiles and passes native14
+  (tests-20261117T025611), full scroll UI10 (ui-tests-20261117T025650,
+  phone-codex-62300724a55e) and actual first-use denied-Speech UI07 (025839,
+  phone-codex-231fd5066f25). The10MB source-copy rerun is pending; do not call that
+  pass or the hardware workflow complete. Native keyboard behavior is being moved
+  from shortcut registration to physical press handling after the printable x probe
+  succeeds but modified Return still fails. No Mac login is required to continue.
+
+- [x] Full scrolling UI09 passes on6afb267a52703562c5b3,
+  ui-tests-20261117T024330.xcresult, phone-codex-c4d4d7dc236f. The original2pt X/Y
+  checks pass across tool expansion/collapse; two manual swipes stop following;
+  native Stop completes without moving the selected older text; Latest returns to
+  the answer. Keep the earlier hangs/failures. Require a clean diagnostic-free pass
+  and the10MB original-source check after this fix. Native voice denial also passes;
+  actual hardware Return remains incomplete.
+
+- [x] Voice UI06 passes the actual first-use Speech denial and original private draft
+  on1509cf822de25f5d2656/ui-tests-20261117T020908.xcresult,
+  phone-codex-888b6e43bbc5. The new Sendable boundary lets authorization return on
+  its native queue, then the main actor receives denied/same-attempt and shows the
+  persistent Settings/Dismiss message. Root inspected the actual screenshot; the
+  draft stays unchanged, Send stays available, native prompts remain empty and no
+  audio is recorded. Speech/scene diagnostics are removed locally; require a clean
+  final pass. Hardware keyboard and the complete scrolling workflow remain pending.
+
 - [x] Private prompt echoes precede their own answer on source8ed2cec1d2b216555c99,
   ui-tests-20261117T012930.xcresult, phone-codex-c137582457f1. Root inspected both
   live/stopped images: the blue user band precedes the green answer; the caret blinks
@@ -49,8 +88,11 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   newlines. PhoneDictation requests permissions only after a tap, requires on-device
   recognition, keeps late callbacks scoped to the current private draft and stops
   audio on exit/background. Voice UI checks deny access or show actual simulator
-  unavailability without recording or sending. Keyboard UI01 and voice/native01
-  are pending; no success or physical microphone proof is claimed.
+  unavailability without recording or sending. Keyboard UI05 now checks direct
+  UIKit command admission and actual physical keys; voice UI04 checks persistent
+  inline failure text; scroll UI04 checks the duplicate-margin correction. All
+  three remain pending. Temporary command/offset diagnostics must be removed before
+  a clean final pass. No physical microphone accuracy or completed input gate is claimed.
 
 - [x] (2026-11-17) Credential staging and trace-free caret pass on589f3adae575cb5d84ca:
   stream04 (ui-tests-20261117T003806), rejected-new-token repair
@@ -216,6 +258,166 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Surprises & Discoveries
 
+iPad08 (keyboard-ipad-ui-08-enter.log) inserts the literal copyright character after
+phone when XCTest sends modified XCUIKeyboardKey.enter. The installed XCTest constants
+are CR13 for Return and ETX3 for Enter; the Mac uses the Canadian keyboard layout.
+An ordinary x succeeds, but neither special key proves Return delivery. Restore the
+canonical Return constant in the test and retain the failure rather than changing
+product behavior to accept a wrong character. No Mac keyboard/desktop settings changed.
+
+The printable physical x probe succeeds on the iPad, then Shift+Return still fails;
+keyboard-ipad-ui-05.log, source27843e22fb418cf78534/ui-tests-20261117T025317.xcresult,
+phone-codex-db55d0449397. Thus general event delivery works, and missing GUI login
+is not a demonstrated blocker. The direct pressesBegan/Ended implementation also
+passes its native editing test but Return remains unobserved in iPad07. Keep that
+failure: phone-codex-53f46ef69154, keyboard-ipad-ui-07.log. iPad08 tries the physical
+Enter key constant with the same native press handler, printable-key probe, exact
+multiline prompt, five-line height and private unsent-draft checks. It supports both
+main Return/Enter and keypad Enter by their actual HID codes. Do not claim main-key
+synthesis or any hardware success unless the end-to-end check passes.
+
+Source UI17 (phone-codex-b78e3c4b76d4) loses SSH after framework generation; no result
+bundle is logged. A following queued keyboard06 stops in the new source-selection
+guard although a fresh shell has no override set. Editing a shell script while its
+process waits before parsing the remaining file can corrupt that queued invocation;
+this is the likely setup cause, not a product result. Move the Mac lock into already
+parsed build/toolchain functions. Fresh invalid snapshot ids are rejected before
+remote work; pinned-framework-01 correctly rebuilds the existing b9aff18f402f4279cd6a
+snapshot. CARLOS_IOS_SOURCE now allows exact frozen-source reruns while Root continues
+independent work. No Mac orphan compiler remained before the fresh source/UI reruns.
+
+
+The Mac has no logged-in GUI session: /dev/console belongs to root and gui/501
+returns125. Opening only the owned Simulator window fails with OSLaunchdError125
+(domain does not support this action); no desktop/account settings were changed.
+Root incorrectly started iPad04 despite that failed setup; it is an unchanged-environment
+retry, not new evidence for the GUI hypothesis. iPad05 first sends an ordinary physical
+x and requires phonex, then deletes x through the existing text API before the original
+Return checks. This separates general hardware event delivery from Return command
+routing. Never infer that the editor is wrong from a test channel that cannot type a
+printable key. Keep the native exact prompt assertion unchanged.
+
+
+UI08 also samples100%CPU after the live answer appears; retaining full measurements
+outside view state alone does not resolve layout. Keep native text-view updates
+idempotent: configure typing attributes once and reset them only when external draft
+text actually changes, rather than resetting the native editor on every SwiftUI pass.
+Keep Return command objects stable across key-down/up queries. The inline Markdown
+renderer also nests a lazy stack inside each lazy transcript row. Inline previews are
+bounded, and long answers already flatten into independent root rows, so use an
+ordinary VStack for those inline blocks. This removes a second lazy-layout estimator
+from each short row instead of adding a new scrolling framework. Repeat the original
+scrolling contract and complete-source check against the corrected exact source.
+
+
+Scroll UI07 also reaches the unchanged180second timeout on8d8f2f094e8fe5e82b22,
+ui-tests-20261117T022521.xcresult, phone-codex-b5a3109528fc. Removing the dynamic
+size anchor alone is insufficient. UI08 keeps raw geometry in a small non-observable
+measurement holder and publishes only the40/260pt Boolean thresholds to SwiftUI;
+full offsets must not rebuild the lazy list on every layout. It also pauses following
+from the first tracking touch, not only after dragging starts. Explicit bottom requests
+still follow actual transcript/formatter changes and Send/approval/Latest. No viewport
+callback writes another bottom target. Recheck the same workflow and long-source case.
+The iPad typed-key overload is available in the installed SDK but still needs its
+actual-result check. Literal prompt editing now disables automatic word/case/quote/dash
+substitutions; exact code and shell text must remain what the person entered. The
+next iPad03 repeats the unchanged physical Return assertions with that native policy.
+
+
+The first owned-iPad test b609aeb1c89b65d772ec/ui-tests-20261117T022116.xcresult,
+phone-codex-1d324186b832, still fails Shift+Return, while the direct action test
+passes. Unlike the iPhone run, its native trace proves a physical Shift press
+(code225, flags131072) reaches the editor, but no Return press/action follows.
+Apple’s current Swift API has separate typed-key and String overloads; the test
+had passed XCUIKeyboardKey.return.rawValue to the String overload. The next iPad
+run uses XCUIKeyboardKey.return directly, keeping every draft/height/native-send
+assertion. No further product command change accompanies this test correction.
+Do not claim hardware keys complete until the real app path passes.
+
+
+Scroll UI06 on6c46856f0b7c1e831088/ui-tests-20261117T021413.xcresult hangs the actual
+app after Send with the keyboard open. Carlos PID68528 stays at100%CPU; the visible
+working timer remains at0:01. A3second native sample puts the main thread in repeated
+SwiftUI lazy-list placement/graph updates (target/ios-artifacts/scroll-06-hang.sample).
+This run cannot be explained as an accessibility-only failure. Remove the competing
+size-change bottom anchor; follow explicit transcript/formatter changes and explicit
+Send/approval/Latest, with a separate follow only when viewport height changes. Do
+not toggle following from every non-user content-size change. Keep the exact visible
+position/native control checks and repeat the long-source workflow afterward. The
+existing test retains its180second cap; any forced fixture-only cleanup is recorded
+as interruption/failure, never a pass. Owner daemon and physical app stay untouched.
+
+
+Scroll UI05 passes expansion/collapse and both X/Y assertions on7c494f222c117df590a3,
+ui-tests-20261117T020555.xcresult, phone-codex-1df25198cfe3, but cannot query Latest.
+The native log proves idle bottom distances776.33 and1325.33pt. Root inspected the
+actual video at33seconds: Latest is visibly present, so the issue is its inherited
+accessibility id. Scope transcript’s id to the ScrollView itself before adding the
+overlay, rather than to the outer GeometryReader which also wraps Latest. UI06 keeps
+the original button id query and every native/pixel assertion. The video is variable
+rate (2007frames/48.1seconds); selecting frame50 shows the initial Home screen, not
+the final failure. Use timestamps for future video checks. Earlier selected-frame
+Home images cannot establish an app crash. The separate read-only live Home shot
+was also after the voice assertion, so it does not alone prove its termination cause.
+
+
+Scroll UI04 passes its expansion and collapse Y checks onf6327652a1f0a59ad7be,
+ui-tests-20261117T015630.xcresult, phone-codex-120e82f143ce, then fails to find Latest
+after one swipe. The exported expansion image also reveals a horizontal shift:
+the outer16pt padding sits outside the scroll-target coordinates. Put that margin
+inside each row and keep the target stack full width; add an X-coordinate assertion.
+Two deliberate swipes must pass the260pt Latest threshold even with a short viewport;
+retain the same waiting time, native Stop and stationary-reading assertions. UI05
+also logs actual idle distance. No full scroll pass is claimed yet.
+
+Voice UI05 reaches Start then inactive, with no permission-completion log before the
+app vanishes; source3f896234ea850d77ca63/ui-tests-20261117T015941.xcresult,
+phone-codex-2ecc8536a363. The read-only live image is the Home screen, not a hidden
+error banner. No Carlos crash report or XCResult console log is available. The SDK
+states the authorization callback does not use the recognizer’s main operation
+queue. A non-Sendable callback created inside the main actor can inherit that actor
+and fail when invoked on another queue. Explicitly mark native speech/audio callbacks
+Sendable and move only copied text/flags to the main actor. UI06 checks this narrow
+thread-boundary fix; the exact termination cause remains an inference until checked.
+
+
+Keyboard UI05 on91c04054ec3c3716d3fe/ui-tests-20261117T015338.xcresult,
+phone-codex-ac527f767a91, passes the direct UIKit action test but still fails the
+physical Shift+Return assertion. The trace proves direct actions execute in the
+unit process; the focused app still queries commands without invoking them. The
+explicit canPerformAction override alone does not fix routing. UI06 records only
+hardware key codes/modifier flags and whether a key is CR/LF, plus inherited Return
+commands; it never logs prompt contents or credentials. Do not replace the real
+physical-key check with the passing direct-selector test. Voice UI04 on61e499ebef31e88ec924,
+ui-tests-20261117T015013.xcresult, phone-codex-b256769f586a, still fails to find the
+persistent inline error after denial. Voice UI05 traces start, authorization identity,
+cancellation and scene/view changes before another product fix. The earlier alert
+hypothesis is not proven. No intermediate reviewer has been invoked.
+
+
+Scroll UI03 still moves the header by6pt on a909ffdb63918c22e7b6,
+ui-tests-20261117T014801.xcresult, phone-codex-e840a6b842a1. The native trace proves
+contentOffset5312.67 and top inset0, so adding/removing the inset cannot explain it.
+The lazy stack also has6pt of outer top padding while its first item already owns
+6pt. Remove the duplicate outer margin so the scroll target coordinates and measured
+content coordinates share one origin; UI04 keeps the same2pt assertions. Retain
+native-input-scroll-trace-03.txt. Also fence speech’s final draft callback by the
+captured session directly, because a SwiftUI onChange callback alone can run after
+a native recognition callback has already queued on the main actor.
+
+
+Keyboard UI04 still fails the first Shift+Return on a909ffdb63918c22e7b6,
+ui-tests-20261117T014602.xcresult, phone-codex-ad2d31c08f7a. The native trace shows
+keyCommands queried twice with focused=true and marked=false, but neither custom
+action executes. Explicitly admit only the two editor actions in canPerformAction;
+keep all other UIKit admission unchanged. UI05 includes both the direct UIKit test
+and the original physical-key app test. The private diagnostic contains no text or
+tokens: target/ios-artifacts/native-input-trace-04.txt. Remove temporary keyboard and
+scroll diagnostics and require a clean rerun after the fix. The first unit invocation
+also captured the old optional-selector test compile failure on6d8919cbabe850661535,
+tests-20261117T014452.xcresult; its fixed selector is checked in the next source.
+
+
 Scroll UI02 reduces the header jump from840 to6pt, but still fails the original2pt
 tolerance on108da9486b4baa513ab2/ui-tests-20261117T014047.xcresult,
 phone-codex-b3d500dc66a2. UI03 uses the raw measured content offset instead of
@@ -249,7 +451,9 @@ carriage return instead of XCTest’s physical Return key constant. UI03 uses th
 SDK constant and retains each per-key assertion. The cause is not yet proven. Voice UI01 (9409def3dcd22f9d877b,
 ui-tests-20261117T012316.xcresult, phone-codex-be6cdd5c287a) reaches the actual
 Speech permission dialog and denies it, but never shows the app error: the dialog
-made the app inactive and canceled its own permission attempt. Keep authorization
+can make the app inactive, and the initial code canceled authorizing attempts in
+that state. This code path is a concrete risk, but the continuing UI02 failure means
+it is not yet a proven full explanation. Keep authorization
 alive through inactive permission dialogs; backgrounding still cancels it. Voice
 UI02 resets privacy rights only for the synthetic fixture bundle and rechecks the
 actual denial. No recording or native prompt is permitted in this workflow.
@@ -618,6 +822,23 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Check actual hardware Return on a separate Carlos-owned iPad simulator, retaining
+the existing iPhone simulator for all phone layout and flow checks. Apple’s current
+XCUIElement overview documents keyboard/mouse tests for macOS/iPadOS15+, while
+its iOS overview lists gestures. On the iPhone simulator, typeKey queries keyCommands
+but delivers neither a UIPress nor an action; direct UIKit command tests pass. Do
+not keep changing the editor based on an unsupported test path. Use the same app,
+real authenticated daemon and exact native prompt assertions on the owned iPad.
+The private env file /tmp/carlos-ep022/keyboard-mac.env sources the existing Mac
+settings and changes only the simulator name/type. The new device is named
+carlos keyboard iPad, UUID64004266-39DD-46F6-A8FF-6CFC64DCCE58, iPad Pro11-inch(M4),
+existing iOS26.0 runtime. Only the Fixture app and test-runner targets advertise
+iPad support; the normal Debug/Release app remains iPhone-only. Create/use it
+under the shared Mac lock; never stop or alter another project’s simulator.
+Reference: https://developer.apple.com/documentation/xcuiautomation/xcuielement .
+Date/author:2026-11-17,Root.
+
 
 Keep speech recognition native and private. The microphone requests permission only
 on an explicit tap, checks support for the device language and requires on-device
@@ -1176,3 +1397,7 @@ keeping every existing visible/native/clipboard assertion and its original wait 
 Do not start another simulator run until this one has exited. If native lazy rows still
 cannot hold the actual last source paragraph, inspect the retained screen/file state
 and fix the view structure; do not increase waits, hide source or weaken Copy checks.
+
+Revision2026-11-17: checkpoint the checked native composer, on-device speech error flow
+and stable reader position. Keep hardware synthesis unresolved and begin older history;
+no reviewer or EP approval has occurred.

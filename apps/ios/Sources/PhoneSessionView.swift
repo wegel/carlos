@@ -7,6 +7,8 @@ struct PhoneSessionView: View {
     let settings: () -> Void
     @State private var questionDrafts: [String: PhoneQuestionDraft] = [:]
     @State private var editing: PhoneQuestionDraft?
+    @State private var speech = PhoneDictation()
+    @Environment(\.scenePhase) private var scenePhase
 
     private var info: PhoneSession? { host.transcript?.info ?? host.catalog.first { $0.id == host.selected } }
     private var statusColor: Color {
@@ -23,6 +25,7 @@ struct PhoneSessionView: View {
     var body: some View {
         VStack(spacing: 0) {
             header.fixedSessionBar()
+            PhoneSpeechNotice(speech: speech).fixedSessionBar()
             if let error = host.error {
                 HStack {
                     Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
@@ -37,14 +40,23 @@ struct PhoneSessionView: View {
                 Button("Reopen session") { host.reopen() }.frame(minHeight: 44)
                     .disabled(!host.connected || host.controlSubmitting).fixedSessionBar()
             }
-            PhoneActivityLine(info: info, link: host.link, currentSnapshot: host.transcript?.currentSnapshot == true).fixedSessionBar()
+            PhoneActivityLine(info: info, link: host.link, currentSnapshot: host.transcript?.currentSnapshot == true, dictating: speech.active).fixedSessionBar()
             composer.fixedSessionBar()
         }
         .background(PhoneTheme.mantle).foregroundStyle(PhoneTheme.text)
         .sheet(item: $editing) { draft in
             PhoneQuestionsView(host: host, card: draft.card, draft: draft)
         }
-        .onChange(of: host.selected) { _, _ in editing = nil; questionDrafts.removeAll() }
+        .onChange(of: host.selected) { _, _ in speech.cancel(); editing = nil; questionDrafts.removeAll() }
+        .onDisappear {
+            speech.cancel(keepText: true)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Permission prompts make the app inactive; only backgrounding cancels that request.
+            if phase == .background || (phase != .active && speech.phase != .authorizing) {
+                speech.cancel(keepText: true)
+            }
+        }
         .onChange(of: host.approvals.map(\.id)) { _, active in
             questionDrafts = questionDrafts.filter { active.contains($0.key) }
         }
@@ -81,8 +93,9 @@ struct PhoneSessionView: View {
 
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            TextField("", text: $host.draft, axis: .vertical)
-                .font(PhoneTheme.prose()).lineLimit(1...5).padding(.horizontal, 14).padding(.vertical, 12)
+            PhonePromptInput(text: $host.draft) {
+                if !sendDisabled && !isStop { speech.cancel(keepText: true); host.send() }
+            }
                 .frame(minHeight: 44).background(PhoneTheme.base)
                 .clipShape(RoundedRectangle(cornerRadius: 22))
                 .overlay { RoundedRectangle(cornerRadius: 22).stroke(info?.activity.ralph == true ? PhoneTheme.pink.opacity(0.6) : PhoneTheme.surface0, lineWidth: 1) }
@@ -90,7 +103,7 @@ struct PhoneSessionView: View {
                     if info?.activity.ralph == true { Capsule().fill(PhoneTheme.pink).frame(width: 3).padding(.vertical, 10).padding(.leading, 6) }
                 }
                 .overlay(alignment: .trailing) {
-                    if host.draft.isEmpty {
+                    if host.draft.isEmpty && !speech.active {
                         GeometryReader { geometry in
                             Text(info?.title ?? "").font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
                                 .lineLimit(1).frame(maxWidth: geometry.size.width * 0.7, alignment: .trailing)
@@ -98,8 +111,17 @@ struct PhoneSessionView: View {
                         }.allowsHitTesting(false)
                     }
                 }
-                .disabled(host.submitting).accessibilityLabel("Prompt").accessibilityIdentifier("composer.draft")
-            Button { if isStop { host.interrupt() } else { host.send() } } label: {
+                .accessibilityLabel("Prompt").accessibilityIdentifier("composer.draft")
+            PhoneMicrophoneButton(speech: speech) {
+                let session = host.selected
+                speech.start { [weak host] text in
+                    guard let host, host.selected == session else { return }
+                    host.draft += host.draft.isEmpty || host.draft.last?.isWhitespace == true ? text : " " + text
+                }
+            }.disabled(host.selected == nil || host.submitting)
+            Button {
+                if isStop { host.interrupt() } else { speech.cancel(keepText: true); host.send() }
+            } label: {
                 Image(systemName: isStop ? "stop.fill" : "arrow.up").font(.system(size: 20, weight: .semibold))
                     .frame(width: 44, height: 44).background(sendDisabled ? PhoneTheme.surface0 : isStop ? PhoneTheme.text : PhoneTheme.blue)
                     .foregroundStyle(sendDisabled ? PhoneTheme.overlay1 : PhoneTheme.crust).clipShape(Circle())

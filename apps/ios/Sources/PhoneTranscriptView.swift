@@ -8,7 +8,8 @@ struct PhoneTranscriptView: View {
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var following = true
     @State private var userScrolling = false
-    @State private var metrics = TranscriptMetrics()
+    @State private var metrics = TranscriptMeasurement()
+    @State private var showLatest = false
 
     var body: some View {
         GeometryReader { geometry in
@@ -23,32 +24,37 @@ struct PhoneTranscriptView: View {
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
                     }
                     ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
-                        PhoneTranscriptItemView(host: host, item: item).id(item.id)
+                        PhoneTranscriptItemView(host: host, item: item).padding(.horizontal, 16).id(item.id)
                     }
-                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.top, 18) }
-                    ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.top, 18) }
+                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.horizontal, 16).padding(.top, 18) }
+                    ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.horizontal, 16).padding(.top, 18) }
                     Color.clear.frame(height: 1).id("transcript.bottom")
-                }.scrollTargetLayout().frame(width: max(0, geometry.size.width - 32), alignment: .leading)
-                    .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 20)
+                }.scrollTargetLayout().frame(width: max(0, geometry.size.width), alignment: .leading)
+                    .padding(.bottom, 20)
             }
+            .accessibilityIdentifier("transcript")
             .clipped().scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
-            .defaultScrollAnchor(following ? .bottom : nil, for: .sizeChanges)
             .scrollPosition($position)
+            .environment(\.preserveTranscriptPosition) {
+                following = false
+                position.scrollTo(y: metrics.value.offset)
+            }
             .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
                 TranscriptMetrics(height: geometry.contentSize.height,
-                    viewport: geometry.containerSize.height,
+                    offset: geometry.contentOffset.y,
                     distance: max(0, geometry.contentSize.height + geometry.contentInsets.bottom
                         - geometry.contentOffset.y - geometry.containerSize.height))
             } action: { old, new in
-                metrics = new
+                metrics.value = new
+                showLatest = new.distance > 260
                 if userScrolling { following = new.distance <= 40 }
+                else if new.height < old.height && new.distance <= 40 { following = true }
             }
             .onScrollPhaseChange { _, phase in
                 switch phase {
-                case .interacting, .decelerating: userScrolling = true
-                case .tracking: break
+                case .tracking, .interacting, .decelerating: userScrolling = true
                 case .idle:
-                    if userScrolling { following = metrics.distance <= 40 }
+                    if userScrolling { following = metrics.value.distance <= 40 }
                     userScrolling = false
                 case .animating: break
                 @unknown default: break
@@ -66,7 +72,7 @@ struct PhoneTranscriptView: View {
                 position.scrollTo(id: "transcript.bottom", anchor: .bottom)
             }
             .overlay(alignment: .bottom) {
-                if !following && metrics.distance > 260 {
+                if !following && showLatest {
                     Button {
                         following = true
                         withAnimation { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
@@ -78,7 +84,6 @@ struct PhoneTranscriptView: View {
                 }
             }
         }
-        .accessibilityIdentifier("transcript")
     }
 
     private var recoveries: [PhoneOperation] {
@@ -90,8 +95,25 @@ struct PhoneTranscriptView: View {
 
 }
 
+// Raw geometry is a measurement, not view state. Publish only the visible thresholds.
+@MainActor
+private final class TranscriptMeasurement {
+    var value = TranscriptMetrics()
+}
+
 private struct TranscriptMetrics: Equatable {
     var height: CGFloat = 0
-    var viewport: CGFloat = 0
+    var offset: CGFloat = 0
     var distance: CGFloat = 0
+}
+
+private struct PreserveTranscriptPosition: EnvironmentKey {
+    static let defaultValue: @MainActor () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var preserveTranscriptPosition: @MainActor () -> Void {
+        get { self[PreserveTranscriptPosition.self] }
+        set { self[PreserveTranscriptPosition.self] = newValue }
+    }
 }

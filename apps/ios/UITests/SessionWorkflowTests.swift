@@ -8,7 +8,7 @@ final class SessionWorkflowTests: XCTestCase {
     @MainActor
     func testRunningToolExpandsStreamsAndKeepsItsRowChoice() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("held")
@@ -63,7 +63,7 @@ final class SessionWorkflowTests: XCTestCase {
         let title = app.buttons["header.title"].label
         XCUIDevice.shared.press(.home)
         app.activate()
-        XCTAssertTrue(app.textFields["composer.draft"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.textViews["composer.draft"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.secureTextFields["connection.token"].exists)
         app.terminate()
         app.launchArguments = []
@@ -111,7 +111,7 @@ final class SessionWorkflowTests: XCTestCase {
             picker.buttons[layout].tap()
             app.navigationBars["Session settings"].buttons["Done"].tap()
             let header = app.buttons["header.sessions"]
-            let draft = app.textFields["composer.draft"]
+            let draft = app.textViews["composer.draft"]
             XCTAssertTrue(wait { header.isHittable && draft.isHittable })
             let transcript = app.scrollViews["transcript"]
             XCTAssertGreaterThanOrEqual(transcript.frame.minY, header.frame.maxY)
@@ -144,7 +144,7 @@ final class SessionWorkflowTests: XCTestCase {
     @MainActor
     func testConnectCreateAndSendOneExactPrompt() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone exact prompt 🦀")
@@ -160,7 +160,7 @@ final class SessionWorkflowTests: XCTestCase {
     @MainActor
     func testApprovalAndStopPassAHeldPromptReply() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("held")
@@ -187,7 +187,7 @@ final class SessionWorkflowTests: XCTestCase {
         let fixture = try settings()
         let expected = try XCTUnwrap(fixture.sourceSha256)
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone long source")

@@ -6,6 +6,7 @@ struct PhoneToolView: View {
     let row: PhoneEntry
     let tool: PhoneTool
     @Environment(PhonePreferences.self) private var preferences
+    @Environment(\.preserveTranscriptPosition) private var preservePosition
     @State private var output: PhoneOutputModel?
     @State private var visible = false
     @State private var retainedHeight: CGFloat = 26
@@ -18,6 +19,7 @@ struct PhoneToolView: View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
                 guard let session = host.selected else { return }
+                preservePosition()
                 preferences.toggle(host: host.id, session: session, entry: row.id)
             } label: { header.contentShape(Rectangle()) }
                 .buttonStyle(.plain).disabled(!tool.hasOutput)

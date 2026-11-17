@@ -16,7 +16,7 @@ extension SessionWorkflowTests {
         XCTAssertTrue(app.staticTexts["connection.error"].waitForExistence(timeout: 15))
         capture("Rejected replacement leaves the saved connection editable", screenshot: app.screenshot())
         app.navigationBars["Connection"].buttons["Cancel"].tap()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone exact prompt 🦀")

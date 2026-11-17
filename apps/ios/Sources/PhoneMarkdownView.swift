@@ -9,7 +9,9 @@ struct PhoneMarkdownView: View {
     var changed: @MainActor () -> Void = {}
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: PhoneTheme.paragraphGap) {
+        // Long answers already use independent rows in PhoneTranscriptItem. Nesting
+        // another lazy stack here makes inline row heights unstable during scrolling.
+        VStack(alignment: .leading, spacing: PhoneTheme.paragraphGap) {
             ForEach(0..<Int(document.blockCount()), id: \.self) { index in
                 PhoneMarkdownBlockView(document: document, index: UInt32(index), color: color, role: role, streaming: streaming && index + 1 == Int(document.blockCount()), changed: changed)
             }

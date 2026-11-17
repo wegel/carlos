@@ -6,7 +6,7 @@ extension SessionWorkflowTests {
     @MainActor
     func testStreamingCaretBlinksAndStopsWithTheOriginalTurn() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone stream")

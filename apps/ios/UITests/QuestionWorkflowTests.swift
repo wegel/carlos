@@ -5,7 +5,7 @@ extension SessionWorkflowTests {
     @MainActor
     func testBrowserVisitDoesNotGrantConsent() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone browser")
@@ -35,7 +35,7 @@ extension SessionWorkflowTests {
     @MainActor
     func testNativeFormPreservesRejectedFieldsAndTypedValues() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone form")
@@ -83,7 +83,7 @@ extension SessionWorkflowTests {
     @MainActor
     func testNativeQuestionKeepsTheChoiceAndPrivateNote() throws {
         let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
+        let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone questions")

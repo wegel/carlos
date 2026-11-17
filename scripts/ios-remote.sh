@@ -80,11 +80,20 @@ ui-test)
         questions) test_case=testNativeQuestionKeepsTheChoiceAndPrivateNote ;;
         form) test_case=testNativeFormPreservesRejectedFieldsAndTypedValues ;;
         browser) test_case=testBrowserVisitDoesNotGrantConsent ;;
+        scroll) test_case=testToolExpansionAndNativeUpdatesKeepTheReadersPlace ;;
+        voice)
+            # Reset only this synthetic app so the real native permission prompt repeats.
+            xcrun simctl privacy "$2" reset all app.carlos.phone.fixture
+            test_case=testUnavailableOrDeniedVoiceInputKeepsThePrivateDraft
+            ;;
+        keyboard) test_case=testHardwareReturnSendsAndModifiedReturnKeepsNewlines ;;
         stream) test_case=testStreamingCaretBlinksAndStopsWithTheOriginalTurn ;;
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac
+    checks=(-only-testing:"CarlosUITests/SessionWorkflowTests/$test_case")
+    if [[ "$workflow" == keyboard ]]; then checks+=(-only-testing:CarlosTests/PromptInputTests); fi
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
-        -only-testing:"CarlosUITests/SessionWorkflowTests/$test_case" -parallel-testing-enabled NO \
+        "${checks[@]}" -parallel-testing-enabled NO \
         -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
         -maximum-test-execution-time-allowance 180 \
         -maximum-concurrent-test-simulator-destinations 1 \

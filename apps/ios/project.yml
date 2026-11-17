@@ -35,6 +35,8 @@ targets:
         UIRequiresFullScreen: true
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIAppFonts: [InterVariable.ttf, InterVariable-Italic.ttf, JetBrainsMono-Regular.ttf]
+        NSMicrophoneUsageDescription: Carlos records speech only when you tap the microphone, to add words to your private prompt draft.
+        NSSpeechRecognitionUsageDescription: Carlos transcribes your speech on this device. Recognized words stay in your draft until you send them.
         NSLocalNetworkUsageDescription: Carlos connects to the daemon you choose on your private network.
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
@@ -47,6 +49,8 @@ targets:
       configs:
         Fixture:
           PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.fixture
+          # Exercise documented iPadOS hardware-key tests; the shipping app stays iPhone-only.
+          TARGETED_DEVICE_FAMILY: "1,2"
   CarlosTests:
     type: bundle.unit-test
     platform: iOS
@@ -56,6 +60,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.tests
+        TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
   CarlosUITests:
     type: bundle.ui-testing
@@ -70,6 +75,7 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.ui-tests
+        TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: YES
 schemes:
   Carlos:
