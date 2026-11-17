@@ -71,6 +71,20 @@ final class PhoneTransport: @unchecked Sendable {
         }
     }
 
+    func batch(
+        _ call: @escaping @Sendable (PhoneClient) throws -> PhoneBatch,
+        completion: @escaping @MainActor @Sendable (Result<Void, any Error>) -> Void
+    ) {
+        queue.async {
+            let result = Result {
+                let batch = try call(self.client)
+                try self.enqueue(batch.outgoing)
+                if let callbacks = self.callbacks { DispatchQueue.main.async { callbacks.received(batch) } }
+            }
+            DispatchQueue.main.async { completion(result) }
+        }
+    }
+
     func submit(
         _ call: @escaping @Sendable (PhoneClient) throws -> PhoneSubmission,
         completion: @escaping @MainActor @Sendable (Result<PhoneOperation, any Error>) -> Void
@@ -94,6 +108,7 @@ final class PhoneTransport: @unchecked Sendable {
     }
 
     private func enqueue(_ frames: [PhoneFrame]) throws {
+        guard !frames.isEmpty else { return }
         guard frames.allSatisfy({ $0.generation == generation }), socket != nil,
               frames.count <= 256 - writes.count else {
             throw PhoneError.Capacity(message: "Socket writes are unavailable; private text is retained")

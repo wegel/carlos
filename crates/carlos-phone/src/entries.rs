@@ -60,6 +60,7 @@ enum PhoneToolStatus {
 pub struct PhoneText {
     pub preview: String,
     pub source_bytes: Option<u64>,
+    pub source_revision: Option<u64>,
 }
 
 /// Preserve missing diff counts instead of inventing zero changes.
@@ -103,6 +104,7 @@ impl From<&Entry> for PhoneEntry {
             text: PhoneText {
                 preview: entry.text.clone(),
                 source_bytes: entry.source.as_ref().map(|source| source.bytes.get()),
+                source_revision: entry.source.as_ref().map(|source| source.revision.get()),
             },
             done: entry.done,
             tool: entry.tool.as_ref().map(|tool| PhoneTool {
