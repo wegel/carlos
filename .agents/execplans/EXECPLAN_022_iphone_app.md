@@ -34,6 +34,40 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Capture the actual phone motion if the simulator does not clearly show it.
+  The first61.66s simulator movie (reference-motion-9a45-01.mp4) contains3320
+  frames and four one-screen slow-down/fast-up cycles. Pixel phase-correlation
+  locates movements but has not established a matching geometric jump. Retain
+  reference-motion-trace-01.json and overview-01.png; do not call video frame
+  timing an app frame-rate measurement. A new read-only deep-history UI case
+  traverses six older screens then four fast returns in both Flow and Gutter.
+  Source6ffab956a0f1a4b461a5 adds that case and a temporary --carlos-scroll-record
+  launch mode, with no further scroll fix. It passes all19 native units. The
+  temporary PhoneScrollRecording records30s of Carlos only, disables microphone
+  and camera, and stores numeric display-frame/offset/pan/visible-cell facts in
+  Library/Caches/ScrollMotion/<uuid>. It awaits iOS's recording consent before
+  the30s timer starts. Remove the diagnostic launch hook and recorder before
+  closing EP022. The first diagnostic snapshot1008 compiled with warnings because
+  a zero-argument recording call did not await its callback; it was never installed.
+  Use the explicit checked continuation in6ffa instead. The Mac's direct CMIO
+  enumerator found no screen source and reported denied video access (status2);
+  it opened no capture session and restored both screen-source flags. Do not
+  change global Mac privacy settings. Phone build/sign/install02 and deep-motion
+  recorder/replay01 are active, serialized by the existing Mac lock. Ask the owner
+  for the brief manual recording/scroll gestures only after the recorder is ready.
+- [ ] Reproduce the moving jerk before changing the scroller again. The owner
+  confirms that installed9a45429810146c725110 still jerks and explicitly asks Root
+  to find a way to see it. The settled2pt tests and lower scroll CPU have not
+  established a fix. Pause the broad matrix launcher1973481 with SIGSTOP only;
+  its current code-stream fixture finishes normally. The matrix already passed
+  through Ralph and prose streaming, and code-stream's own log also passes.
+  Do not stop the owner's normal-shell daemon. Record the exact installed source
+  with the private captured conversation, native slow/fast drag gestures, and
+  simctl recordVideo on the owned simulator. Inspect the actual frames before
+  another speculative fix. The bounded exact-source recorder is
+  /tmp/carlos-ep022/device-tools/record-reference-motion.py; active recorder/replay
+  logs are reference-motion-recorder-01.log and reference-motion-replay-01.log.
+  The cold-middle-row concern is an unproven lead, not the next chosen fix.
 - [x] Replace the SwiftUI LazyVStack/ScrollPosition/native-marker scroller with
   UIKit reusable UIHostingConfiguration cells and a stable-ID data source. Keep
   semantic rows, exact source readers, private tool choices and the shared client;
@@ -2070,3 +2104,13 @@ source/exact clipboard check now passes; retain the prior main-thread stall.
 Revision2026-11-17: record the complete candidate checks and signed physical-phone
 install of9a45429810146c725110. Continue the final same-source app sweep and keep
 physical motion quality open until it has direct evidence.
+
+Revision2026-11-17: the owner confirms the installed source still jerks and asks
+Root to see the defect before another fix. Pause broad checks, retain every pass,
+and record moving frames from the real captured transcript. Settled positions
+and CPU figures are explicitly insufficient for this bug.
+
+Revision2026-11-17: add a temporary opt-in app-only phone recorder and deeper
+read-only simulator gestures to observe the reported jerk. No additional scroll
+fix is chosen until moving evidence reproduces it. Keep denied Mac capture and
+the corrected callback warning honest, and remove temporary diagnosis code later.

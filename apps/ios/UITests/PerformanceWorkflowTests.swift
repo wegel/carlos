@@ -4,6 +4,28 @@ import XCTest
 
 extension SessionWorkflowTests {
     @MainActor
+    func testReadOnlyReferenceScrollsThroughOlderRows() throws {
+        let app = try connectedHost()
+        let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 15))
+        session.tap()
+        setTools("Auto", in: app)
+        let transcript = app.collectionViews["transcript"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 15))
+        for layout in ["Flow", "Gutter"] {
+            app.buttons["header.settings"].tap()
+            app.segmentedControls["settings.layout"].buttons[layout].tap()
+            app.navigationBars["Session settings"].buttons["Done"].tap()
+            for index in 0..<6 {
+                transcript.swipeDown(velocity: .slow)
+                capture("Older rows \(layout) \(index)", screenshot: app.screenshot())
+            }
+            for _ in 0..<4 { transcript.swipeUp(velocity: .fast) }
+        }
+        app.terminate()
+    }
+
+    @MainActor
     func testReadOnlyReferenceScrollPerformance() throws {
         let app = try connectedHost()
         let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch

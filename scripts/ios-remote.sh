@@ -78,6 +78,7 @@ ui-test)
         code-source) test_case=testLargeCodeFenceKeepsEveryOriginalByteAndStaysResponsive ;;
         reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;
         reference-perf) test_case=testReadOnlyReferenceScrollPerformance ;;
+        reference-motion) test_case=testReadOnlyReferenceScrollsThroughOlderRows ;;
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
         token-update) test_case=testRejectedReplacementKeepsTheSavedTokenThroughCancelAndRestart ;;

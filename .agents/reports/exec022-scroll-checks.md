@@ -82,7 +82,9 @@ immutable preview is previews/9a45429810146c725110-20261117T160640Z/Carlos.app o
 the owned Mac; executable SHA256 is
 0fb2975939ef081c3e37bc060290b59d13e59b810e146a58bdfc977fc4a29d6a.
 The owner has been told it is ready to test. Direct physical motion feedback
-remains open; no smooth-motion claim follows from the simulator checks. The complete functional sweep, final measurements and end-only
+now confirms this installed build still jerks. Root has paused the broad sweep
+to capture moving frames before another fix; no smooth-motion claim follows
+from the simulator checks. The complete functional sweep, final measurements and end-only
 reviews remain required before EP022 can close. The existing full Linux release,
 terminal and native-backend gate passes on runtime source92d3a53538102e52153236eb9c0b4ba0;
 these scrolling changes are Swift-only, and a subsequent workspace cargo test passes.
