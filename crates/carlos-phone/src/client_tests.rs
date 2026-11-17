@@ -2,7 +2,7 @@
 
 use serde_json::Value;
 
-use crate::test_support::{hello, token};
+use crate::test_support::{hello, reply, request, subscribed, token, SESSION};
 use crate::{PhoneClient, PhoneError};
 
 #[test]
@@ -56,4 +56,51 @@ fn invalid_credentials_and_frames_have_typed_errors_without_exposing_a_secret() 
         Err(PhoneError::InvalidMessage { .. })
     ));
     assert_eq!(client.maximum_message_bytes(), 8 * 1024 * 1024);
+}
+
+#[test]
+fn an_empty_reconnect_replay_notifies_the_phone_when_cached_controls_become_current() {
+    let client = subscribed("ready");
+    client.disconnect(1).expect("background socket closes");
+    let greeting = client
+        .begin("iPhone".into(), token())
+        .expect("foreground reconnect");
+    let welcome = client
+        .receive(greeting.generation, hello(greeting.request_id, true))
+        .expect("same private rights");
+    let subscription = welcome
+        .outgoing
+        .into_iter()
+        .find(|frame| request(frame)["method"] == "session/subscribe")
+        .expect("resume the selected session");
+    assert!(
+        !client
+            .transcript(SESSION.into())
+            .expect("cached")
+            .expect("metadata")
+            .current_snapshot
+    );
+    let batch = reply(
+        &client,
+        &subscription,
+        serde_json::json!({
+            "kind":"replay", "events":[], "seq":"1"
+        }),
+    );
+    assert!(
+        client
+            .transcript(SESSION.into())
+            .expect("current")
+            .expect("metadata")
+            .ready
+    );
+    assert!(
+        batch
+            .sessions
+            .iter()
+            .any(|change| change.session == SESSION),
+        "A native renderer must learn that an unchanged cached session is current again"
+    );
+    assert!(batch.outgoing.is_empty());
+    assert!(client.operations().expect("no mutation replay").is_empty());
 }

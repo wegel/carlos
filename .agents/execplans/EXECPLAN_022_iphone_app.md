@@ -34,15 +34,31 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] (2026-11-17) Browser05 passes on5621087dafe487fb5108,
+  ui-tests-20261116T235815.xcresult, local phone-codex-7ac042eb4735. It opens Safari,
+  reads the actual page heading, returns to usable unchanged approval controls, sends
+  no consent on page visit and exactly one original native accept after Allow. Stop
+  stays disabled without a turn. Root inspected the return screen; no runtime-warning
+  node is reported. All200 client and24 phone tests pass with the red/green empty-replay
+  regression. Native tests13/13 pass on the same source, tests-20261116T235956.xcresult.
+  The fresh full reconnect-terminal-gate-01 check is still running.
+
+- [x] (2026-11-17) Actual Claude and Grok prompt workflows pass on013def396f66309592be:
+  ui-tests-20261116T235051 and235216.xcresult, local phone-claude-7a77458b4096 and
+  phone-grok-e57273ab1b52. Each selects its actual backend, creates one native process,
+  sends exactly phone exact prompt 🦀 once and shows the matching native answer. No user
+  account/session or inference is involved. Inspect the retained screenshots before
+  final UI approval. The test script separates native setup, traffic reads and assertions.
+
 - [x] (2026-11-17) Commit27853ca adds flat native form fields, exact integer/boolean/enum
   replies, explicit optional omission, stable sheets with retained private edits, per-card
   pending states and top-bar keyboard actions. Full cargo test passes in its commit hook;
   actual form/question/credential and native evidence is recorded below.
-- [ ] Finish browser approval checks with an owned local Safari page. The app now reads
+- [x] Finish browser approval checks with an owned local Safari page (browser05). The app now reads
   whether an actual native turn exists so browser consent without a turn cannot offer
   enabled Stop. All23 phone tests pass after this narrow facade fact. Browser fixture01
   captured a wrong test selector variable before the correction; its frozen source must
-  stay unchanged. Browser fixture02 reaches Safari but its heading query fails; fixture03 checks the corrected native element query. Opening the page
+  stay unchanged. Browser02–04 reach Safari but leave Allow disabled after return; browser05 checks the shared empty-replay fix. Opening the page
   must leave native consent unanswered, then exactly one explicit Allow response must
   reach the original native callback. No external website, account or inference is used.
 
@@ -481,13 +497,19 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
-Decision (2026-11-17,Root): check browser launch with Safari's actual foreground state,
-the local server's real HTTP visit before consent, captured visible screens and the
-exact original native answer. Both browser02/03 images show the correct page, but its
-heading is not exposed to XCTest as text or another element. Testing Safari's internal
-accessibility tree is not a Carlos requirement. Keep both failed runs; browser04 retains
-all Carlos consent/Stop/native-response assertions and the existing deadlines, with
-this direct foreground/HTTP evidence replacing the unavailable heading query.
+Correction (2026-11-17,Root): the earlier Safari-heading diagnosis was wrong. Root
+misread the reported source line, which points at the Allow-button query/await after
+returning to Carlos. The original Safari text query already passes. UI02,03 and04 fail
+because an empty subscription replay makes shared cached facts current without emitting
+any screen update; PhoneHostModel retains currentSnapshot=false. The regression
+an_empty_reconnect_replay_notifies_the_phone_when_cached_controls_become_current fails
+before the shared-client fix (empty-replay-red.log). Client::confirm_subscription now
+emits one metadata update after an accepted healthy subscription when the same batch
+contains no session changes. It never grants freshness before the reply, polls, replaces
+native state or resends a mutation. All200 client and24 phone tests pass afterward.
+Browser05 restores both Safari foreground/actual-heading checks and all original consent
+checks, plus an explicit assertion/capture after returning. Treat the earlier heading
+queries as unnecessary diagnostic variants, not a browser failure or a weakened check.
 
 
 Decision (2026-11-17,Root): keep simple offered approval buttons inline, but open
@@ -618,6 +640,16 @@ Literal user/reasoning text uses the same block reader without Markdown interpre
 
 ## Outcomes & Retrospective
 
+Browser05 now proves the complete real Safari round trip and exact native callback.
+The shared-client fix restores controls after an unchanged reconnect without adding a
+Swift polling loop or bypassing current-snapshot checks. Root inspected the actual
+Claude/Grok answer screenshots and browser return screen. Backend commit32e1e2e keeps
+those native prompt checks repeatable. The final scanner should run only while an
+actual turn exists; the browser image exposes a minor remaining animation polish item.
+Remaining work includes syntax/file rows, streaming caret, hardware keys, speech,
+full history/scroll checks, final release/performance checks and the end-only review.
+
+
 The repeat full terminal gate02 passes completely with all225 daemon,330 terminal and
 23 isolated native Codex checks. Preserve the initial Claude helper timeout as failed;
 the isolated and full repeat use unchanged deadlines and pass. This gate covers the
@@ -627,10 +659,11 @@ tests-20261116T234228.xcresult. The new draft test uses actual generated Rust ca
 changed schema leaves private text and original fields intact, the old editor admits
 no operation, and only explicit restart clears answers and captures the new request.
 The native sheet asks before clearing; no request change silently transfers old inputs.
-Browser02 shows the real Safari page and unchanged consent card, but fails its heading
-query because it asks for StaticText rather than the page heading. Browser03 checks
-all native accessibility element types and folds raw browser details behind disclosure.
-Do not mark browser approval complete until its exact native answer assertion passes.
+Browser02–04 show the real Safari page and unchanged consent card, but Allow stays
+disabled after return. Root initially misread that as a heading-query failure; the
+corrected source-line/activity evidence and shared-client fix are in the Decision Log.
+Browser03 also folds raw browser details behind disclosure.
+Browser05 now passes that exact native answer assertion after fixing empty-replay notifications.
 
 
 The flat-form checkpoint passes the actual invalid-answer/correction flow and typed

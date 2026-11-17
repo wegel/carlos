@@ -19,13 +19,13 @@ extension SessionWorkflowTests {
         open.tap()
         let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
         XCTAssertTrue(wait { safari.state == .runningForeground })
-        // The fixture checks the real HTTP page visit before any native answer.
-        // Safari's page heading is not exposed to XCTest on this simulator.
+        XCTAssertTrue(safari.staticTexts["Browser step complete"].waitForExistence(timeout: 15))
         capture("Owned browser page completes without sending consent", screenshot: safari.screenshot())
         app.activate()
         XCTAssertTrue(open.waitForExistence(timeout: 15), "A page visit must leave consent unanswered")
         let allow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'approval.' AND label == 'Allow once'")).firstMatch
-        XCTAssertTrue(wait { allow.isEnabled })
+        XCTAssertTrue(wait { allow.isEnabled }, "The current unchanged approval must be usable after returning from Safari")
+        capture("Browser consent remains explicit and usable after reconnect", screenshot: app.screenshot())
         allow.tap()
         XCTAssertTrue(app.staticTexts["Browser consent accepted 🦀"].waitForExistence(timeout: 15))
         XCTAssertFalse(open.exists)

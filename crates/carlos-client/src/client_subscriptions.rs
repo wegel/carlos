@@ -49,7 +49,15 @@ impl Client {
                 }
             }
         }
-        if let Some(slot) = self.sessions.get_mut(&session) {
+        self.confirm_subscription(&session, effects)
+    }
+
+    fn confirm_subscription(
+        &mut self,
+        session: &SessionId,
+        effects: &mut Effects,
+    ) -> Result<(), ClientError> {
+        if let Some(slot) = self.sessions.get_mut(session) {
             if slot.wanted
                 && !slot.refresh
                 && slot
@@ -59,6 +67,22 @@ impl Client {
             {
                 slot.subscribed = self.current;
             }
+        }
+        // An empty replay still changes whether retained facts may enable controls.
+        if self.current_session_has_snapshot(session)
+            && !effects
+                .sessions
+                .iter()
+                .any(|change| &change.session == session)
+        {
+            self.changed(
+                session,
+                ChangeSet {
+                    info: true,
+                    ..Default::default()
+                },
+                effects,
+            )?;
         }
         Ok(())
     }
