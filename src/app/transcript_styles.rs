@@ -3,8 +3,6 @@
 
 use std::collections::VecDeque;
 
-pub(super) use carlos_client::source::code_line_gutter_prefix_len;
-
 use ansi_to_tui::IntoText as _;
 
 use super::style_convert::{core_style_to_style, CarlosMarkdownStyleSheet};
@@ -72,8 +70,6 @@ pub(super) fn markdown_document_segments(text: &str, width: usize) -> Vec<Vec<St
     }
     out
 }
-
-/// Find the numbered `│` gutter used by RTK read output.
 
 pub(super) fn ansi_line_segments(text: &str) -> Option<Vec<Vec<StyledSegment>>> {
     let parsed = text.into_text().ok()?;

@@ -28,6 +28,7 @@ struct PhoneMarkdownBlockView: View {
     var changed: @MainActor () -> Void = {}
     @State private var block: PhoneMarkdownBlock?
     @State private var error: String?
+    @State private var code: AttributedString?
 
     var body: some View {
         Group {
@@ -44,9 +45,22 @@ struct PhoneMarkdownBlockView: View {
         }
         .task(id: ObjectIdentifier(document)) {
             let document = document, index = index
-            let result = await Task.detached(priority: .userInitiated) { Result { try document.block(index: index) } }.value
+            let result = await Task.detached(priority: .userInitiated) {
+                Result { () -> (PhoneMarkdownBlock, AttributedString?) in
+                    var block = try document.block(index: index)
+                    var code: AttributedString?
+                    if case .code = block.kind {
+                        code = PhoneCodeText.format(try document.code(index: index))
+                        block.spans = []
+                    }
+                    return (block, code)
+                }
+            }.value
             guard !Task.isCancelled else { return }
-            switch result { case .success(let value): block = value; case .failure(let failure): error = PhoneFailureMessage.describe(failure) }
+            switch result {
+            case .success(let value): block = value.0; code = value.1
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
+            }
             changed()
         }
     }
@@ -63,8 +77,9 @@ struct PhoneMarkdownBlockView: View {
             VStack(alignment: .leading, spacing: 6) {
                 if let language { Text(language).font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.overlay2) }
                 ScrollView(.horizontal) {
-                    Text(block.spans.map(\.text).joined()).font(PhoneTheme.mono(12.5)).fixedSize(horizontal: true, vertical: false)
-                        .textSelection(.enabled).foregroundStyle(PhoneTheme.text)
+                    Text(code ?? AttributedString(block.spans.map(\.text).joined()))
+                        .font(PhoneTheme.mono(12.5)).fixedSize(horizontal: true, vertical: false)
+                        .textSelection(.enabled).accessibilityIdentifier("code.block")
                 }.scrollIndicators(.hidden)
             }.padding(10).background(PhoneTheme.crust).clipShape(RoundedRectangle(cornerRadius: 10))
         case .rule:

@@ -14,6 +14,7 @@ bindgen = ["uniffi/cli"]
 carlos-client = { path = "../carlos-client" }
 carlos-proto = { path = "../carlos-proto" }
 serde_json = "1"
+syntect = { version = "=5.3.0", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 uniffi = { version = "=0.32.2", default-features = false }
 
 [[bin]]

@@ -15,7 +15,7 @@ DAEMON_REVIEWED = {
     "carlos-core", "carlos-proto", "carlos-client", "anyhow", "getrandom", "libc", "rusqlite",
     "serde", "serde_json", "signal-hook", "socket2", "uuid", "tempfile", "blake3", "tungstenite",
 }
-PHONE_REVIEWED = {"carlos-client", "carlos-proto", "serde_json", "uniffi"}
+PHONE_REVIEWED = {"carlos-client", "carlos-proto", "serde_json", "syntect", "uniffi"}
 PHONE_FORBIDDEN = {
     "carlos-core", "carlosd", "tokio", "async-std", "reqwest", "tungstenite",
     "socket2", "mio", "rustls",

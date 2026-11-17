@@ -10,11 +10,13 @@ mod controls;
 mod document;
 mod entries;
 mod error;
+mod file_lines;
 mod form_answers;
 mod operations;
 mod records;
 mod session_calls;
 mod sessions;
+mod syntax;
 mod transcript;
 
 pub use approval_inputs::{
@@ -35,12 +37,14 @@ pub use entries::{
     PhoneTool, PhoneToolKind, PhoneToolStatus,
 };
 pub use error::PhoneError;
+pub use file_lines::{file_lines, PhoneFileLine};
 pub use operations::{PhoneOperation, PhoneOperationState, PhoneSubmission};
 pub use records::{PhoneBatch, PhoneFailure, PhoneFrame};
 pub use sessions::{
     PhoneActivity, PhoneAvailability, PhoneBackend, PhoneContext, PhonePhase, PhoneQuota,
     PhoneSession, PhoneUsage,
 };
+pub use syntax::{highlight_code, PhoneSyntaxRole, PhoneSyntaxSpan};
 pub use transcript::PhoneTranscript;
 
 uniffi::setup_scaffolding!();
@@ -62,3 +66,6 @@ mod body_tests;
 
 #[cfg(test)]
 mod history_tests;
+
+#[cfg(test)]
+mod syntax_tests;

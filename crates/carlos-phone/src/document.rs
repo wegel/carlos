@@ -118,4 +118,24 @@ impl PhoneDocument {
                 message: "Markdown block is outside this document".into(),
             })
     }
+
+    /// Classify only the visible code block, leaving the accepted Markdown and copy source unchanged.
+    pub fn code(&self, index: u32) -> Result<Vec<crate::PhoneSyntaxSpan>, PhoneError> {
+        let block = self
+            .blocks
+            .get(index as usize)
+            .ok_or_else(|| PhoneError::InvalidInput {
+                message: "Code block is outside this document".into(),
+            })?;
+        let BlockKind::Code { language } = &block.kind else {
+            return Err(PhoneError::InvalidInput {
+                message: "This document block is not code".into(),
+            });
+        };
+        Ok(crate::highlight_code(
+            block.spans.iter().map(|span| span.text.as_str()).collect(),
+            language.clone(),
+            None,
+        ))
+    }
 }
