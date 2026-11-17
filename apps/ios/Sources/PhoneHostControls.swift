@@ -2,6 +2,14 @@
 import Foundation
 
 extension PhoneHostModel {
+    func editFrom(_ row: PhoneEntry) {
+        guard let selected, connected, transcript?.currentSnapshot == true,
+              row.kind == .user, promptEditor == nil else { return }
+        let editor = PhonePromptEditor(session: selected, entry: row.id, transport: transport)
+        promptEditor = editor
+        editor.load()
+    }
+
     func interrupt() {
         guard let selected, connected, !controlSubmitting else { return }
         submitControl { try $0.interrupt(session: selected) }

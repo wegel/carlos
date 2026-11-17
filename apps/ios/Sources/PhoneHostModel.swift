@@ -9,7 +9,10 @@ final class PhoneHostModel: Identifiable {
     var link: PhoneLinkState = .disconnected(nil)
     var catalog: [PhoneSession] = []
     var selected: String? {
-        didSet { defaults.set(selected, forKey: "carlos.hosts.\(id).session") }
+        didSet {
+            defaults.set(selected, forKey: "carlos.hosts.\(id).session")
+            if oldValue != selected { promptEditor = nil }
+        }
     }
     var transcript: PhoneTranscript?
     var orderedEntries: [String] = []
@@ -23,6 +26,10 @@ final class PhoneHostModel: Identifiable {
     var contentVersion = UUID()
     var followRequest = UUID()
     var controlSubmitting = false
+    var promptEditor: PhonePromptEditor?
+    var sendMode: PhoneSendMode = .queue {
+        didSet { defaults.set(sendMode == .steer ? "steer" : "queue", forKey: "carlos.hosts.\(id).sendMode") }
+    }
     let history = PhoneHistoryModel()
     var approvalRequests: [String: ApprovalSubmission] = [:]
     private var draftText = ""
@@ -57,6 +64,7 @@ final class PhoneHostModel: Identifiable {
         self.configuration = configuration
         self.bodyBudget = bodyBudget
         self.defaults = defaults
+        sendMode = defaults.string(forKey: "carlos.hosts.\(id).sendMode") == "steer" ? .steer : .queue
         self.restoringSession = restoringSession
     }
 
@@ -193,9 +201,10 @@ final class PhoneHostModel: Identifiable {
         guard let selected, !submitting, connected, transcript?.ready == true,
               !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let text = draft
-        let echoAnchor = PhoneEchoAnchor(entry: orderedEntries.last, queued: transcript?.info.activity.canInterrupt == true)
+        let mode = sendMode
+        let echoAnchor = PhoneEchoAnchor(entry: orderedEntries.last, queued: mode == .queue && transcript?.info.activity.canInterrupt == true)
         submitting = true
-        transport.submit({ try $0.sendPrompt(session: selected, text: text) }) { [weak self] result in
+        transport.submit({ try $0.sendPrompt(session: selected, text: text, mode: mode) }) { [weak self] result in
             guard let self else { return }
             submitting = false
             switch result {
@@ -249,11 +258,15 @@ final class PhoneHostModel: Identifiable {
             select(saved)
         }
         if case .disconnected(let message) = state, let message { error = message }
+        if case .disconnected = state { promptEditor?.disconnected() }
     }
 
     private func received(_ batch: PhoneBatch) {
         let historyFailure = history.receive(batch)
-        for failure in batch.failures where historyFailure == nil || failure.requestId != historyFailure { error = failure.message }
+        let editFailure = promptEditor?.receive(batch)
+        for failure in batch.failures where
+            (historyFailure == nil || failure.requestId != historyFailure) &&
+            (editFailure == nil || failure.requestId != editFailure) { error = failure.message }
         for body in batch.bodies where body.session() == selected {
             if body.isSource() { sources[body.entry()]?.refresh(body) }
             else { outputs[body.entry()]?.refresh(body) }
@@ -306,6 +319,10 @@ final class PhoneHostModel: Identifiable {
         if ralphRequest?.key == operation.key { ralphRequest = operation }
         completeCreation(operation)
         completeReopen(operation)
+        if promptEditor?.observe(operation) == true {
+            promptEditor = nil
+            followRequest = UUID()
+        }
         switch operation.state {
         case .accepted where !operation.needsEcho:
             echoAnchors.removeValue(forKey: operation.key)

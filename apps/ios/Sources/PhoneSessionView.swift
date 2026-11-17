@@ -51,7 +51,16 @@ struct PhoneSessionView: View {
         .sheet(item: $editing) { draft in
             PhoneQuestionsView(host: host, card: draft.card, draft: draft)
         }
+        .sheet(item: $host.promptEditor) { editor in
+            PhonePromptEditView(host: host, editor: editor)
+        }
         .onChange(of: host.selected) { _, _ in speech.cancel(); editing = nil; questionDrafts.removeAll() }
+        .onChange(of: host.promptEditor?.id) { _, value in
+            if value != nil {
+                speech.cancel(keepText: true)
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            }
+        }
         .onDisappear {
             speech.cancel(keepText: true)
         }
@@ -117,6 +126,24 @@ struct PhoneSessionView: View {
                     host.draft += host.draft.isEmpty || host.draft.last?.isWhitespace == true ? text : " " + text
                 }
             }.disabled(host.selected == nil || host.submitting)
+            if info?.activity.canInterrupt == true && !host.draft.isEmpty {
+                Menu {
+                    Picker("Send while running", selection: $host.sendMode) {
+                        Text("Queue for the next turn").tag(PhoneSendMode.queue)
+                        Text("Steer the current response").tag(PhoneSendMode.steer)
+                    }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(host.sendMode == .steer ? "Steer" : "Queue")
+                        Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                    }
+                    .font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.subtext1)
+                    .frame(minWidth: 44, minHeight: 44)
+                }
+                .disabled(host.submitting).accessibilityLabel("Send mode")
+                .accessibilityValue(host.sendMode == .steer ? "Steer" : "Queue")
+                .accessibilityIdentifier("composer.mode")
+            }
             Button {
                 if isStop { host.interrupt() } else { speech.cancel(keepText: true); host.send() }
             } label: {

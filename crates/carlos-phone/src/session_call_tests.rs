@@ -3,14 +3,14 @@
 use std::slice::from_ref;
 
 use crate::test_support::{connected, hello, request, subscribed, token, SESSION};
-use crate::{PhoneAvailability, PhoneBackend, PhoneError, PhoneOperationState};
+use crate::{PhoneAvailability, PhoneBackend, PhoneError, PhoneOperationState, PhoneSendMode};
 
 #[test]
 fn a_failed_partial_write_preserves_private_text_and_never_replays_the_prompt() {
     let client = subscribed("ready");
     let text = "private exact\n  prompt 🦀";
     let submission = client
-        .send_prompt(SESSION.into(), text.into())
+        .send_prompt(SESSION.into(), text.into(), PhoneSendMode::Queue)
         .expect("send");
     let command = request(&submission.frame);
     assert_eq!(command["method"], "session/send");
@@ -71,14 +71,14 @@ fn starting_or_disconnected_facts_do_not_admit_early_prompts() {
         PhoneAvailability::Starting
     ));
     assert!(matches!(
-        client.send_prompt(SESSION.into(), "draft".into()),
+        client.send_prompt(SESSION.into(), "draft".into(), PhoneSendMode::Queue),
         Err(PhoneError::State { .. })
     ));
     assert!(client.operations().expect("private work").is_empty());
     let ready = subscribed("ready");
     ready.disconnect(1).expect("disconnect");
     assert!(matches!(
-        ready.send_prompt(SESSION.into(), "private draft".into()),
+        ready.send_prompt(SESSION.into(), "private draft".into(), PhoneSendMode::Queue),
         Err(PhoneError::State { .. })
     ));
     assert_eq!(ready.catalog().expect("cached catalog")[0].id, SESSION);

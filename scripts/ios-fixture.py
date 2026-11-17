@@ -25,6 +25,7 @@ from ios_history_fixture import configure_history, configure_motion, history_con
 from ios_ralph_fixture import configure_ralph
 from ios_syntax_fixture import configure_syntax
 from ios_reconnect_fixture import reconnect_relay, check_reconnect
+from ios_prompt_fixture import configure_prompt_controls, check_prompt_controls
 
 
 def mac_settings():
@@ -190,7 +191,9 @@ def configure_questions(native, *, form_request=False, browser_url=None):
 def configure_workflow(fixture, workflow, artifacts, resources):
     """Keep each deterministic native scenario and its owned resources together."""
     source, visits = {}, None
-    if workflow == "controls":
+    if workflow in ("send-mode", "edit", "edit-rejected"):
+        configure_prompt_controls(fixture.native, workflow)
+    elif workflow == "controls":
         configure_controls(fixture.native)
     elif workflow in ("native-flick", "native-motion"):
         configure_motion(fixture)
@@ -258,7 +261,7 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
+    expected = {"send-mode":["phone mode run", "phone queued exact 🌍"], "edit":["phone edited exact 🌍"], "edit-rejected":[], "controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
                 "voice": [], "quota": ["native quotas"], "claude-tools": ["read source"], "history": [], "native-flick": [], "native-motion": [], "idle-perf": [], "launch-perf": [], "typing-perf": [], "scroll-perf": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     if workflow in ("hosts", "host-duplicates"):
@@ -270,6 +273,8 @@ def check_native(fixture, backend, workflow, observed, visits):
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
     native = fixture.native
+    if workflow in ("send-mode", "edit", "edit-rejected"):
+        check_prompt_controls(native, workflow)
     assert native.started == (0 if workflow in ("history", "credentials", "native-flick", "native-motion") else 1), "A phone workflow must not create duplicate native owners"
     if workflow in ("native-flick", "native-motion"):
         assert native.resumed == 1, "Scroll checks must reuse the same native owner"
@@ -339,7 +344,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion", "hosts", "host-duplicates"), default="prompt")
+    parser.add_argument("--workflow", choices=("send-mode", "edit", "edit-rejected", "prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream", "native-flick", "native-motion", "hosts", "host-duplicates"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.workflow in ("quota", "claude-tools") and arguments.backend != "claude":

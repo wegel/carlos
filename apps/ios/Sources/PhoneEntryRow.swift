@@ -35,7 +35,16 @@ struct PhoneEntryRow: View {
         Group {
             if let tool = row.tool { PhoneToolView(host: host, row: row, tool: tool) }
             else if row.kind == .notice { notice }
-            else if row.kind == .user { PhoneUserMessage { contents } }
+            else if row.kind == .user {
+                PhoneUserMessage { contents }
+                    .accessibilityIdentifier("entry.user.\(row.id)")
+                    .contextMenu {
+                        Button("Edit from here", systemImage: "pencil") { host.editFrom(row) }
+                            .disabled(!host.connected || host.transcript?.currentSnapshot != true)
+                            .accessibilityIdentifier("entry.edit.\(row.id)")
+                    }
+                    .accessibilityAction(named: "Edit from here") { host.editFrom(row) }
+            }
             else if compact { reasoningLine }
             else {
                 HStack(alignment: .top, spacing: 8) {

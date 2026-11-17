@@ -13,6 +13,7 @@ mod error;
 mod file_lines;
 mod form_answers;
 mod operations;
+mod prompts;
 mod records;
 mod session_calls;
 mod sessions;
@@ -39,6 +40,7 @@ pub use entries::{
 pub use error::PhoneError;
 pub use file_lines::{file_lines, PhoneFileLine};
 pub use operations::{PhoneOperation, PhoneOperationState, PhoneSubmission};
+pub use prompts::{PhonePrompt, PhonePromptReply, PhoneSendMode};
 pub use records::{PhoneBatch, PhoneFailure, PhoneFrame};
 pub use sessions::{
     PhoneActivity, PhoneAvailability, PhoneBackend, PhoneContext, PhonePhase, PhoneQuota,
@@ -54,6 +56,9 @@ mod test_support;
 
 #[cfg(test)]
 mod session_call_tests;
+
+#[cfg(test)]
+mod prompt_tests;
 
 #[cfg(test)]
 mod control_tests;

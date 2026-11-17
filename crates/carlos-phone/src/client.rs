@@ -126,6 +126,11 @@ impl State {
                 })
                 .collect(),
             catalog_changed: effects.catalog,
+            prompts: effects
+                .replies
+                .into_iter()
+                .filter_map(crate::PhonePromptReply::from_read)
+                .collect(),
             bodies: effects
                 .bodies
                 .into_iter()

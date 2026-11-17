@@ -52,6 +52,7 @@ pub struct PhoneBatch {
     pub sessions: Vec<PhoneSessionChange>,
     pub operations: Vec<String>,
     pub bodies: Vec<Arc<crate::PhoneBody>>,
+    pub prompts: Vec<crate::PhonePromptReply>,
 }
 
 impl PhoneBatch {
@@ -64,6 +65,7 @@ impl PhoneBatch {
             sessions: Vec::new(),
             operations: Vec::new(),
             bodies: Vec::new(),
+            prompts: Vec::new(),
         }
     }
 }

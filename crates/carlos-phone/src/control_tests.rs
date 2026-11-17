@@ -5,7 +5,9 @@ use std::sync::Arc;
 use serde_json::json;
 
 use crate::test_support::{connected, info, reply, request, SESSION};
-use crate::{PhoneApprovalInput, PhoneClient, PhoneDecision, PhoneError, PhonePhase};
+use crate::{
+    PhoneApprovalInput, PhoneClient, PhoneDecision, PhoneError, PhonePhase, PhoneSendMode,
+};
 
 const CARD: &str = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-0000000000000001";
 const TURN: &str = "cccccccccccccccccccccccccccccccc";
@@ -37,7 +39,7 @@ fn a_starting_card_accepts_only_its_actual_decisions_and_keeps_prompts_blocked()
     assert_eq!(cards[0].id, CARD);
     assert!(!cards[0].choices.contains(&PhoneDecision::Session));
     assert!(matches!(
-        client.send_prompt(SESSION.into(), "private draft".into()),
+        client.send_prompt(SESSION.into(), "private draft".into(), PhoneSendMode::Queue),
         Err(PhoneError::State { .. })
     ));
     assert!(matches!(

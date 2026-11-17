@@ -74,6 +74,9 @@ ui-test)
         quota) test_case=testClaudeWeeklyQuotaSitsBesideContext ;;
         claude-tools) test_case=testClaudeCallAndResultShareOneCompactHeader ;;
         controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
+        send-mode) test_case=testSteerAndQueueKeepTheirChosenNativeMeaning ;;
+        edit) test_case=testEditingAnEarlierMessageKeepsTheMainDraft ;;
+        edit-rejected) test_case=testRejectedBranchKeepsEditedTextAndTheMainDraft ;;
         source) test_case=testLongOriginalSourceAndCopyKeepEveryByte ;;
         code-source) test_case=testLargeCodeFenceKeepsEveryOriginalByteAndStaysResponsive ;;
         reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;

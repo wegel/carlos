@@ -1,14 +1,14 @@
 //! Bind only the session picker, creation, prompt and reconnect calls used by the app.
 
-use carlos_proto::commands::{Command, RequestId, SendPolicy};
+use carlos_proto::commands::{Command, RequestId};
 use carlos_proto::ids::SessionId;
 use carlos_proto::submissions::ClientOperation;
 
 use crate::client::State;
 use crate::operations::key;
 use crate::{
-    PhoneBackend, PhoneBatch, PhoneClient, PhoneError, PhoneFrame, PhoneOperation, PhoneSession,
-    PhoneSubmission,
+    PhoneBackend, PhoneBatch, PhoneClient, PhoneError, PhoneFrame, PhoneOperation, PhoneSendMode,
+    PhoneSession, PhoneSubmission,
 };
 
 #[uniffi::export]
@@ -78,11 +78,12 @@ impl PhoneClient {
         })
     }
 
-    /// Retain original text before writing; running turns receive the explicit queue policy.
+    /// Retain original text and the explicitly chosen running-turn policy before writing.
     pub fn send_prompt(
         &self,
         session: String,
         text: String,
+        mode: PhoneSendMode,
     ) -> Result<PhoneSubmission, PhoneError> {
         let session = session_id(&session)?;
         if text.trim().is_empty() {
@@ -91,16 +92,12 @@ impl PhoneClient {
             });
         }
         let mut state = self.lock()?;
-        if !state.client.current_session_is_ready(&session) {
-            return Err(PhoneError::State {
-                message: "Wait for the current session to become ready".into(),
-            });
-        }
+        state.require_ready_session(&session)?;
         state.submit(|operation| Command::Send {
             session,
             text,
             operation,
-            policy: SendPolicy::Queue,
+            policy: mode,
         })
     }
 
@@ -164,6 +161,15 @@ impl PhoneClient {
 }
 
 impl State {
+    pub(crate) fn require_ready_session(&self, session: &SessionId) -> Result<(), PhoneError> {
+        if !self.client.current_session_is_ready(session) {
+            return Err(PhoneError::State {
+                message: "Wait for the current session to become ready".into(),
+            });
+        }
+        Ok(())
+    }
+
     pub(crate) fn submit(
         &mut self,
         build: impl FnOnce(ClientOperation) -> Command,
