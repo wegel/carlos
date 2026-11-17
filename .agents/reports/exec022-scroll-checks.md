@@ -88,3 +88,22 @@ terminal and native-backend gate passes on runtime source92d3a53538102e52153236e
 these scrolling changes are Swift-only, and a subsequent workspace cargo test passes.
 
 The owner's normal-shell daemon and frozen engine binaries remain unchanged.
+
+## Current source and package size
+
+The authored phone Rust bridge contains2051 nonblank lines in19 files; the Swift
+app contains3980 nonblank lines in50 files. These counts include comments and
+exclude generated bindings and tests. Against accepted EP021b treefb5ed10, all
+production groups together add6673 nonblank lines and remove141. The counter
+walks reachable production Rust modules and excludes test/test-support code.
+Raw counts and per-file changes are /tmp/carlos-ep022/production-count.json.
+
+The signed9a45 executable is9085840bytes; the entire app bundle is11403998bytes
+in17 files. The bundle includes the real fonts and syntax grammars. Its source
+and executable hash are checked before installation.
+
+The actual generated Swift-to-Rust calls also pass their five-sample unit
+measurements:1000 checked Markdown block reads average30.74ms; formatting500
+lines with the already-loaded Rust grammar averages82.88ms. These are simulator
+unit measurements, not physical-phone frame timings. The grammar runs off the
+UI thread in the app. Raw metrics: final-native-bridge-metrics-01.json.

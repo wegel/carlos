@@ -45,6 +45,14 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   c4aa20ff006b6a727aac passes history04, scroll04, the short captured-reference
   check and cargo test. Its signed app was installed and launched on iPhone18 Pro;
   the owner still reports motion stutters and jumps, so this is not a final fix.
+- [x] The final installed source9a45429810146c725110 also passes real keyboard,
+  Claude tools/quota, short reference, credentials, cold relaunch, token change,
+  exact prompt, held approval/Stop, tool output/copy and forms in matrix native-01.
+  Results remain /tmp/carlos-ep022/matrix-final-9a45429810146c725110-native-01/results.json.
+  Keep the remainder running sequentially. Native bridge metrics and actual signed
+  app sizes are now recorded in .agents/reports/exec022-scroll-checks.md. The owner
+  has a concise optional question pending about stutters/jumps on this installed
+  preview; independent checks continue without treating silence as a result.
 - [ ] Finish the owner's motion-stutter and jump fix. Source982f15b87f37886beb7f
   retains parsed inline documents in an NSCache (64 entries and2MiB cost hints),
   prepares up to16 upcoming entries, shares rendered blocks across cell reuse and
