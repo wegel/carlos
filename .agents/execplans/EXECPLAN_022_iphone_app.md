@@ -44,8 +44,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   reports paginated history and its latest turn reply is243930bytes. Carlos now
   requests one complete turn per reply without changing either frame cap or the
   original-request64MiB budget. Cached partial prefixes satisfy other readers,
-  rather than fetching another turn to fill a maximum row count. Rust tests pass;
-  real terminal/native checks, release gate and installed-pair update remain.
+  rather than fetching another turn to fill a maximum row count. Commit28c778e,
+  runtime source284b3acc7aa71615fed2cef9509c316b. Rust tests,15 focused daemon
+  checks,20 terminal history checks and both real native large-ancestor checks
+  pass. A fresh434141262byte copy of this exact owner session reaches a ready
+  terminal in3.225s with one889761byte native reply/311 items and no prompt.
+  The full release gate and installed-pair update remain. A normal-shell helper
+  is prepared at tmp/codex-large-resume/resume-fixed.py; it checks the installed
+  source and idle sessions, identifies only the normal socket's actual peer PID,
+  sends SIGTERM and resumes this session through normal Carlos. Root cannot
+  signal that outside PID from its container and must not start a sandbox daemon.
   Isolated copies of the owner's rollout and size-only probes are in ignored
   tmp/codex-large-resume; no prompt is sent and the original session is untouched.
   Codex0.169.0 schemas are generated there. Metadata-only read does not hydrate

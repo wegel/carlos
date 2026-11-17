@@ -82,6 +82,26 @@ def check_history(case, binary, codex, root, socket_mode=False):
     case.assertGreater(len(json.dumps(response)),8*1024*1024,"exercise a real oversized public history page")
     case.assertEqual([turn["id"] for turn in response["result"]["data"]], [turns[30]])
     case.assertEqual(pages[0]["params"]["limit"], 1)
+    projected, response_bytes = check_bounded_prefix(case, terminal, turns)
+    case.assertEqual(terminal.requests("thread/fork"),[])
+    case.assertEqual(terminal.requests("turn/start"),[])
+    case.assertEqual(model.requests,[])
+    case.assertLess(elapsed,10,"large forked history must fit the unchanged20s deadline")
+    terminal.snapshot("large-native-ancestor-history")
+    terminal.close()
+    case.assertTrue(path.read_bytes().startswith(source_after_fork),"Carlos must not rewrite ancestor bytes")
+    if socket_mode:
+        case.assertIsNone(server.poll(),"Carlos must leave the shared native server alive")
+        records=[json.loads(line) for line in (root/"rpc.jsonl").read_text().splitlines()]
+        case.assertTrue(all(row["connection"] == 1 for row in records),"one exact native socket connection")
+    (root/"history-load-proof.json").write_text(json.dumps({"readySeconds":elapsed,
+        "turns":len(projected),"items":sum(len(turn["items"]) for turn in projected),
+        "responseBytes":response_bytes,"turnPageRequests":len(pages),
+        "transport":"unix-websocket" if socket_mode else "stdio"},indent=2))
+
+
+def check_bounded_prefix(case, terminal, turns):
+    """Read every complete ancestor turn without combining their large replies."""
     terminal.rewind("history human 29")
     terminal.send(b"\x1b[A")
     terminal.wait(lambda:terminal.input_is("history human 28"),"canonical adjacent rewind anchor")
@@ -104,18 +124,4 @@ def check_history(case, binary, codex, root, socket_mode=False):
     case.assertTrue(all(request["params"]["limit"] == 1 for request in pages))
     case.assertTrue(all(len(json.dumps(replies[request["id"]])) < 64*1024*1024 for request in pages))
     case.assertNotIn("HISTORY_REPLY:30",json.dumps(projected),"the excluded tail must stay excluded")
-    case.assertEqual(terminal.requests("thread/fork"),[])
-    case.assertEqual(terminal.requests("turn/start"),[])
-    case.assertEqual(model.requests,[])
-    case.assertLess(elapsed,10,"large forked history must fit the unchanged20s deadline")
-    terminal.snapshot("large-native-ancestor-history")
-    terminal.close()
-    case.assertTrue(path.read_bytes().startswith(source_after_fork),"Carlos must not rewrite ancestor bytes")
-    if socket_mode:
-        case.assertIsNone(server.poll(),"Carlos must leave the shared native server alive")
-        records=[json.loads(line) for line in (root/"rpc.jsonl").read_text().splitlines()]
-        case.assertTrue(all(row["connection"] == 1 for row in records),"one exact native socket connection")
-    (root/"history-load-proof.json").write_text(json.dumps({"readySeconds":elapsed,
-        "turns":len(projected),"items":sum(len(turn["items"]) for turn in projected),
-        "responseBytes":response_bytes,"turnPageRequests":len(pages),
-        "transport":"unix-websocket" if socket_mode else "stdio"},indent=2))
+    return projected, response_bytes
