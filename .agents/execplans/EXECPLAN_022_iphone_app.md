@@ -52,7 +52,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Code highlighting remains off the UI thread. Defer structural transcript updates
   through the complete drag/deceleration gesture and keep only the newest pending
   update. Against the previous native build44bfcd6e902bd588621d on the same captured
-  conversation, three gesture pairs use mean CPU0.802s rather than1.034s (23% less).
+  conversation, three gesture pairs use mean CPU0.802s rather than1.034s (22.4% less).
   Physical peak memory is68.5MB rather than69.0MB; gesture durations are unchanged
   at2.35s. XCTest reports no frame-rate or hitch metric here, so these numbers do
   not establish smooth physical-phone motion. The candidate passes history01 and
@@ -72,6 +72,10 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   screen because the main run loop stayed busy for30s. The unchanged Rust cargo
   test also passes (native-prepared-cargo-01.log). Remaining candidate checks run
   sequentially in native-source-rows-*-01.log before physical installation.
+  Source9a45 also passes10000-line code36.5s, syntax/exact Copy47.9s, history
+  failure/retry/prepend32.6s and tool/live-update anchors91.2s. The full captured
+  reference and native units remain pending. The checkpoint report is
+  .agents/reports/exec022-scroll-checks.md.
 
 - [x] The owner confirms the phone reconnects to their normal-shell daemon after
   the shared catalogue copy. Read-only hello and sessions/watch accept the unchanged
@@ -2039,7 +2043,7 @@ Revision2026-11-17: share the existing pure read-gutter parser and record the pr
 first-character loss; check the smaller render-marker fix with the unchanged real UI.
 
 Revision2026-11-17: record the native scroller passes, physical-phone feedback and
-measured23% CPU reduction from shared parsed rows; keep motion quality and the final
+measured22.4% CPU reduction from shared parsed rows; keep motion quality and the final
 source/functional sweep open. No reviewer or EP approval has occurred.
 
 Revision2026-11-17: prevent the transient source cell from rendering a complete
