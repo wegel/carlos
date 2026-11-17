@@ -17,7 +17,7 @@ struct PhoneEntryRow: View {
 
     var body: some View {
         Group {
-            if let tool = row.tool { toolHeader(tool) }
+            if let tool = row.tool { PhoneToolView(host: host, row: row, tool: tool) }
             else if row.kind == .notice { notice }
             else if row.kind == .user { PhoneUserMessage { contents } }
             else if compact { reasoningLine }
@@ -95,28 +95,6 @@ struct PhoneEntryRow: View {
         }.frame(minHeight: 28)
     }
 
-    private func toolHeader(_ tool: PhoneTool) -> some View {
-        HStack(spacing: 10) {
-            Text(toolGlyph(tool.kind)).font(PhoneTheme.mono(13)).bold().foregroundStyle(toolColor(tool.kind)).frame(width: 14)
-            Text(PhoneEntryLayout.toolLabel(tool, glyph: toolGlyph(tool.kind)))
-                .font(tool.labelSource == .ai ? PhoneTheme.prose(13.5) : PhoneTheme.mono(12.5))
-                .lineLimit(tool.labelSource == .ai ? nil : 1).foregroundStyle(PhoneTheme.subtext1)
-                .lineSpacing(tool.labelSource == .ai ? PhoneTheme.toolLeading : 0)
-                .padding(.vertical, tool.labelSource == .ai ? 4 : 0)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 4)
-            HStack(spacing: 6) {
-                if tool.status == .running { ProgressView().controlSize(.mini).tint(PhoneTheme.mauve) }
-                else if tool.status == .failed { Text("failed").bold().foregroundStyle(PhoneTheme.red) }
-                else if tool.status == .interrupted { Text("interrupted").foregroundStyle(PhoneTheme.yellow) }
-                else if let diff = tool.diff {
-                    if let added = diff.added { Text("+\(added)").foregroundStyle(PhoneTheme.green) }
-                    if let removed = diff.removed { Text("−\(removed)").foregroundStyle(PhoneTheme.red) }
-                } else if let summary = tool.summary { Text(summary).foregroundStyle(PhoneTheme.overlay2) }
-            }.lineLimit(1).fixedSize(horizontal: true, vertical: false)
-        }.font(PhoneTheme.mono(11.5)).frame(minHeight: 26)
-    }
-
     private func updateSource() {
         guard visible, row.tool == nil else { return }
         if row.text.sourceBytes == nil { acceptedInline = row.text.preview; if row.kind == .answer || row.kind == .commentary { inlineMarkup.setInline(row.text.preview) } }
@@ -126,12 +104,6 @@ struct PhoneEntryRow: View {
         }
     }
 
-    private func toolGlyph(_ kind: PhoneToolKind) -> String {
-        switch kind { case .command, .other: "$"; case .read: "→"; case .search: "✱"; case .edit: "Δ" }
-    }
-    private func toolColor(_ kind: PhoneToolKind) -> Color {
-        switch kind { case .command, .other: PhoneTheme.peach; case .read: PhoneTheme.blue; case .search: PhoneTheme.teal; case .edit: PhoneTheme.yellow }
-    }
 }
 
 private struct ReasoningPulse: ViewModifier {

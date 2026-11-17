@@ -32,6 +32,7 @@ final class PhoneHostModel: Identifiable {
     @ObservationIgnored private let bodyBudget: PhoneBodyBudget
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var sources: [String: PhoneSourceModel] = [:]
+    @ObservationIgnored private var outputs: [String: PhoneOutputModel] = [:]
 
     init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget(), defaults: UserDefaults = .standard) {
         id = configuration.id
@@ -43,6 +44,20 @@ final class PhoneHostModel: Identifiable {
     func contentChanged() { contentVersion = UUID() }
 
     func loadedSource(for entry: String) -> PhoneSourceModel? { sources[entry] }
+
+    func output(for entry: String) -> PhoneOutputModel? {
+        guard let selected else { return nil }
+        if let output = outputs[entry] { return output }
+        let output = PhoneOutputModel(session: selected, entry: entry, transport: transport)
+        if !connected || transcript?.currentSnapshot != true { output.suspend() }
+        outputs[entry] = output
+        return output
+    }
+
+    func closeOutput(_ output: PhoneOutputModel) {
+        output.close()
+        if outputs[output.entry] === output { outputs.removeValue(forKey: output.entry) }
+    }
 
     func source(for entry: String) -> PhoneSourceModel? {
         guard let selected else { return nil }
@@ -81,6 +96,8 @@ final class PhoneHostModel: Identifiable {
         selected = session
         for source in sources.values { source.close() }
         sources = [:]
+        for output in outputs.values { output.close() }
+        outputs = [:]
         transcript = nil
         orderedEntries = []
         rows = [:]
@@ -188,6 +205,7 @@ final class PhoneHostModel: Identifiable {
     private func changedLink(_ state: PhoneLinkState) {
         link = state
         if case .connected = state {} else { for source in sources.values { source.suspend() } }
+        if case .connected = state {} else { for output in outputs.values { output.suspend() } }
         if case .connected = state {} else if var cached = transcript {
             cached.currentSnapshot = false
             cached.ready = false
@@ -211,8 +229,9 @@ final class PhoneHostModel: Identifiable {
 
     private func received(_ batch: PhoneBatch) {
         for failure in batch.failures { error = failure.message }
-        for body in batch.bodies where body.session() == selected && body.isSource() {
-            sources[body.entry()]?.refresh(body)
+        for body in batch.bodies where body.session() == selected {
+            if body.isSource() { sources[body.entry()]?.refresh(body) }
+            else { outputs[body.entry()]?.refresh(body) }
         }
         guard batch.catalogChanged || !batch.operations.isEmpty || !batch.sessions.isEmpty else { return }
         let selected = selected
@@ -230,6 +249,7 @@ final class PhoneHostModel: Identifiable {
                     if let transcript = update.transcript {
                         self.transcript = transcript
                         if transcript.currentSnapshot { for source in sources.values { source.resume() } }
+                        if transcript.currentSnapshot { for output in outputs.values { output.resume() } }
                     }
                     if let order = update.order {
                         orderedEntries = order

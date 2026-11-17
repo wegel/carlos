@@ -28,6 +28,7 @@ enum PhoneTheme {
     static let ralphScannerTip = color(0xfff0fa)
     static let proseLeading = leading(size: 15, multiple: 1.5)
     static let toolLeading = leading(size: 13.5, multiple: 1.35)
+    static let outputLeading = max(0, 11.5 * 1.6 - (UIFont(name: "JetBrainsMono-Regular", size: 11.5)?.lineHeight ?? 15))
     static let paragraphGap: CGFloat = 9
 
     static func prose(_ size: CGFloat = 15, weight: Font.Weight = .regular) -> Font {

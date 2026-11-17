@@ -110,6 +110,17 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   normal source after staging; its scratch copy remains under /tmp/carlos-ep022.
 - [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
   on-device dictation and honest permission/unavailable states.
+  Update (2026-11-17): the saved-host/token/last-session and connection-screen fixes are
+  committed as23475bb and39b4f70. The next checked phone preview is being built from
+  simulator-checked2327bf4307aa3d527804; the installed app is still old until a signing/
+  install receipt is recorded. Running/completed tool expansion is now implemented
+  through the existing checked output reader. It retains classified colors and an
+  explicit missing-prefix notice, watches running output, closes offscreen reads and
+  keeps only the old measured height while refetching. Native11 tests pass onf0b9c5056ba1d93ed13a,
+  tests-20261116T220930.xcresult. The new actual tools workflow79ff6b583d26e8edaf00 is
+  running; it must observe chunk-a before approval/Stop, then the final native chunk-b,
+  preserve expansion through the native outcome and allow collapse/reopen. This is
+  still incomplete until the actual UI and scroll/remaining feature checks pass.
   Update (2026-11-17 01:35Z): the actual long-original-source UI workflow passes on
   source5635510dc076454c0a87, ui-tests-20261116T203335.xcresult, local
   phone-e3ad2c7d29a0. All10483884 source bytes match the system clipboard's byte count
@@ -124,6 +135,29 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+Running-tool workflow02 passes on e4569aeb392a5d716e88 at
+ui-tests-20261116T221430.xcresult, local phone-ab5a7afca629. It opens a running tool,
+reads chunk-a, answers the offered approval, sends the original Stop, receives the
+fixture's native chunk-b, and preserves/reopens the row's output. Exactly one held
+prompt, one answer and one interrupt reach the native peer. Workflow01 queried the
+raw shell command, but the engine publishes the existing descriptive label Read log;
+its long wait reached the unchanged native command deadline. Correct the test query,
+not the deadline or the published tool facts. Native tests pass12/12,0 skips at
+tests-20261116T221711.xcresult; cargo test passes at tool-cargo-test.log. Root inspected
+the actual expanded/stopped screenshots. Remaining visual work includes the old
+decorative glyph in some tool labels and the approval card's generic terminal caption;
+the complete scroll-anchor, syntax, structured approval and dictation work remains.
+
+The saved-connection/render preview2327bf4307aa3d527804 was built Release, signed with
+the existing same-team/keychain rights and installed on the iPhone18 Pro. Signed app:
+/Users/wegel/carlos-ios-build/previews/2327bf4307aa3d527804-20261117T031554Z/Carlos.app.
+Executable SHA256:02c77bd75edb2255373568fb0dcfcfde0075582d36f06b712e89be4e83e48221;
+unsigned executable5590168 bytes. The install receipt is token-preview-install.json
+under the owned Mac device-check directory. Launch was denied because the phone is
+locked; no unlock request or human gate is needed for continuing the remaining EP.
+This installed preview includes the token/render fixes, not the newer running-tool
+work. The owner daemon and CLI stay untouched.
 
 The connection editor now waits for the actual authenticated greeting before opening
 Sessions. Credentials run01 and relaunch04 exposed that the keyboard could cover the
@@ -340,6 +374,13 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Decision (2026-11-17,Root): give expanded running and completed tools one native output
+model using the shared checked read/watch/close calls. Keep original source separate.
+Close offscreen output lifetimes and release their Swift text; retain only a measured
+height until a visible row refetches. Keep each shared bounded suffix's omission notice
+visible. Format classified colors off the main thread without writing a second terminal
+control parser. Keep expansion/older-history pixel-anchor tests open until proved.
 
 Decision (2026-11-17,Root): keep connection errors in the editable form and show an
 explicit connecting state until the shared client accepts the daemon's greeting. Keep

@@ -8,18 +8,34 @@ import XCTest
 final class DocumentTests: XCTestCase {
     @MainActor
     func testLongLiteralToolKeepsItsStatusOnOneCompactRowWhileAiLabelsWrap() throws {
-        let preferences = PhonePreferences()
+        let suite = "tool-layout-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = PhonePreferences(defaults: defaults)
         let host = PhoneHostModel(configuration: PhoneHost(id: "layout-test", name: "Test", address: "ws://127.0.0.1:1", allowsPrivateWebSocket: true))
-        func height(_ label: String, source: PhoneLabelSource) -> CGFloat {
+        func height(_ label: String, source: PhoneLabelSource, output: Bool = false) -> CGFloat {
             let tool = PhoneTool(kind: .command, label: label, labelSource: source, status: .ok,
-                                 summary: "12 passed", diff: nil, hasOutput: false)
+                                 summary: "12 passed", diff: nil, hasOutput: output)
             let row = PhoneEntry(id: "tool", kind: .tool, format: .plain, filePath: nil,
                                  text: PhoneText(preview: "", sourceBytes: nil, sourceRevision: nil), done: true, tool: tool)
             let view = UIHostingController(rootView: PhoneEntryRow(host: host, row: row, compact: true).environment(preferences))
             return view.sizeThatFits(in: CGSize(width: 358, height: 10000)).height
         }
         XCTAssertEqual(height(String(repeating: "long-command-argument ", count: 30), source: .literal), 26, accuracy: 0.5)
+        XCTAssertEqual(height(String(repeating: "long-command-argument ", count: 30), source: .literal, output: true), 26, accuracy: 0.5)
         XCTAssertGreaterThan(height(String(repeating: "Describe the tool work clearly. ", count: 6), source: .ai), 26)
+    }
+
+    func testOutputColorsKeepUnicodeNewlinesAndAdjacentPiecesIntact() {
+        let pieces = [PhoneOutputPiece(kind: .hunk, text: "@@ -1 +1 @@\n"),
+                      PhoneOutputPiece(kind: .deletion, text: "-old 🌍\n"),
+                      PhoneOutputPiece(kind: .addition, text: "+new "),
+                      PhoneOutputPiece(kind: .addition, text: "🦀\n")]
+        let text = PhoneOutputText.format(pieces)
+        XCTAssertEqual(String(text.characters), "@@ -1 +1 @@\n-old 🌍\n+new 🦀\n")
+        XCTAssertEqual(text.runs.first?.foregroundColor, PhoneTheme.mauve)
+        XCTAssertEqual(text.runs.last?.foregroundColor, PhoneTheme.green)
+        XCTAssertEqual(text.runs.last?.backgroundColor, PhoneTheme.green.opacity(0.08))
     }
 
     @MainActor

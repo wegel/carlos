@@ -77,7 +77,7 @@ def forward(local_port, artifacts):
         process.stderr.close()
 
 
-def configure_controls(native):
+def configure_controls(native, *, stream_output=False):
     """Complete only after the native peer receives the captured original Stop turn."""
     original = native.handle
 
@@ -85,6 +85,9 @@ def configure_controls(native):
         await original(link, request)
         if request["method"] == "turn/interrupt":
             assert request["params"]["turnId"] == "live", request
+            if stream_output:
+                await native.notify(link, "item/commandExecution/outputDelta", turnId="live",
+                                    itemId="live-tool", delta="chunk-b after Stop 🌍\n")
             await native.notify(link, "turn/completed", turn={"id": "live", "status": "interrupted"})
 
     native.handle = handle
@@ -125,6 +128,8 @@ def run(workflow):
         expected_source = {}
         if workflow == "controls":
             configure_controls(fixture.native)
+        elif workflow == "tools":
+            configure_controls(fixture.native, stream_output=True)
         elif workflow == "source":
             expected_source = configure_source(fixture.native)
         token = grant(fixture, "native-phone")
@@ -144,14 +149,14 @@ def run(workflow):
             (artifacts / "native-prompts.json").write_text(json.dumps(observed, ensure_ascii=False) + "\n")
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
-            expected = {"controls": ["held"], "source": ["phone long source"],
+            expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
                         "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": []}[workflow]
             assert observed == expected, observed
             if workflow == "relaunch":
                 assert fixture.native.started == 1, "Relaunch must not create another native session"
             elif workflow == "credentials":
                 assert fixture.native.started == 0, "Connecting must not create a native session"
-            if workflow == "controls":
+            if workflow in ("controls", "tools"):
                 assert fixture.native.answers == 1 and fixture.native.interrupts == 1
                 answers = [request for request in fixture.native.requests if request.get("id") == "card"]
                 assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
@@ -163,5 +168,5 @@ def run(workflow):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools"), default="prompt")
     run(parser.parse_args().workflow)

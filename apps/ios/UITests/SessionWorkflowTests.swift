@@ -6,6 +6,44 @@ import XCTest
 
 final class SessionWorkflowTests: XCTestCase {
     @MainActor
+    func testRunningToolExpandsStreamsAndKeepsItsRowChoice() throws {
+        let app = try connectedSession()
+        let draft = app.textFields["composer.draft"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        draft.tap()
+        draft.typeText("held")
+        app.buttons["composer.send"].tap()
+        let tool = app.buttons.matching(NSPredicate(format:
+            "identifier BEGINSWITH 'tool.' AND label CONTAINS 'Read log' AND enabled == true")).firstMatch
+        XCTAssertTrue(tool.waitForExistence(timeout: 15))
+        tool.tap()
+        XCTAssertEqual(tool.value as? String, "Expanded")
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-a'")).firstMatch.waitForExistence(timeout: 15))
+        let running = XCTAttachment(screenshot: app.screenshot())
+        running.name = "Expanded running tool and offered approval"
+        running.lifetime = .keepAlways
+        add(running)
+        let allow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'approval.' AND label == 'Allow once'")).firstMatch
+        XCTAssertTrue(allow.waitForExistence(timeout: 15))
+        allow.tap()
+        let stop = app.buttons["composer.stop"]
+        XCTAssertTrue(wait { stop.isEnabled })
+        stop.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-b after Stop 🌍'")).firstMatch.waitForExistence(timeout: 15))
+        XCTAssertEqual(tool.value as? String, "Expanded", "A native outcome must keep the row's device-local expansion choice")
+        tool.tap()
+        XCTAssertEqual(tool.value as? String, "Collapsed")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-b after Stop 🌍'")).firstMatch.exists)
+        tool.tap()
+        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-b after Stop 🌍'")).firstMatch.waitForExistence(timeout: 15))
+        let complete = XCTAttachment(screenshot: app.screenshot())
+        complete.name = "Stopped tool retains complete observed output"
+        complete.lifetime = .keepAlways
+        add(complete)
+        app.terminate()
+    }
+
+    @MainActor
     func testInvalidTokenKeepsTheFormAndAllowsCorrection() throws {
         let invalid = String(repeating: "a", count: 32) + "." + String(repeating: "b", count: 64)
         let app = try connectedHost(token: invalid)
