@@ -35,7 +35,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Fix the owner's Codex resume failure before the remaining phone setup. After
+- [x] Stop at the owner's requested handover after the Codex repair is checked
+  and installed. The owner wants to resume this same session inside Carlos.
+  Finish only the running gates and safe installed-pair update, save the checkpoint,
+  then give the normal-shell resume-fixed.py command and stop. Do not start more
+  phone changes, a new EP, a reviewer or another phone install before that handover.
+- [x] Fix the owner's Codex resume failure before the remaining phone setup. After
   the sandbox restart, installed Carlos closes Codex on a stdout frame above64MiB;
   native Broken pipe is a consequence of that close. The current native session
   log is431MB with25 task-started turns, including large long-running turns.
@@ -49,7 +54,23 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   checks,20 terminal history checks and both real native large-ancestor checks
   pass. A fresh434141262byte copy of this exact owner session reaches a ready
   terminal in3.225s with one889761byte native reply/311 items and no prompt.
-  The full release gate and installed-pair update remain. A normal-shell helper
+  Installed the matching checked package into the actual~/.local/bin. Both CLI
+  and daemon --build-info report284b3acc7aa71615fed2cef9509c316b. The installer
+  validates515 hashes, preserves existing executables, and saves the receipt and
+  rollback files under~/.local/lib/carlos/backups/20261117T203941Z. NamespaceUID0
+  maps to the owner's hostUID1000, so ownership stays with the normal user.
+  The release run covers Rust/clippy,225 daemon,330 terminal, package smoke,
+  source/copy checks and native Codex contracts. It stops at22/23 native UI checks
+  because an older child result now requires Home; that corrected case passes1/1
+  separately. Packaged Claude passes9/10 initially; the context check sampled an
+  intermediate input-only40123-token native reply. Keep its original40128..45000
+  assertion and10s deadline, but wait for the completed tool step before checking
+  it; the corrected case passes1/1. The helper hashes are identical before/after;
+  no Claude runtime code changes. All required cases pass on this exact package,
+  with original failed runs preserved. Do not claim the initial shell run exited0.
+  Synthetic perf-session1000 turns/6001 rows gives scroll p95 1.70ms, typing
+  p95 1.44ms and append p95 0.57ms. RSS reports0/unavailable; no paired cost claim.
+  No tests/builds/fixtures remain running. A normal-shell helper
   is prepared at tmp/codex-large-resume/resume-fixed.py; it checks the installed
   source and idle sessions, identifies only the normal socket's actual peer PID,
   sends SIGTERM and resumes this session through normal Carlos. Root cannot
@@ -75,8 +96,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Equivalent addresses cannot add another entry, and a removed editor cannot save
   late. Removal clears only that entry's token/session preference and disconnects
   its local client. Other hosts/native sessions remain. Native tests cover these
-  boundaries. Actual hosts/host-duplicates UI checks and credential regressions
-  must pass before a new signed phone install. Keep accepted native scroll physics.
+  boundaries. Source23952 passes actual hosts UI and native traffic checks in
+  phone-codex-6be4fac18ff8, xcresult20261117T153747 (74.396s), and host-duplicates
+  in phone-codex-7909d4df9067, xcresult20261117T154024 (57.696s). Keep original
+ 713e selector failures. The first restarted attempt deadlocked an unnecessary
+  outer flock against ios-build.sh's own lock; Root ended only that owned waiter
+  and reran through the existing internal lock. Credential/relaunch/token-update
+  regressions pass:credentials phone-codex-615472c540ea (32.380s), relaunch
+  phone-codex-8157725b7749 (50.584s), token-update phone-codex-45e4ab9e8d99
+  (53.482s). No new phone install: the owner asks to stop and resume inside Carlos.
+  Keep accepted native scroll physics. See exec022-codex-resume-handoff.md.
 - [ ] Enable phone access to the owner's new NORMAL daemon after restart. The
   owner says it started automatically from Carlos and is idle. That default has
   only a Unix socket; it needs an explicit --listen IP:PORT and a device token.
@@ -1939,11 +1968,15 @@ Literal user/reasoning text uses the same block reader without Markdown interpre
 
 ## Outcomes & Retrospective
 
-2026-11-17 resume repair in progress: Root traced the failure to one oversized
+2026-11-17 resume repair complete: Root traced the failure to one oversized
 native history batch and implemented bounded complete-turn reads plus shared
 cached-prefix reuse. Debug/release Rust checks and focused daemon/real-native
-checks pass; full terminal/backend checks and a matching normal install still
-remain. No phone app has been replaced and no owner daemon has been stopped.
+checks pass, including the corrected native history/context checks with their
+original assertions and bounds. Root installed the exact matching package with
+rollback copies. The owner must restart the outside normal daemon through the
+prepared normal-shell helper. Root stops here at the owner's explicit request
+to resume this session inside Carlos. No phone app has been replaced and no
+owner daemon has been stopped; EP022 remains incomplete and unapproved.
 
 At the owner's sandbox-restart checkpoint, the installed CLI/daemon/helper match
 checked92d3a535 and the phone remains on owner-acceptedde74. The new server-manager

@@ -367,6 +367,7 @@ class NativeMonitor(NativeCodexControls,NativeCodexPanel,NativeCodexGoals,Native
         resumed = Terminal(BINARY, resume_root, resume=thread_id, codex=CODEX)
         self.addCleanup(resumed.close)
         resumed.contains("Monitor report: cleanup finished")
+        resumed.send(b"\x1b[H")
         resumed.contains("Agent /root/monitor completed")
         self.assertEqual(resumed.text.count("Agent /root/monitor completed"), 1)
 

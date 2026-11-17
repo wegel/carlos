@@ -122,7 +122,10 @@ class NativeClaude(NativeClaudeRewind,NativeClaudeLabels,unittest.TestCase):
             return [frame["result"] for frame in self.helper_messages(terminal,"server")
                     if frame.get("type") == "reply" and frame.get("ok") and
                     isinstance(frame.get("result"),dict) and (frame["result"].get("apiUsage") or {}).get("cache_read_input_tokens") == 32000]
-        terminal.wait(lambda: bool(contexts()),"native live context summary includes cached input",timeout=10)
+        # A reply captured before the tool finished can contain only the input
+        # tokens. Wait for the same completed-step count asserted below.
+        terminal.wait(lambda: bool(contexts()) and contexts()[-1]["totalTokens"] >= 40128,
+                      "native live context summary includes the completed tool step",timeout=10)
         used, maximum = contexts()[-1]["totalTokens"], contexts()[-1]["rawMaxTokens"]
         assert used >= 40128 and used < 45000,contexts()[-1]
         compact = lambda value: f"{value//1000000}m" if value >= 1000000 else f"{value//1000}k" if value >= 1000 else str(value)
