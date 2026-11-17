@@ -252,7 +252,7 @@ def observed_prompts(fixture, backend):
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
     expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "code-source": ["phone large code"], "stream": ["phone stream"], "code-stream": ["phone stream"], "scroll": ["phone stream"], "ralph": ["phone ralph working"], "syntax": ["phone syntax"],
-                "voice": [], "history": [], "idle-perf": [], "launch-perf": [], "typing-perf": [], "scroll-perf": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
+                "voice": [], "quota": ["native quotas"], "claude-tools": ["read source"], "history": [], "idle-perf": [], "launch-perf": [], "typing-perf": [], "scroll-perf": [], "reconnect": ["phone reconnect\nexact 🦀"], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
     if backend != "codex":
@@ -325,9 +325,11 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "quota", "claude-tools", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history", "ralph", "syntax", "reconnect", "launch-perf", "typing-perf", "scroll-perf", "idle-perf", "code-source", "code-stream"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
-    if arguments.backend != "codex" and arguments.workflow != "prompt":
-        parser.error("Non-Codex peers currently support the exact prompt workflow")
+    if arguments.workflow in ("quota", "claude-tools") and arguments.backend != "claude":
+        parser.error("The native quota workflow uses the Claude peer")
+    if arguments.backend != "codex" and arguments.workflow not in ("prompt", "quota", "claude-tools"):
+        parser.error("Non-Codex peers support the exact prompt and Claude quota workflows")
     run(arguments.workflow, arguments.backend)

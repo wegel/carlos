@@ -16,13 +16,17 @@ struct PhoneTranscriptItem: Identifiable {
     let content: Content
 
     @MainActor
-    static func read(host: PhoneHostModel, width: CGFloat, layout: PhoneLayout) -> [Self] {
+    static func read(host: PhoneHostModel, width: CGFloat, layout: PhoneLayout, tools: PhoneToolMode) -> [Self] {
         var result: [Self] = []
         let echoes = PhoneEchoLayout(host: host)
         result += echoes.after(nil)
         var previous: PhoneEntryLayout?
         for id in host.orderedEntries {
             let row = host.rows[id]
+            if tools != .full && row?.tool?.hasResult == true {
+                result += echoes.after(id)
+                continue
+            }
             let form = row.map { PhoneEntryLayout.presentation($0, width: width) } ?? .block
             guard form != .hidden else { result += echoes.after(id); continue }
             let gap: CGFloat = previous == nil ? 6 : previous == .compact && form == .compact ? 0 : 18

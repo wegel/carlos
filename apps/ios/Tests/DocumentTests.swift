@@ -14,7 +14,7 @@ final class DocumentTests: XCTestCase {
         let preferences = PhonePreferences(defaults: defaults)
         let host = PhoneHostModel(configuration: PhoneHost(id: "layout-test", name: "Test", address: "ws://127.0.0.1:1", allowsPrivateWebSocket: true))
         func height(_ label: String, source: PhoneLabelSource, output: Bool = false) -> CGFloat {
-            let tool = PhoneTool(kind: .command, label: label, labelSource: source, status: .ok,
+            let tool = PhoneTool(hasResult: false, kind: .command, label: label, labelSource: source, status: .ok,
                                  summary: "12 passed", diff: nil, hasOutput: output)
             let row = PhoneEntry(id: "tool", kind: .tool, format: .plain, filePath: nil,
                                  text: PhoneText(preview: "", sourceBytes: nil, sourceRevision: nil), done: true, tool: tool)

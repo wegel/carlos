@@ -126,6 +126,47 @@ fn an_older_call_refreshes_its_result_already_in_the_live_window() {
 }
 
 #[test]
+fn complete_pairs_in_a_large_older_page_do_not_publish_live_changes_or_overflow() {
+    let mut state = state();
+    let mut lines = Vec::new();
+    for index in 0..300 {
+        let id = format!("older-{index}");
+        for (part, item) in [
+            (
+                "call",
+                json!({"id":id,"type":"toolCall","name":"Bash","input":{"command":"pwd"}}),
+            ),
+            (
+                "result",
+                json!({"id":format!("{id}:result"),"type":"toolResult","tool":"Bash","command":"pwd","output":"original output"}),
+            ),
+        ] {
+            lines.push(
+                json!({"method":"item/completed","params":{"history":true,
+                "sourceKey":{"sessionId":"root","kind":"tool","id":id,"part":part},"item":item}})
+                .to_string(),
+            );
+        }
+    }
+    state
+        .accept_older_claude_history(
+            &cursor(),
+            HistoryPage {
+                lines,
+                older: None,
+                read_bytes: 0,
+            },
+        )
+        .expect("complete older pairs");
+    let published = state.publish();
+    assert!(!published.records().iter().any(|record| matches!(
+        record.change,
+        Change::Facts(_) | Change::Reset { .. } | Change::Added(_)
+    )));
+    assert_eq!(published.snapshot(1000).entries.len(), 601);
+}
+
+#[test]
 fn replaced_helpers_and_changed_roots_cannot_adopt_an_old_claude_window() {
     let mut state = state();
     state.claude.generation += 1;

@@ -71,6 +71,8 @@ ui-test)
     workflow="$(/usr/bin/python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("workflow", "prompt"))' "$BASE/$3/fixture.json")"
     case "$workflow" in
         prompt) test_case=testConnectCreateAndSendOneExactPrompt ;;
+        quota) test_case=testClaudeWeeklyQuotaSitsBesideContext ;;
+        claude-tools) test_case=testClaudeCallAndResultShareOneCompactHeader ;;
         controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
         source) test_case=testLongOriginalSourceAndCopyKeepEveryByte ;;
         code-source) test_case=testLargeCodeFenceKeepsEveryOriginalByteAndStaysResponsive ;;

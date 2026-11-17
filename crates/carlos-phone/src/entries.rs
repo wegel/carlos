@@ -73,6 +73,7 @@ pub struct PhoneDiff {
 /// Tool headers are small; expanded output uses a separately captured body lifetime.
 #[derive(uniffi::Record)]
 pub struct PhoneTool {
+    pub has_result: bool,
     pub kind: PhoneToolKind,
     pub label: String,
     pub label_source: PhoneLabelSource,
@@ -108,6 +109,7 @@ impl From<&Entry> for PhoneEntry {
             },
             done: entry.done,
             tool: entry.tool.as_ref().map(|tool| PhoneTool {
+                has_result: false,
                 kind: tool.kind,
                 label: tool.label.clone(),
                 label_source: tool.label_source,

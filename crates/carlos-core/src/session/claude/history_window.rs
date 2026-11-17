@@ -125,7 +125,7 @@ impl SessionState {
         journal.prepend_stored(count);
         self.messages.journal = journal;
         for call in calls {
-            self.messages.refresh_tool_result(&call);
+            self.messages.refresh_tool_result(&call, count);
         }
         self.input_history.prepend_history(prompts);
         for record in prefix.claude.history.records.into_iter().rev() {

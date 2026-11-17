@@ -86,7 +86,13 @@ impl PhoneClient {
         Ok(ids
             .iter()
             .filter_map(|id| replica.entry(id))
-            .map(PhoneEntry::from)
+            .map(|entry| {
+                let mut row = PhoneEntry::from(entry);
+                if let Some(tool) = &mut row.tool {
+                    tool.has_result = replica.has_tool_result(&entry.id);
+                }
+                row
+            })
             .collect())
     }
 

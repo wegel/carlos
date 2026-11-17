@@ -132,6 +132,8 @@ final class SessionWorkflowTests: XCTestCase {
             screen.name = "Read-only reference \(layout)"
             screen.lifetime = .keepAlways
             add(screen)
+            try checkReaderSettles(in: transcript)
+            capture("Older reference stays put in \(layout)", screenshot: app.screenshot())
         }
         app.terminate()
     }

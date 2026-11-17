@@ -27,7 +27,7 @@ struct PhoneTranscriptView: View {
                             .font(PhoneTheme.prose(15, weight: .semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
                     }
-                    ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
+                    ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout, tools: preferences.toolMode)) { item in
                         PhoneTranscriptItemView(host: host, item: item).padding(.horizontal, 16).id(item.id)
                             .background(PhoneScrollAttachment(offset: offset, row: item.id, gap: item.gap))
                     }

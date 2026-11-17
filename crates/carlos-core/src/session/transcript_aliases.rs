@@ -23,7 +23,7 @@ impl Transcript {
         if key.durable() {
             self.sources.insert(id, key.clone());
         }
-        self.refresh_tool_result(&key);
+        self.refresh_tool_result(&key, 0);
         self.aliases.entry(id).or_default().push(key);
     }
 
@@ -33,7 +33,11 @@ impl Transcript {
     }
 
     /// Publish a late call's relationship without replacing either source row.
-    pub(in crate::session) fn refresh_tool_result(&mut self, call: &BackendEntryKey) {
+    pub(in crate::session) fn refresh_tool_result(
+        &mut self,
+        call: &BackendEntryKey,
+        first_existing: usize,
+    ) {
         if !matches!(call.item, NativeEntryKey::ClaudeTool { result: false, .. }) {
             return;
         }
@@ -48,6 +52,7 @@ impl Transcript {
         if let Some(index) = self
             .entry_id_for_item(&result)
             .and_then(|id| self.position(id))
+            .filter(|index| *index >= first_existing)
         {
             self.record_facts(index);
         }

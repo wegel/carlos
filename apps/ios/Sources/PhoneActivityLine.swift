@@ -27,7 +27,7 @@ struct PhoneActivityLine: View {
                     reduceMotion: reduceMotion)
             }
         }
-        .accessibilityIdentifier("session.activity")
+        .accessibilityElement(children: .contain).accessibilityIdentifier("session.activity")
     }
 
     private func contents(now: Date) -> some View {
@@ -41,12 +41,14 @@ struct PhoneActivityLine: View {
                 HStack(spacing: 4) {
                     Text("\(count(context.used))/\(count(context.maximum))")
                     Text("\(Int(min(percent, 999)))%").foregroundStyle(percent > 90 ? PhoneTheme.red : percent > 70 ? PhoneTheme.yellow : PhoneTheme.blue)
+                        .accessibilityIdentifier("session.contextPercent")
                 }.fixedSize()
             }
-            if let model = info?.usage.model { Text(model).lineLimit(1).truncationMode(.middle).layoutPriority(-1) }
-            if info?.backend == .codex, let quota = info?.usage.quota {
+            if let quota = info?.usage.quota, quota.remainingPercent.isFinite,
+               let reset = quota.resetsAt, Double(reset) > now.timeIntervalSince1970 {
                 quotaLabel(quota, now: now)
             }
+            if let model = info?.usage.model { Text(model).lineLimit(1).truncationMode(.middle).layoutPriority(-1) }
         }
     }
 
@@ -73,9 +75,11 @@ struct PhoneActivityLine: View {
     private func quotaLabel(_ quota: PhoneQuota, now: Date) -> some View {
         let days = quota.resetsAt.map { max(0, (Double($0) - now.timeIntervalSince1970) / 86400) }
         let needed = days.map { min(100, $0 / 7 * 100) } ?? 0
-        let color = quota.remainingPercent <= 0 ? PhoneTheme.red : quota.remainingPercent >= needed ? PhoneTheme.blue : quota.remainingPercent >= needed * 0.75 ? PhoneTheme.yellow : PhoneTheme.red
-        return (Text("W\(Int(quota.remainingPercent))%").foregroundColor(color)
-            + Text(days.map { String(format: "/%.1fd", $0) } ?? "").foregroundColor(PhoneTheme.overlay2)).fixedSize()
+        let remaining = 100 - Int(min(100, max(0, (100 - quota.remainingPercent).rounded())))
+        let color = remaining <= 0 ? PhoneTheme.red : Double(remaining) >= needed ? PhoneTheme.blue : Double(remaining) >= needed * 0.75 ? PhoneTheme.yellow : PhoneTheme.red
+        return (Text("W\(remaining)%").foregroundColor(color)
+            + Text(days.map { String(format: "/%.1fd", $0) } ?? "").foregroundColor(PhoneTheme.overlay2))
+            .fixedSize().accessibilityIdentifier("session.weeklyQuota")
     }
 }
 
