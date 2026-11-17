@@ -4,11 +4,13 @@ import Observation
 
 @MainActor @Observable
 final class PhoneHostModel: Identifiable {
-    nonisolated let configuration: PhoneHost
-    nonisolated var id: String { configuration.id }
+    nonisolated let id: String
+    var configuration: PhoneHost
     var link: PhoneLinkState = .disconnected(nil)
     var catalog: [PhoneSession] = []
-    var selected: String?
+    var selected: String? {
+        didSet { defaults.set(selected, forKey: "carlos.hosts.\(id).session") }
+    }
     var transcript: PhoneTranscript?
     var orderedEntries: [String] = []
     var rows: [String: PhoneEntry] = [:]
@@ -28,11 +30,14 @@ final class PhoneHostModel: Identifiable {
     @ObservationIgnored private var catalogRequested = false
     @ObservationIgnored private var creation: String?
     @ObservationIgnored private let bodyBudget: PhoneBodyBudget
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var sources: [String: PhoneSourceModel] = [:]
 
-    init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget()) {
+    init(configuration: PhoneHost, bodyBudget: PhoneBodyBudget = PhoneBodyBudget(), defaults: UserDefaults = .standard) {
+        id = configuration.id
         self.configuration = configuration
         self.bodyBudget = bodyBudget
+        self.defaults = defaults
     }
 
     func contentChanged() { contentVersion = UUID() }
@@ -57,18 +62,21 @@ final class PhoneHostModel: Identifiable {
     func connect() {
         do {
             let token = try HostTokens.read(for: id)
+            let url = try configuration.url()
             let callbacks = PhoneCallbacks(
                 received: { [weak self] batch in self?.received(batch) },
                 link: { [weak self] state in self?.changedLink(state) }
             )
-            transport.connect(url: try configuration.url(), token: token, callbacks: callbacks)
+            error = nil
+            link = .connecting
+            transport.connect(url: url, token: token, callbacks: callbacks)
         } catch { self.error = error.localizedDescription }
     }
 
     func select(_ session: String) {
         guard connected else { error = "Reconnect to choose a session"; return }
-        draft = ""
         guard selected != session else { return }
+        draft = ""
         let old = selected
         selected = session
         for source in sources.values { source.close() }
@@ -193,6 +201,10 @@ final class PhoneHostModel: Identifiable {
                     self?.error = failure.localizedDescription
                 }
             }
+        }
+        if case .connected = state, selected == nil,
+           let saved = defaults.string(forKey: "carlos.hosts.\(id).session") {
+            select(saved)
         }
         if case .disconnected(let message) = state, let message { error = message }
     }

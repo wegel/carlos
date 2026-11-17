@@ -3,6 +3,7 @@
 
 import argparse
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -89,6 +90,31 @@ def configure_controls(native):
     native.handle = handle
 
 
+def configure_source(native):
+    """Publish a source larger than a client frame; the phone must fetch every original byte."""
+    source = "# Native source\n\n" + ("native paragraph " + "x" * 65500 + " 🌍\n\n") * 160
+    source += "phone source complete 🦀\n"
+    original = native.prompt
+
+    async def prompt(link, request):
+        if request["params"]["input"][0]["text"] != "phone long source":
+            await original(link, request)
+            return
+        native.prompts += 1
+        await native.notify(link, "turn/started", turn={"id": "live"})
+        await native.notify(link, "item/started", turnId="live", item={
+            "type": "agentMessage", "id": "phone-large-source", "phase": "final_answer", "text": ""})
+        # Real native streams keep each frame bounded too; do not bypass its 8-MiB guard.
+        for offset in range(0, len(source), 16384):
+            await native.notify(link, "item/agentMessage/delta", turnId="live",
+                                itemId="phone-large-source", delta=source[offset:offset + 16384])
+        await native.notify(link, "turn/completed", turn={"id": "live", "status": "completed"})
+
+    native.prompt = prompt
+    raw = source.encode()
+    return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
+
+
 def run(workflow):
     """Keep the fixture alive through XCTest, then assert actual native traffic."""
     identity = "phone-" + uuid.uuid4().hex[:12]
@@ -96,13 +122,16 @@ def run(workflow):
     artifacts.mkdir(parents=True)
     fixture = Fixture(identity, codex=True, listen="127.0.0.1:0")
     try:
+        expected_source = {}
         if workflow == "controls":
             configure_controls(fixture.native)
+        elif workflow == "source":
+            expected_source = configure_source(fixture.native)
         token = grant(fixture, "native-phone")
         local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
         with forward(local_port, artifacts) as remote_port:
             config = {"url": f"ws://127.0.0.1:{remote_port}", "token": token,
-                      "cwd": str(fixture.root), "workflow": workflow}
+                      "cwd": str(fixture.root), "workflow": workflow, **expected_source}
             inputs = artifacts / "inputs"
             inputs.mkdir(mode=0o700)
             (inputs / "fixture.json").write_text(json.dumps(config))
@@ -115,8 +144,11 @@ def run(workflow):
             (artifacts / "native-prompts.json").write_text(json.dumps(observed, ensure_ascii=False) + "\n")
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
-            expected = "held" if workflow == "controls" else "phone exact prompt 🦀"
-            assert observed == [expected], observed
+            expected = {"controls": ["held"], "source": ["phone long source"],
+                        "prompt": ["phone exact prompt 🦀"], "relaunch": []}[workflow]
+            assert observed == expected, observed
+            if workflow == "relaunch":
+                assert fixture.native.started == 1, "Relaunch must not create another native session"
             if workflow == "controls":
                 assert fixture.native.answers == 1 and fixture.native.interrupts == 1
                 answers = [request for request in fixture.native.requests if request.get("id") == "card"]
@@ -129,5 +161,5 @@ def run(workflow):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch"), default="prompt")
     run(parser.parse_args().workflow)

@@ -12,6 +12,9 @@ if [[ "$MAC_BUILD_DIR" == /* || "$MAC_BUILD_DIR" == *..* || ! "$MAC_BUILD_DIR" =
 fi
 MAC=(bash scripts/ios-mac.sh)
 mkdir -p target/ios-artifacts
+# Every build/test/launch shares the owned simulator and Mac compiler cache.
+exec 9> target/ios-artifacts/mac-build.lock
+flock 9
 
 toolchain() {
     python3 scripts/ios-toolchain.py

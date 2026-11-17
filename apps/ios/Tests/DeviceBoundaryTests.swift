@@ -29,5 +29,28 @@ final class DeviceBoundaryTests: XCTestCase {
         XCTAssertEqual(try explicit.url().scheme, "ws")
         let password = PhoneHost(id: "test", name: "test", address: "wss://name:secret@host", allowsPrivateWebSocket: false)
         XCTAssertThrowsError(try password.url())
+        for port in [0, 65536, 337310] {
+            let invalid = PhoneHost(id: "test", name: "test", address: "ws://127.0.0.1:\(port)", allowsPrivateWebSocket: true)
+            XCTAssertThrowsError(try invalid.url())
+        }
+    }
+
+    func testSavedHostChoiceSurvivesRelaunchWithoutReadingLockedCredentials() async throws {
+        try await MainActor.run {
+            let suite = "host-fixture-" + UUID().uuidString
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let first = PhoneHost(id: "old", name: "Old", address: "ws://127.0.0.1:337310", allowsPrivateWebSocket: true)
+            let last = PhoneHost(id: "current", name: "Current", address: "wss://host", allowsPrivateWebSocket: false)
+            defaults.set(try JSONEncoder().encode([first, last]), forKey: "carlos.hosts.v1")
+            // Migrate the early app by reopening its most recently added host, not its first typo.
+            let migrated = PhoneStore(defaults: defaults)
+            XCTAssertEqual(migrated.current?.id, last.id)
+            XCTAssertNil(migrated.current?.error, "Initialization must not read a possibly locked Keychain")
+            migrated.selectedHost = first.id
+            let reopened = PhoneStore(defaults: defaults)
+            XCTAssertEqual(reopened.current?.id, first.id)
+            XCTAssertNil(reopened.current?.error)
+        }
     }
 }

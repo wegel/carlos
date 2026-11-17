@@ -62,6 +62,7 @@ test)
     ;;
 ui-test)
     : "${2:?pass the owned Carlos simulator UUID}" "${3:?pass the owned fixture path}"
+    xcrun simctl bootstatus "$2" -b
     mkdir -p "$CARLOS_GENERATED/UIFixtures"
     cp "$BASE/$3/fixture.json" "$CARLOS_GENERATED/UIFixtures/fixture.json"
     cp "$SOURCE/apps/ios/project.yml" "$BUILD/project.yml"
@@ -70,10 +71,15 @@ ui-test)
     case "$workflow" in
         prompt) test_case=testConnectCreateAndSendOneExactPrompt ;;
         controls) test_case=testApprovalAndStopPassAHeldPromptReply ;;
+        source) test_case=testLongOriginalSourceAndCopyKeepEveryByte ;;
+        reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;
+        relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
         -only-testing:"CarlosUITests/SessionWorkflowTests/$test_case" -parallel-testing-enabled NO \
+        -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
+        -maximum-test-execution-time-allowance 180 \
         -maximum-concurrent-test-simulator-destinations 1 \
         -resultBundlePath "$BUILD/ui-tests-$(date +%Y%m%dT%H%M%S).xcresult"
     ;;

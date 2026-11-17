@@ -125,6 +125,33 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Surprises & Discoveries
 
+The physical phone's saved preferences were copied read-only with devicectl. They
+contain two host configurations and no token: the first has a mistyped out-of-range
+port337310, and the second has the working33731 address. The early app always chooses
+the first host on launch. Do not erase either configuration or Keychain item. Remember
+the chosen host, migrate older preferences to the last configured host and reject
+out-of-range ports before saving. Also remember each host's last session and subscribe
+after its authenticated greeting, without creating a session or resending a prompt.
+
+The actual relaunch baseline96a88f2e20ec4e9681e5 fails specifically because Connect in
+the saved connection editor is disabled with an empty token. The host and Keychain token
+do survive termination and authenticate. Source53806687286591e7c697 passes the real
+foreground/relaunch/reconnect workflow at ui-tests-20261116T215303.xcresult; local
+phone-dee3d8861fb3. It proves token reuse for the same saved address, requires a new
+token for an edited address and records no prompt or extra native session. Later
+host/session-choice changes are being checked by token-relaunch-03 and native tests.
+The exact physical Keychain contents were never read or printed.
+
+Update: token-relaunch-03 passes on372047ff1eba09c65c43, local phone-62330516db28,
+ui-tests-20261116T215520.xcresult. It also checks that reopening restores the last
+session's actual title. Native tests pass11/11,0 skips onae11b9f0c683d96c0c8c at
+tests-20261116T215431.xcresult, including invalid ports and saved-host migration/choice.
+Root inspected the actual token-editor screenshot: the saved-token hint is visible;
+the current editor still needs the final keyboard/navigation/theme pass. The earlier
+read-only Claude Flow/Gutter screenshots were also inspected: fixed controls now paint
+in both layouts. The physical phone remains on the early preview until the next checked
+bundle is signed and installed.
+
 The actual-app read-only replay is more reliable than the temporary in-process window
 helper. Do not run more variants of that helper. A private replay serves only hello,
 sessions/watch and session/subscribe from the captured Claude snapshot, accepts a fresh
@@ -299,6 +326,14 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Decision (2026-11-17,Root): read saved tokens only while the app is active and protected
+device data is available. Retry disconnected hosts on activation/unlock, and reconnect
+after returning from the background to fetch current facts. Keep the same native client,
+private-operation records and saved credentials. A blank token in an existing-address
+editor reuses Keychain; an edited address requires an explicitly entered token. Save
+host-name/private-network edits without replacing the host model. This fixes the observed
+mandatory re-entry and first-host trap without adding another authentication framework.
+
 Decision (2026-11-17,Root): use the owner's checked snapshot only as a private read-only
 visual example. Keep real credentials off the simulator and do not send a prompt or
 control to the running session. Fix the demo's concrete spacing, full-width user band,
@@ -381,6 +416,11 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The saved-token regression is now reproduced and the first fix passes an actual
+terminate/relaunch/foreground UI workflow. The physical saved-host list explains why
+the old app reopens the wrong endpoint. Final host/session restoration and updated
+native tests remain in progress; the installed phone app is still the early preview.
 
 The owner now explicitly requires polished appearance, complete flows and durable saved
 credentials before EP approval. EP022 remains incomplete. The larger UI renderer passes

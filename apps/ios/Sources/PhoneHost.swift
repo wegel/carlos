@@ -17,6 +17,9 @@ struct PhoneHost: Codable, Identifiable, Sendable {
         if parts.scheme == "ws" && !allowsPrivateWebSocket {
             throw HostError.message("Enable private-network WebSocket to use an unencrypted connection")
         }
+        if let port = parts.port, !(1...65535).contains(port) {
+            throw HostError.message("Enter a port between 1 and 65535")
+        }
         return url
     }
 }
@@ -28,6 +31,8 @@ enum HostError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .message(let text): text
+        case .keychain(errSecItemNotFound): "Enter a device token for this host"
+        case .keychain(errSecInteractionNotAllowed): "Unlock this iPhone to use its saved token"
         case .keychain(let code): "Cannot access this device token (Keychain \(code))"
         }
     }
