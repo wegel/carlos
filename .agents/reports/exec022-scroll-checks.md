@@ -191,3 +191,18 @@ scripts/ios-fixture.py now offers native-flick and native-motion workflows backe
 by generated native history. They use the real daemon/phone and check that the
 same resumed native owner receives no prompt. Their first runs remain pending;
 they add a repeatable public command alongside the private real-session replay.
+
+The generated native-flick check passes on clean de74 in97.34s: normal608pt versus
+612pt native; strong2478pt versus2467pt. It fails against the original slow-setter
+baselineb09 at0.28798x native travel. This public fixture therefore reproduces the
+reported regression without private session data. The fixture uses actual native
+history and checks one resumed owner and zero prompts. Logs are
+native-list-synthetic-flick-01 and native-setter-synthetic-baseline-01.
+
+The clean10MB original-source/exact-copy workflow passes47.60s. Its sampled app
+RSS peaks1126612KiB and remains1120856KiB before termination. Keep176 samples in
+source-memory-de74af3e4ef7529f93d6.json. This stress-case cost includes the actual
+XCTest/clipboard/accessibility workflow; it is not the normal-session footprint
+or a physical-phone measurement. Explain text-layout retention versus accessibility
+work during the final cost pass before approving EP022. Candidate799's earlier
+926036KiB measurement remains retained too.

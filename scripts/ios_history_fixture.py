@@ -8,6 +8,27 @@ from native_history_windows import NativeHistoryWindows
 from support import Client
 
 
+def configure_motion(fixture):
+    """Give native flick checks a repeatable long conversation without private captures."""
+    native = fixture.native
+    peer = NativeHistoryWindows(native, turns=60)
+    for index, turn in enumerate(peer.turns):
+        paragraph = (f"Native message {index}: read this completed text while scrolling. "
+                     "Keep the same speed through older paragraphs. ")
+        text = f"## Completed message {index}\n\n" + "\n\n".join(
+            paragraph * (2 + part % 3) for part in range(3 + index % 5))
+        turn["items"] = [{"type": "agentMessage", "id": f"motion-answer-{index}",
+                          "phase": "final_answer", "text": text}]
+    client = Client(fixture, "phone-motion-owner")
+    try:
+        operation = client.operation(1)
+        client.call("session/open", operation=operation, backend="codex", cwd=str(fixture.root),
+                    target={"kind": "resume", "address": native.thread_id})
+        assert client.outcome(operation)["state"]["kind"] == "accepted"
+    finally:
+        client.close()
+
+
 def configure_history(fixture):
     native = fixture.native
     peer = NativeHistoryWindows(native, turns=130)

@@ -75,12 +75,24 @@ and Grok’s native client protocol.
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow voice
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow scroll
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow history
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow native-flick
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow native-motion
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow ralph
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow syntax
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow reconnect
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow token-update
     target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
     target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
+
+The native-flick check compares Carlos with a plain iOS text scroller in the same
+viewport. It follows visible text, rather than counting offset changes caused by
+revised row-height estimates. Both a normal flick and a strong fling must travel
+within10% of the native control. The native-motion check reads older messages in
+both Flow and Gutter. Both checks use generated native history through the real
+daemon, reuse one resumed owner and reject an unexpected prompt. They need no
+account, model call or private session capture. Test probes compile only into the
+separate Fixture app, never the shipping Release app. Simulator results describe
+that simulator; a settled screenshot alone does not prove smooth moving text.
 
 The first command drives the real connection form, creates a session, types a Unicode
 prompt and checks both the visible answer and the exact native request. The second

@@ -34,15 +34,27 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Explain the measured large-source memory cost before final EP approval.
+  The clean de74 10MB original-source/exact-copy workflow passes47.60s, fixture
+  phone-codex-0abdb961c675, but its sampled app RSS peaks1126612KiB and remains
+  1120856KiB just before termination. Keep source-memory-de74...json (176 samples).
+  This is a stress-case app-process RSS sample during actual XCTest/clipboard/
+  accessibility reads, not a normal-session footprint or physical-phone measurement.
+  Candidate799 sampled926036KiB. During the final cost pass, distinguish large
+  text layout/retention from XCTest accessibility work before changing caches.
+  Do not hide this cost or add speculative caching without evidence.
+
 - [x] Check recorder-free de74 native units19/19 and actual history failure/retry/
   prepend. Live-tool scrolling/expansion also passes95.01s, retaining all2pt limits.
   The native-list-final-gates runner continues with exact10MB source/copy and
   10000-line code. The passing flick candidatea1 differs only by the removed
   inactive recorder/task; all scrolling and fixture/test files match byte for byte.
-- [ ] Check the generated-history native-flick/native-motion fixture workflows.
-  They allow another contributor to repeat the actual app/daemon check without
-  the private captured conversation. They reuse one resumed native owner and
-  require no prompt. Existing private deep-motion/flick evidence remains retained.
+- [x] Check the public generated-history native-flick fixture. Clean de74 passes
+  97.34s: normal608pt versus612pt native; strong2478pt versus2467pt. The identical
+  slow-setter baselineb09 fails at0.28798x native travel. This repeats the real
+  regression without a private capture and checks one resumed owner/zero prompts.
+  Native-motion uses the same generated history and is still pending its first
+  public run. Keep native-list-synthetic-flick-01 and native-setter-synthetic-baseline-01.
 
 - [ ] Finish the native list checks before another phone install. Source01dd58ff5c166397ace0
   replaces flow layout and removes manual gesture-offset corrections and their
@@ -2262,3 +2274,7 @@ Revision2026-11-17: record the native-list movie, preserve the raw-offset compar
 Revision2026-11-17: record native normal/strong flick parity within3%, preserve the slow baseline failure, and freeze recorder-free source de74 for clean gates and phone packaging.
 
 Revision2026-11-17: record clean native/history/live-tool passes and the visible-text slow-setter failure; add deterministic generated-history checks without private captures.
+
+Revision2026-11-17: retain the clean10MB/exact-copy pass and its high sampled RSS as an open final-cost question; continue the checked native scrolling phone preview independently.
+
+Revision2026-11-17: record the deterministic public flick pass and matching slow-baseline failure, with repeat commands in docs/ios-build.md.
