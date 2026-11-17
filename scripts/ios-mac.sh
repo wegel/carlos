@@ -69,8 +69,8 @@ sync)
     fi
     mac "mkdir -p ~/$MAC_BUILD_DIR/$destination"
     # No --delete: Xcode writes generated files into the build directory on the Mac.
-    rsync -a --exclude build --exclude DerivedData --exclude .git \
-        --exclude target --exclude node_modules --exclude etc \
+    rsync -a --exclude /build/ --exclude /DerivedData/ --exclude .git \
+        --exclude /target/ --exclude /node_modules/ --exclude /etc/ \
         -e "ssh ${SSH_OPTS[*]}" "$src/" "$MAC_BUILD_HOST:$MAC_BUILD_DIR/$destination/"
     ;;
 fetch)
