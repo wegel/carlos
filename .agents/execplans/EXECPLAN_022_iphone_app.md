@@ -65,8 +65,10 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   compact formatter and phone currently print a call header and a result header.
   Native fixture source keys keep the same tool identity with separate call/result
   parts. Preserve that identity rather than deduplicating strings.
-- [ ] Shorten the phone's right-hand output count from e.g. `26 lines` to a small
-  muted `26`, retaining full accessible wording and other result/status facts.
+- [x] Shorten the phone's right-hand output count from e.g. `26 lines` to a small
+  muted `26`, retaining full accessible wording and other result/status facts. The
+  c4d33d61c14bf8d45580 code-source/history/scroll build checks it; final reference
+  screenshots and physical installation remain part of the pending final gate.
 - [x] Finish and install the owner's follow-up composer controls: keep a native-positioned blue
   caret visible/blinking while unfocused, keep it steady under Reduce Motion, remove
   the duplicate session title, shrink the mic to a plain16pt glyph and add Done above

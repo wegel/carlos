@@ -66,7 +66,10 @@ struct PhoneToolView: View {
             else if let diff = tool.diff {
                 if let added = diff.added { Text("+\(added)").foregroundStyle(PhoneTheme.green) }
                 if let removed = diff.removed { Text("−\(removed)").foregroundStyle(PhoneTheme.red) }
-            } else if let summary = tool.summary { Text(summary).foregroundStyle(PhoneTheme.overlay2) }
+            } else if let summary = tool.summary {
+                Text(PhoneEntryLayout.toolSummary(summary)).font(PhoneTheme.mono(10.5))
+                    .foregroundStyle(PhoneTheme.overlay2).accessibilityLabel("Output: \(summary)")
+            }
         }
     }
 

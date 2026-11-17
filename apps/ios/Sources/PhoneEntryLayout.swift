@@ -25,4 +25,10 @@ enum PhoneEntryLayout {
               let prefix = ["$ ", "→ ", "✱ ", "Δ "].first(where: tool.label.hasPrefix) else { return tool.label }
         return String(tool.label.dropFirst(prefix.count))
     }
+
+    static func toolSummary(_ summary: String) -> String {
+        let unit = summary.hasSuffix(" lines") ? " lines" : " line"
+        guard summary.hasSuffix(unit), let count = UInt64(summary.dropLast(unit.count)) else { return summary }
+        return count.formatted(.number.notation(.compactName))
+    }
 }
