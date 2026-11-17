@@ -27,10 +27,10 @@ struct PhoneCodeViewport: View {
                             .fixedSize(horizontal: true, vertical: true)
                     }
                 }.frame(minWidth: viewport.size.width, alignment: .leading)
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+                    .onGeometryChange(for: CGFloat.self) { min(320, max(22, $0.size.height)) } action: { contentHeight = $0 }
             }.scrollIndicators(.visible)
                 .defaultScrollAnchor(.topLeading, for: .alignment)
                 .accessibilityIdentifier(scrollIdentifier)
-        }.frame(height: min(320, contentHeight))
+        }.frame(height: contentHeight)
     }
 }

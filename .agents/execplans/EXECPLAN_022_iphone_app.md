@@ -34,6 +34,39 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Fix the owner's real backbuffer jumps and the reproduced large-code layout
+  stall, then recheck the actual Claude reference and exact history/tool anchors.
+  The b604 code-source repeat also times out; the bounded native watcher captures
+  sustained99.8% CPU and73.5MiB footprint in SwiftUI graph/placement/trait updates,
+  not heavy CoreText or Rust parsing. Preserve code-source-b604-01.sample/png and
+  code-source-repro-b604-01.log. First bound PhoneCodeViewport's published height
+  to its actual22..320pt viewport and rerun unchanged code-source assertions.
+  Source9bc390ed902c073d583f still fails its unchanged UI deadline; bounding the
+  viewport value alone is insufficient. Source d2e8828327390f03e2b0 gives each outer
+  transcript item one VStack instead of a transparent Group while its content loads.
+  Its code-source check also fails. The exact old immutable source934c188862a2d1577be1
+  still passes that test in38.8s. Restore its bound ScrollPosition controller while
+  retaining weak native row measurements. Sourcec4d33d61c14bf8d45580 passes all three
+  unchanged checks: code-source37.3s (ui-tests-20261117T085521, phone-codex-3430561b11ac),
+  history31.6s (085701, phone-codex-20a213ccebd3) and scroll54.9s (085801,
+  phone-codex-1c00e7a24865). Logs are bound-position-{code-source,history,scroll}-01.log.
+  This restores the large-source behavior without reintroducing SwiftUI per-row
+  geometry callbacks. Check the real mixed Claude reference before declaring the
+  owner's backbuffer report fixed. The compact output summary is in that source too.
+- [ ] Add the owner's requested weekly quota beside context, using the TUI's
+  remaining-quota meaning. PhoneUsage already carries the data; PhoneActivityLine
+  currently hides it for Claude with a Codex-only check and places it after the
+  model. Remove that restriction and keep adjacent percentages with honest absence
+  for unknown quota. Do this after the current scroll work.
+- [ ] Fold each Claude execution into one expandable header without erasing original
+  call/result source or merging different executions with equal labels. The owner
+  reports repeated run labels; the captured real reference has23 tool calls and23
+  results, with22 adjacent call/result pairs and18 equal labels. Both the terminal
+  compact formatter and phone currently print a call header and a result header.
+  Native fixture source keys keep the same tool identity with separate call/result
+  parts. Preserve that identity rather than deduplicating strings.
+- [ ] Shorten the phone's right-hand output count from e.g. `26 lines` to a small
+  muted `26`, retaining full accessible wording and other result/status facts.
 - [x] Finish and install the owner's follow-up composer controls: keep a native-positioned blue
   caret visible/blinking while unfocused, keep it steady under Reduce Motion, remove
   the duplicate session title, shrink the mic to a plain16pt glyph and add Done above

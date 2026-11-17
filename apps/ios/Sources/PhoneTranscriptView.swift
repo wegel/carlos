@@ -6,6 +6,7 @@ struct PhoneTranscriptView: View {
     let openQuestions: (PhoneApproval, PhoneQuestions) -> Void
     @Environment(PhonePreferences.self) private var preferences
     @State private var offset = PhoneScrollOffset()
+    @State private var position = ScrollPosition(idType: String.self)
     @State private var following = true
     @State private var userScrolling = false
     @State private var metrics = TranscriptMeasurement()
@@ -13,115 +14,117 @@ struct PhoneTranscriptView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 0) {
-                        if host.transcript?.hasOlder == true {
-                            PhoneHistoryButton(history: host.history, load: loadHistory)
-                        }
-                        if host.selected == nil {
-                            Text("Choose a session").font(PhoneTheme.prose(15, weight: .semibold))
-                                .frame(maxWidth: .infinity).padding(.vertical, 40)
-                        } else if host.orderedEntries.isEmpty {
-                            Text(host.transcript?.ready == true ? "New session" : "Loading session…")
-                                .font(PhoneTheme.prose(15, weight: .semibold))
-                                .frame(maxWidth: .infinity).padding(.vertical, 40)
-                        }
-                        ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
-                            PhoneTranscriptItemView(host: host, item: item).padding(.horizontal, 16).id(item.id)
-                                .background(PhoneScrollAttachment(offset: offset, row: item.id, gap: item.gap))
-                        }
-                        ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.horizontal, 16).padding(.top, 18) }
-                        ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.horizontal, 16).padding(.top, 18) }
-                        Color.clear.frame(height: 1).id("transcript.bottom")
-                    }.frame(width: max(0, geometry.size.width), alignment: .leading)
-                        .background(PhoneScrollAttachment(offset: offset))
-                        .padding(.bottom, 20)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    if host.transcript?.hasOlder == true {
+                        PhoneHistoryButton(history: host.history, load: loadHistory)
+                    }
+                    if host.selected == nil {
+                        Text("Choose a session").font(PhoneTheme.prose(15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 40)
+                    } else if host.orderedEntries.isEmpty {
+                        Text(host.transcript?.ready == true ? "New session" : "Loading session…")
+                            .font(PhoneTheme.prose(15, weight: .semibold))
+                            .frame(maxWidth: .infinity).padding(.vertical, 40)
+                    }
+                    ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
+                        PhoneTranscriptItemView(host: host, item: item).padding(.horizontal, 16).id(item.id)
+                            .background(PhoneScrollAttachment(offset: offset, row: item.id, gap: item.gap))
+                    }
+                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.horizontal, 16).padding(.top, 18) }
+                    ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.horizontal, 16).padding(.top, 18) }
+                    Color.clear.frame(height: 1).id("transcript.bottom")
+                }.scrollTargetLayout().frame(width: max(0, geometry.size.width), alignment: .leading)
+                    .background(PhoneScrollAttachment(offset: offset))
+                    .padding(.bottom, 20)
+            }
+            .accessibilityIdentifier("transcript")
+            .clipped().scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
+            .scrollPosition($position)
+            .environment(\.preserveTranscriptPosition) { entry in
+                following = false
+                metrics.anchor = offset.frames[entry].map { TranscriptAnchor(id: entry, entry: entry, y: $0.minY) }
+                metrics.restoring = metrics.anchor != nil
+                position.isPositionedByUser = true
+                offset.scroll(to: metrics.value.offset)
+            }
+            .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
+                TranscriptMetrics(height: geometry.contentSize.height,
+                    offset: geometry.contentOffset.y,
+                    distance: max(0, geometry.contentSize.height + geometry.contentInsets.bottom
+                        - geometry.contentOffset.y - geometry.containerSize.height))
+            } action: { old, new in
+                metrics.value = new
+                // Native row frames settle after SwiftUI reports the new content size.
+                DispatchQueue.main.async { restoreAnchor() }
+                showLatest = new.distance > 260
+                if userScrolling { following = new.distance <= 40 }
+                else if new.height < old.height && new.distance <= 40 { following = true }
+            }
+            .onScrollPhaseChange { _, phase in
+                switch phase {
+                case .tracking, .interacting, .decelerating:
+                    position.isPositionedByUser = true
+                    userScrolling = true
+                    metrics.anchor = nil
+                    metrics.restoring = false
+                case .idle:
+                    if userScrolling {
+                        following = metrics.value.distance <= 40
+                        if metrics.value.offset <= 20 && host.history.error == nil { loadHistory() }
+                    }
+                    userScrolling = false
+                case .animating: break
+                @unknown default: break
                 }
-                .accessibilityIdentifier("transcript")
-                .clipped().scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
-                .environment(\.preserveTranscriptPosition) { entry in
-                    following = false
-                    metrics.anchor = offset.frames[entry].map { TranscriptAnchor(id: entry, entry: entry, y: $0.minY) }
-                    metrics.restoring = metrics.anchor != nil
-                    offset.scroll(to: metrics.value.offset)
+            }
+            .onChange(of: host.selected) { _, _ in
+                metrics.anchor = nil
+                metrics.restoring = false
+                following = true
+                position.scrollTo(id: "transcript.bottom", anchor: .bottom)
+            }
+            .onChange(of: host.orderedEntries.first) { old, new in
+                if old != new, let anchor = metrics.anchor, host.orderedEntries.contains(anchor.entry) {
+                    metrics.restoring = true
+                    DispatchQueue.main.async { restoreAnchor() }
                 }
-                .onScrollGeometryChange(for: TranscriptMetrics.self) { geometry in
-                    TranscriptMetrics(height: geometry.contentSize.height,
-                        offset: geometry.contentOffset.y,
-                        distance: max(0, geometry.contentSize.height + geometry.contentInsets.bottom
-                            - geometry.contentOffset.y - geometry.containerSize.height))
-                } action: { old, new in
-                    metrics.value = new
-                    // Native row frames settle after SwiftUI reports the new content size.
-                    DispatchQueue.main.async { restoreAnchor(using: proxy) }
-                    showLatest = new.distance > 260
-                    if userScrolling { following = new.distance <= 40 }
-                    else if new.height < old.height && new.distance <= 40 { following = true }
-                }
-                .onScrollPhaseChange { _, phase in
-                    switch phase {
-                    case .tracking, .interacting, .decelerating:
-                        userScrolling = true
+            }
+            .onChange(of: host.contentVersion) { _, _ in
+                if following && !userScrolling { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
+            }
+            .onChange(of: host.followRequest) { _, _ in
+                following = true
+                metrics.anchor = nil
+                metrics.restoring = false
+                position.scrollTo(id: "transcript.bottom", anchor: .bottom)
+            }
+            .overlay(alignment: .bottom) {
+                if !following && showLatest || host.transcript?.hasNewer == true {
+                    Button {
+                        following = true
                         metrics.anchor = nil
                         metrics.restoring = false
-                    case .idle:
-                        if userScrolling {
-                            following = metrics.value.distance <= 40
-                            if metrics.value.offset <= 20 && host.history.error == nil { loadHistory() }
-                        }
-                        userScrolling = false
-                    case .animating: break
-                    @unknown default: break
-                    }
-                }
-                .onChange(of: host.selected) { _, _ in
-                    metrics.anchor = nil
-                    metrics.restoring = false
-                    following = true
-                    proxy.scrollTo("transcript.bottom", anchor: .bottom)
-                }
-                .onChange(of: host.orderedEntries.first) { old, new in
-                    if old != new, let anchor = metrics.anchor, host.orderedEntries.contains(anchor.entry) {
-                        metrics.restoring = true
-                        DispatchQueue.main.async { restoreAnchor(using: proxy) }
-                    }
-                }
-                .onChange(of: host.contentVersion) { _, _ in
-                    if following && !userScrolling { proxy.scrollTo("transcript.bottom", anchor: .bottom) }
-                }
-                .onChange(of: host.followRequest) { _, _ in
-                    following = true
-                    metrics.anchor = nil
-                    metrics.restoring = false
-                    proxy.scrollTo("transcript.bottom", anchor: .bottom)
-                }
-                .overlay(alignment: .bottom) {
-                    if !following && showLatest || host.transcript?.hasNewer == true {
-                        Button {
-                            following = true
-                            metrics.anchor = nil
-                            metrics.restoring = false
-                            host.history.latest(host: host)
-                            withAnimation { proxy.scrollTo("transcript.bottom", anchor: .bottom) }
-                        } label: {
-                            Label("Latest", systemImage: "arrow.down").font(PhoneTheme.mono(12))
-                                .padding(.horizontal, 16).frame(minHeight: 44)
-                                .background(PhoneTheme.surface0).clipShape(Capsule())
-                        }.accessibilityIdentifier("transcript.latest").padding(.bottom, 12)
-                    }
+                        host.history.latest(host: host)
+                        withAnimation { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
+                    } label: {
+                        Label("Latest", systemImage: "arrow.down").font(PhoneTheme.mono(12))
+                            .padding(.horizontal, 16).frame(minHeight: 44)
+                            .background(PhoneTheme.surface0).clipShape(Capsule())
+                    }.accessibilityIdentifier("transcript.latest").padding(.bottom, 12)
                 }
             }
         }
     }
 
-    private func restoreAnchor(using proxy: ScrollViewProxy) {
+    private func restoreAnchor() {
         guard let anchor = metrics.anchor, metrics.restoring, !userScrolling else { return }
         guard let frame = offset.frames[anchor.id] else {
-            proxy.scrollTo(anchor.id, anchor: .top)
+            position.scrollTo(id: anchor.id, anchor: .top)
             return
         }
         if abs(frame.minY - anchor.y) > 0.5 {
+            position.isPositionedByUser = true
             offset.scroll(to: offset.y + frame.minY - anchor.y)
         }
     }

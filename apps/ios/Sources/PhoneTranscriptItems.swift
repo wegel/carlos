@@ -56,7 +56,7 @@ struct PhoneTranscriptItemView: View {
     @Environment(PhonePreferences.self) private var preferences
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 0) {
             switch item.content {
             case .echo(let operation):
                 PhoneUserMessage {
