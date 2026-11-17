@@ -7,6 +7,55 @@ use super::{wrap_natural_by_cells, wrap_natural_count_by_cells};
 use crate::app::layout_state::TranscriptTheme;
 use crate::app::render_cache_state::RenderCacheState;
 
+fn indented_call() -> String {
+    concat!(
+        "    (root/'summary.json').write_text(json.dumps(",
+        "{'errors':errors,'turnStarts':len(terminal.requests('turn/start'))},indent=2))"
+    )
+    .into()
+}
+
+#[test]
+fn indented_ascii_calls_use_the_same_word_breaks_for_counting_and_painting() {
+    let text = indented_call();
+    for width in 1..=160 {
+        assert_eq!(
+            wrap_natural_count_by_cells(&text, width),
+            wrap_natural_by_cells(&text, width).len(),
+            "width={width}"
+        );
+    }
+}
+
+#[test]
+fn lazy_tool_rows_keep_the_exact_painted_height_for_indented_calls() {
+    let rows = [Message {
+        id: EntryId::from_wire(
+            &format!("{}-0000000000000001", "a".repeat(32))
+                .parse()
+                .expect("entry"),
+        ),
+        role: Role::ToolOutput,
+        kind: MessageKind::Plain,
+        text: indented_call(),
+        file_path: None,
+        tool_facts: None,
+        tool_output: None,
+    }];
+    let mut cache = RenderCacheState::new();
+    for width in [28, 72, 98, 100, 120] {
+        cache.ensure_inputs(rows.as_slice(), width, None, false, TranscriptTheme::Gutter);
+        let count = cache.rendered_line_count();
+        cache.materialize_inputs(rows.as_slice(), 0, count.saturating_sub(1));
+        assert_eq!(
+            (0..count)
+                .filter(|row| cache.rendered_line_at(*row).is_some())
+                .count(),
+            count
+        );
+    }
+}
+
 fn notices() -> Vec<String> {
     serde_json::from_str(include_str!("fixtures/ansi_controller_notices.json"))
         .expect("captured controller notices")

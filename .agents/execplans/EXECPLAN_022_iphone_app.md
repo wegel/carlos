@@ -35,6 +35,20 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Add the owner's phone message controls: explicit Steer/Queue choice while
+  work runs and Edit from here on a saved user message. Keep the existing Stop
+  button only when the main composer is empty, as the owner clarified. Load an
+  exact original prompt by its stable transcript row, then fork through the same
+  session/rewind command as the TUI only after an explicit Fork and send action.
+  Keep the main composer draft, reject stale/foreign selections, preserve failed
+  edits and prove actual native requests in simulator checks before installation.
+- [x] Reproduce and correct the passive debug scroll assertion59 vs60 offline.
+  The46 captured rows isolate one indented ASCII call. The greedy-only ASCII
+  counter returns4 lines where the existing painter returns3 at width95/98.
+  Remove that divergent counter and use the painter's exact word-break algorithm
+  for long ASCII and Unicode. Both public scalar/cache regressions and408 root
+  tests pass (9 ignored); release/perf/terminal checks remain pending with the
+  phone-controls work. No running daemon or installed app changed during diagnosis.
 - [x] Reproduce the owner's `output watch was superseded` status message with a
   deterministic terminal race: hold the first source watch, replace its source,
   accept the new output, then deliver the old request error. Checked package195960d6

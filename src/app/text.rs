@@ -197,11 +197,7 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     debug_assert!(width > 0);
     debug_assert!(!text.is_empty());
 
-    // textwrap gives ANSI escapes zero width; byte lengths only match ordinary ASCII.
-    if text.is_ascii() && !text.contains('\u{1b}') {
-        return wrap_natural_count_ascii_slow_by_cells(text, width);
-    }
-
+    // Use the painter's word-break algorithm for ASCII and Unicode alike.
     let options = WrapOptions::new(width)
         .break_words(false)
         .word_splitter(WordSplitter::NoHyphenation);
@@ -240,65 +236,6 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
     }
 
     let (last_line_width, last_trailing_spaces) = last_metrics.unwrap_or((0, 0));
-
-    additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
-        + line_count
-}
-
-fn wrap_natural_count_ascii_slow_by_cells(text: &str, width: usize) -> usize {
-    let options = WrapOptions::new(width)
-        .break_words(false)
-        .word_splitter(WordSplitter::NoHyphenation);
-
-    let mut line_count = 0usize;
-    let mut current_idx = 0usize;
-    let mut line_start = 0usize;
-    let mut line_visible_len = 0usize;
-    let mut line_visible_width = 0usize;
-    let mut pending_whitespace = 0usize;
-    let mut have_line = false;
-    for word in split_words(
-        options.word_separator.find_words(text),
-        &options.word_splitter,
-    ) {
-        let word_len = word.len();
-        let whitespace_len = word.whitespace.len();
-        let projected_width = if have_line {
-            line_visible_width + pending_whitespace + word_len
-        } else {
-            word_len
-        };
-
-        if !have_line || projected_width <= width {
-            if !have_line {
-                line_start = current_idx;
-                line_visible_len = word_len;
-                line_visible_width = word_len;
-                have_line = true;
-            } else {
-                line_visible_len += pending_whitespace + word_len;
-                line_visible_width = projected_width;
-            }
-        } else {
-            line_count +=
-                hard_wrap_count_metrics(&text[line_start..line_start + line_visible_len], width).0;
-            line_start = current_idx;
-            line_visible_len = word_len;
-            line_visible_width = word_len;
-        }
-        pending_whitespace = whitespace_len;
-
-        current_idx += word_len + whitespace_len;
-    }
-
-    if !have_line {
-        return 1;
-    }
-
-    let line = &text[line_start..line_start + line_visible_len];
-    let (wrapped_count, last_line_width, last_trailing_spaces) =
-        hard_wrap_count_metrics(line, width);
-    line_count += wrapped_count;
 
     additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
         + line_count
