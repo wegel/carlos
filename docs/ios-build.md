@@ -50,6 +50,10 @@ Run these commands through `rtk proxy bash` from the spike checkout:
     scripts/ios-build.sh test        # actual Rust-backed Swift tests on owned simulator
     scripts/ios-build.sh launch      # build, install, launch and capture screen.png
 
+To repeat a check against saved app files, set `CARLOS_IOS_SOURCE` to that folder’s
+20-character name under `target/ios-source/`. The builder rejects paths and source
+IDs that are not stored locally. Leave it unset to stage the current files.
+
 The actual UI checks use a private authenticated daemon and a deterministic native
 peer on Linux, with an SSH forward bound only to the Mac’s loopback address:
 Codex is the default; the prompt workflow also supports the helper that controls Claude
@@ -65,6 +69,9 @@ and Grok’s native client protocol.
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow form
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow browser
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow stream
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow keyboard
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow voice
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow scroll
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow token-update
     target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
     target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
@@ -79,7 +86,12 @@ question answers. The form check corrects an invalid integer while retaining cho
 and sends one typed native response. The browser check opens a fixed local page in
 Safari and returns to the original approval; a page visit never sends consent. The
 stream check measures blinking green pixels, then checks the original Stop and retained
-answer. The token-update check rejects an edited token, cancels, sends with the previous
+answer and the private prompt’s position. The keyboard check sends actual physical
+Return/Shift/Option key events through iOS, then verifies the exact multiline native
+prompt. The voice check resets permissions only for the fixture app and denies the
+real system prompt, or checks actual on-device unavailability; it records and sends
+nothing. The scroll check measures the same visible row before/after expansion
+and before/after a real native completion while reading older text. The token-update check rejects an edited token, cancels, sends with the previous
 credential and sends again after a cold restart. The backend flags select the real
 backend in the app and verify one exact native prompt and one native process. Each command checks the actual screen and native requests
 without an account or inference. Each command uses a fresh

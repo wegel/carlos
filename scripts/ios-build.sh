@@ -11,20 +11,28 @@ if [[ "$MAC_BUILD_DIR" == /* || "$MAC_BUILD_DIR" == *..* || ! "$MAC_BUILD_DIR" =
     exit 2
 fi
 MAC=(bash scripts/ios-mac.sh)
+if [[ -n "${CARLOS_IOS_SOURCE:-}" ]] && \
+    { [[ ! "$CARLOS_IOS_SOURCE" =~ ^[a-f0-9]{20}$ ]] || [[ ! -d "target/ios-source/$CARLOS_IOS_SOURCE" ]]; }; then
+    echo "CARLOS_IOS_SOURCE must name an existing 20-hex source snapshot" >&2
+    exit 2
+fi
 mkdir -p target/ios-artifacts
 # Every build/test/launch shares the owned simulator and Mac compiler cache.
 exec 9> target/ios-artifacts/mac-build.lock
-flock 9
 
 toolchain() {
+    flock 9
     python3 scripts/ios-toolchain.py
     "${MAC[@]}" sync target/ios-toolchain toolchains/downloads
     "${MAC[@]}" ssh "bash ~/$MAC_BUILD_DIR/toolchains/downloads/install.sh ~/$MAC_BUILD_DIR"
 }
 
 run() {
+    # Wait inside a parsed function, so queued builds cannot resume reading an edited script mid-file.
+    flock 9
     local directory identity simulator dependencies
-    directory="$(python3 scripts/ios-prepare.py)"
+    if [[ -n "${CARLOS_IOS_SOURCE:-}" ]]; then directory="$ROOT/target/ios-source/$CARLOS_IOS_SOURCE"
+    else directory="$(python3 scripts/ios-prepare.py)"; fi
     identity="$(basename "$directory")"
     printf 'source: %s\n' "$identity"
     dependencies="$(cat "$directory/dependencies-id")"
