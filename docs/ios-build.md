@@ -51,7 +51,9 @@ Run these commands through `rtk proxy bash` from the spike checkout:
     scripts/ios-build.sh launch      # build, install, launch and capture screen.png
 
 The actual UI checks use a private authenticated daemon and a deterministic native
-Codex peer on Linux, with an SSH forward bound only to the Mac’s loopback address:
+peer on Linux, with an SSH forward bound only to the Mac’s loopback address:
+Codex is the default; the prompt workflow also supports the helper that controls Claude
+and Grok’s native client protocol.
 
     target/ui-venv/bin/python scripts/ios-fixture.py
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow controls
@@ -60,6 +62,10 @@ Codex peer on Linux, with an SSH forward bound only to the Mac’s loopback addr
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow source
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow tools
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow questions
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow form
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow browser
+    target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
+    target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
 
 The first command drives the real connection form, creates a session, types a Unicode
 prompt and checks both the visible answer and the exact native request. The second
@@ -67,8 +73,12 @@ holds the native prompt reply while the UI answers its offered approval and send
 for the original turn. The fixture emits a native completion only after it receives
 that interrupt. The other commands check invalid-token repair, saved-token/session
 relaunch, a10MB answer's exact clipboard bytes, running-tool expansion and native
-question answers. Each command checks the actual screen and native requests without
-an account or inference. Each command uses a fresh
+question answers. The form check corrects an invalid integer while retaining choices
+and sends one typed native response. The browser check opens a fixed local page in
+Safari and returns to the original approval; a page visit never sends consent. The
+backend flags select the real backend in the app and verify one exact native prompt
+and one native process. Each command checks the actual screen and native requests
+without an account or inference. Each command uses a fresh
 daemon, a separate app bundle id, synthetic credentials in the test target only, the
 owned simulator and its own saved native trace/XCResult. Run scripts/test.sh once to
 prepare target/ui-venv if missing, and build the fixture daemon with:

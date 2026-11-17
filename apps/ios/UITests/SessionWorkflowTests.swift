@@ -238,6 +238,9 @@ final class SessionWorkflowTests: XCTestCase {
         XCTAssertTrue(cwd.waitForExistence(timeout: 15))
         cwd.tap()
         cwd.typeText(fixture.cwd)
+        if let backend = fixture.backend, backend != "codex" {
+            app.segmentedControls["sessions.backend"].buttons[backend].tap()
+        }
         let start = app.buttons["sessions.start"]
         XCTAssertTrue(wait { start.isEnabled })
         start.tap()
@@ -297,6 +300,7 @@ final class SessionWorkflowTests: XCTestCase {
 }
 
 private struct Fixture: Decodable {
+    let backend: String?
     let url: String
     let token: String
     let cwd: String

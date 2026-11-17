@@ -159,73 +159,100 @@ def configure_questions(native, *, form_request=False, browser_url=None):
     native.task_question_response = response
 
 
-def run(workflow):
-    """Keep the fixture alive through XCTest, then assert actual native traffic."""
-    identity = "phone-" + uuid.uuid4().hex[:12]
+def configure_workflow(fixture, workflow, artifacts, resources):
+    """Keep each deterministic native scenario and its owned resources together."""
+    source, visits = {}, None
+    if workflow == "controls":
+        configure_controls(fixture.native)
+    elif workflow == "tools":
+        configure_controls(fixture.native, stream_output=True)
+    elif workflow == "source":
+        source = configure_source(fixture.native)
+    elif workflow == "questions":
+        configure_questions(fixture.native)
+    elif workflow == "form":
+        configure_questions(fixture.native, form_request=True)
+    elif workflow == "browser":
+        port, visits = resources.enter_context(browser_page(fixture.native))
+        directory = artifacts / "browser"
+        directory.mkdir(mode=0o700)
+        remote = resources.enter_context(forward(port, directory))
+        configure_questions(fixture.native, browser_url=f"http://127.0.0.1:{remote}/complete")
+    return source, visits
+
+
+def observed_prompts(fixture, backend):
+    """Read the original native peer's traffic for each actual backend protocol."""
+    if backend == "codex":
+        return [request["params"]["input"][0]["text"] for request in fixture.native.requests
+                if request.get("method") == "turn/start"]
+    if backend == "grok":
+        return [request["params"]["prompt"][0]["text"] for request in fixture.native_requests("session/prompt")]
+    records = [json.loads(line) for line in (fixture.root / "rpc.jsonl").read_text().splitlines()]
+    contents = [record["message"]["message"]["content"] for record in records
+                if record["direction"] == "client" and record["message"].get("type") == "user"]
+    return [content if isinstance(content, str) else "".join(block["text"] for block in content)
+            for content in contents]
+
+
+def check_native(fixture, backend, workflow, observed, visits):
+    """Prove exact human text and original native callbacks, not only a plausible screen."""
+    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
+                "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
+                "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
+    assert observed == expected[workflow], observed
+    if backend != "codex":
+        assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
+        return
+    native = fixture.native
+    if workflow == "relaunch":
+        assert native.started == 1, "Relaunch must not create another native session"
+    elif workflow == "credentials":
+        assert native.started == 0, "Connecting must not create a native session"
+    if workflow in ("controls", "tools"):
+        assert native.answers == 1 and native.interrupts == 1
+        answers = [request for request in native.requests if request.get("id") == "card"]
+        assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
+    elif workflow == "questions":
+        assert native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
+            "field-str": {"answers": ["Listed value", "user_note: phone note 🦀"]}}}}], native.task_answers
+    elif workflow == "form":
+        assert native.task_answers == [{"id": "phone:form:α", "result": {
+            "action": "accept", "content": {"count": 5, "enabled": False, "mode": "fr"}}}], native.task_answers
+    elif workflow == "browser":
+        assert visits and all(visit == {"answers_before_open": 0} for visit in visits), visits
+        assert native.task_answers == [{"id": "phone:browser:α", "result": {"action": "accept"}}], native.task_answers
+        assert native.interrupts == 0, "A browser request without a turn cannot offer an enabled Stop"
+    assert not native.errors, native.errors
+
+
+def run(workflow, backend="codex"):
+    """Keep the real daemon and native peer alive through XCTest, then verify its traffic."""
+    identity = "phone-" + backend + "-" + uuid.uuid4().hex[:12]
     artifacts = ROOT / "target/ios-artifacts" / identity
     artifacts.mkdir(parents=True)
-    fixture = Fixture(identity, codex=True, listen="127.0.0.1:0")
+    fixture = Fixture(identity, codex=backend == "codex", mode="claude-normal" if backend == "claude" else "modern",
+                      listen="127.0.0.1:0")
     resources = ExitStack()
     try:
-        expected_source = {}
-        browser_visits = None
-        if workflow == "controls":
-            configure_controls(fixture.native)
-        elif workflow == "tools":
-            configure_controls(fixture.native, stream_output=True)
-        elif workflow == "source":
-            expected_source = configure_source(fixture.native)
-        elif workflow == "questions":
-            configure_questions(fixture.native)
-        elif workflow == "form":
-            configure_questions(fixture.native, form_request=True)
-        elif workflow == "browser":
-            browser_port, browser_visits = resources.enter_context(browser_page(fixture.native))
-            browser_artifacts = artifacts / "browser"
-            browser_artifacts.mkdir(mode=0o700)
-            remote_browser = resources.enter_context(forward(browser_port, browser_artifacts))
-            configure_questions(fixture.native, browser_url=f"http://127.0.0.1:{remote_browser}/complete")
+        source, visits = configure_workflow(fixture, workflow, artifacts, resources)
         token = grant(fixture, "native-phone")
-        local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
-        with forward(local_port, artifacts) as remote_port:
-            config = {"url": f"ws://127.0.0.1:{remote_port}", "token": token,
-                      "cwd": str(fixture.root), "workflow": workflow, **expected_source}
+        port = int(fixture.ws_uri.rsplit(":", 1)[1])
+        with forward(port, artifacts) as remote:
+            config = {"url": f"ws://127.0.0.1:{remote}", "token": token, "backend": backend,
+                      "cwd": str(fixture.root), "workflow": workflow, **source}
             inputs = artifacts / "inputs"
             inputs.mkdir(mode=0o700)
             (inputs / "fixture.json").write_text(json.dumps(config))
             (inputs / "fixture.json").chmod(0o600)
-            subprocess.run(["bash", "scripts/ios-mac.sh", "sync", str(inputs), f"fixture/{identity}"],
-                           cwd=ROOT, check=True)
+            subprocess.run(["bash", "scripts/ios-mac.sh", "sync", str(inputs), f"fixture/{identity}"], cwd=ROOT, check=True)
             result = subprocess.run(["bash", "scripts/ios-build.sh", "ui-test", f"fixture/{identity}"], cwd=ROOT)
-            requests = [request for request in fixture.native.requests if request.get("method") == "turn/start"]
-            observed = [request["params"]["input"][0]["text"] for request in requests]
+            observed = observed_prompts(fixture, backend)
             (artifacts / "native-prompts.json").write_text(json.dumps(observed, ensure_ascii=False) + "\n")
             if result.returncode:
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
-            expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
-                        "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
-                        "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}[workflow]
-            assert observed == expected, observed
-            if workflow == "relaunch":
-                assert fixture.native.started == 1, "Relaunch must not create another native session"
-            elif workflow == "credentials":
-                assert fixture.native.started == 0, "Connecting must not create a native session"
-            if workflow in ("controls", "tools"):
-                assert fixture.native.answers == 1 and fixture.native.interrupts == 1
-                answers = [request for request in fixture.native.requests if request.get("id") == "card"]
-                assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
-            elif workflow == "questions":
-                assert fixture.native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
-                    "field-str": {"answers": ["Listed value", "user_note: phone note 🦀"]}}}}], fixture.native.task_answers
-            elif workflow == "form":
-                assert fixture.native.task_answers == [{"id": "phone:form:α", "result": {
-                    "action": "accept", "content": {"count": 5, "enabled": False, "mode": "fr"}}}], fixture.native.task_answers
-            elif workflow == "browser":
-                assert browser_visits and all(visit == {"answers_before_open": 0} for visit in browser_visits), browser_visits
-                assert fixture.native.task_answers == [{"id": "phone:browser:α", "result": {"action": "accept"}}], fixture.native.task_answers
-                assert fixture.native.interrupts == 0, "A browser request without a turn cannot offer an enabled Stop"
-            assert not fixture.native.errors, fixture.native.errors
-            print(f"Actual phone {workflow} screen and native traffic passed: {artifacts}")
+            check_native(fixture, backend, workflow, observed, visits)
+            print(f"Actual phone {backend} {workflow} screen and native traffic passed: {artifacts}")
     finally:
         resources.close()
         fixture.close()
@@ -234,4 +261,8 @@ def run(workflow):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser"), default="prompt")
-    run(parser.parse_args().workflow)
+    parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
+    arguments = parser.parse_args()
+    if arguments.backend != "codex" and arguments.workflow != "prompt":
+        parser.error("Non-Codex peers currently support the exact prompt workflow")
+    run(arguments.workflow, arguments.backend)
