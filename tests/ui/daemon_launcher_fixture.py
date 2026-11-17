@@ -133,11 +133,13 @@ class Host:
 
 
 class GreetingProxy:
-    """Forward a real daemon greeting with one incompatible source marker."""
+    """Change a real greeting's identity, then optionally relay the actual session."""
 
-    def __init__(self, path, upstream, record):
+    def __init__(self, path, upstream, record, relay=False, protocol=None):
         path.parent.mkdir(parents=True, mode=0o700, exist_ok=True)
         self.upstream, self.record, self.errors = upstream, record, []
+        self.relay, self.protocol = relay, protocol
+        self.stop = threading.Event()
         self.listener = socket.socket(socket.AF_UNIX)
         self.listener.bind(str(path))
         path.chmod(0o600)
@@ -155,12 +157,41 @@ class GreetingProxy:
                 daemon.sendall(device.makefile("rb").readline(65537))
                 reply = json.loads(daemon.makefile("rb").readline(65537))
                 reply["result"]["identity"]["build"]["source"] = "0" * 32
+                if self.protocol is not None:
+                    reply["result"]["protocol"] = self.protocol
+                    reply["result"]["identity"]["build"]["protocol"] = self.protocol
                 self.record.write_text(json.dumps(reply, indent=2) + "\n")
                 device.sendall(json.dumps(reply).encode() + b"\n")
+                if self.relay:
+                    device.settimeout(.1)
+                    daemon.settimeout(.1)
+                    forward = threading.Thread(target=self.copy, args=(device,daemon), daemon=True)
+                    forward.start()
+                    self.copy(daemon,device)
+                    forward.join(timeout=2)
         except BaseException as error:
             self.errors.append(repr(error))
 
     def close(self):
+        self.stop.set()
         self.listener.close()
         self.thread.join(timeout=4)
         assert not self.thread.is_alive() and not self.errors, self.errors
+
+    def copy(self, source, target):
+        try:
+            while not self.stop.is_set():
+                try:
+                    data = source.recv(65536)
+                except socket.timeout:
+                    continue
+                if not data:
+                    break
+                target.sendall(data)
+        except OSError:
+            pass
+        finally:
+            try:
+                target.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass

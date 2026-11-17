@@ -38,12 +38,21 @@ pub(super) fn check(daemon: &Path, deadline: Instant) -> Result<()> {
     let _ = child.wait();
     let identity = outcome.with_context(|| {
         format!(
-            "cannot identify companion {}; keep carlos and carlosd from the same package together",
+            "cannot identify companion daemon protocol: {}",
             daemon.display()
         )
     })?;
-    if identity != crate::build_info() {
-        bail!("companion carlosd build differs from carlos; replace both executables with the same package");
+    if identity.protocol != carlos_proto::PROTOCOL_VERSION {
+        bail!(
+            "companion carlosd protocol {} is incompatible with terminal protocol {}",
+            identity.protocol,
+            carlos_proto::PROTOCOL_VERSION
+        );
+    }
+    if crate::app::cli::env_flag_enabled("CARLOS_STRICT_DAEMON_BUILD")
+        && identity != crate::build_info()
+    {
+        bail!("companion carlosd build differs from carlos; CARLOS_STRICT_DAEMON_BUILD requires an exact build match");
     }
     Ok(())
 }

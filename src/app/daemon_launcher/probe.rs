@@ -45,6 +45,7 @@ pub(super) fn connect(
                 validate(
                     &serde_json::from_value::<HelloResult>(result.clone())?,
                     endpoint,
+                    crate::app::cli::env_flag_enabled("CARLOS_STRICT_DAEMON_BUILD"),
                 )?;
             }
             // This fresh client only greets; it has no session reads or watches to drive.
@@ -64,10 +65,28 @@ pub(super) fn connect(
     }
 }
 
-fn validate(hello: &HelloResult, endpoint: Option<&Path>) -> Result<()> {
-    let identity = hello.identity.as_ref().context("managed daemon did not report its build identity; keep matching carlos and carlosd together")?;
-    if identity.build != crate::build_info() || hello.protocol != identity.build.protocol {
-        bail!("running Carlos daemon build differs from this terminal (daemon PID {}); stop that daemon explicitly before using a different package", identity.process);
+pub(super) fn validate(hello: &HelloResult, endpoint: Option<&Path>, strict: bool) -> Result<()> {
+    if hello.protocol != carlos_proto::PROTOCOL_VERSION {
+        bail!(
+            "running Carlos daemon protocol {} is incompatible with terminal protocol {}",
+            hello.protocol,
+            carlos_proto::PROTOCOL_VERSION
+        );
+    }
+    let Some(identity) = hello.identity.as_ref() else {
+        if strict || endpoint.is_some() {
+            bail!("managed daemon did not report the identity needed for the requested build or native endpoint check");
+        }
+        return Ok(());
+    };
+    if identity.build.protocol != hello.protocol {
+        bail!(
+            "running Carlos daemon reported inconsistent protocol versions (daemon PID {})",
+            identity.process
+        );
+    }
+    if strict && identity.build != crate::build_info() {
+        bail!("running Carlos daemon build differs from this terminal (daemon PID {}); CARLOS_STRICT_DAEMON_BUILD requires an exact build match", identity.process);
     }
     if let Some(endpoint) = endpoint {
         if identity.codex_socket.as_deref() != Some(endpoint.as_os_str().as_bytes()) {

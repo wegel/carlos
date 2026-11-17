@@ -75,9 +75,9 @@ class LauncherTests(LauncherNetworkTests, unittest.TestCase):
 
     def test_incompatible_companion_returns_before_daemon_or_native_start(self):
         host = self.host()
-        identity = {**host.identity(), "source":"0" * 32}
+        identity = {**host.identity(), "protocol":host.identity()["protocol"] + 1}
         host.fake_companion("import json\nprint(json.dumps(" + repr(identity) + "))\n")
-        host.failed(host.terminal("mismatch", expected=1), "companion carlosd build differs")
+        host.failed(host.terminal("mismatch", expected=1), "companion carlosd protocol")
         self.assertFalse(host.socket.exists())
         self.assertEqual(host.native.requests, [])
 
@@ -119,6 +119,7 @@ class LauncherTests(LauncherNetworkTests, unittest.TestCase):
 
     def test_incompatible_running_greeting_does_not_stop_the_existing_daemon(self):
         host = self.host(companion=False)
+        host.env["CARLOS_STRICT_DAEMON_BUILD"] = "1"
         upstream = host.host / "upstream.sock"
         daemon = self.explicit_daemon(host, upstream)
         client = host.client(upstream)
@@ -133,6 +134,52 @@ class LauncherTests(LauncherNetworkTests, unittest.TestCase):
         self.addCleanup(other.close)
         self.assertEqual(client.hello["instance"], other.hello["instance"])
         self.assertEqual(host.native.requests, [])
+
+    def test_different_running_build_accepts_the_same_protocol_without_a_restart(self):
+        host = self.host(companion=False)
+        host.env["CARLOS_STRICT_DAEMON_BUILD"] = "0"
+        upstream = host.host / "compatible.sock"
+        daemon = self.explicit_daemon(host, upstream)
+        proxy = GreetingProxy(host.socket, upstream, host.root / "different-build.json", relay=True)
+        self.addCleanup(proxy.close)
+        terminal = host.terminal("compatible", arguments=[])
+        terminal.contains("Launcher fixture ready")
+        self.assertIsNone(daemon.poll())
+        self.assertEqual(host.native.resumed, 1)
+        self.assertFalse(any(row.get("method") == "turn/start" for row in host.native.requests))
+        terminal.snapshot("compatible-running-build-without-restart")
+
+    def test_incompatible_running_protocol_is_rejected_with_strict_build_matching_off(self):
+        host = self.host(companion=False)
+        host.env["CARLOS_STRICT_DAEMON_BUILD"] = "0"
+        upstream = host.host / "incompatible.sock"
+        daemon = self.explicit_daemon(host, upstream)
+        proxy = GreetingProxy(host.socket, upstream, host.root / "wrong-protocol.json", protocol=2)
+        self.addCleanup(proxy.close)
+        host.failed(host.terminal("wrong-protocol", expected=1), "incompatible with terminal protocol")
+        self.assertIsNone(daemon.poll())
+        self.assertEqual(host.native.requests, [])
+
+    def test_strict_companion_build_check_remains_available(self):
+        host = self.host()
+        host.env["CARLOS_STRICT_DAEMON_BUILD"] = "1"
+        identity = {**host.identity(), "source":"0" * 32}
+        host.fake_companion("import json\nprint(json.dumps(" + repr(identity) + "))\n")
+        host.failed(host.terminal("strict-companion", expected=1), "companion carlosd build differs")
+        self.assertFalse(host.socket.exists())
+        self.assertEqual(host.native.requests, [])
+
+    def test_different_companion_build_starts_when_its_protocol_is_compatible(self):
+        host = self.host()
+        host.env["CARLOS_STRICT_DAEMON_BUILD"] = "0"
+        identity = {**host.identity(), "source":"0" * 32}
+        host.fake_companion("import json,os,sys\nif sys.argv[1:] == ['--build-info']:\n"
+            " print(json.dumps(" + repr(identity) + "))\nelse:\n os.execv(" + repr(str(DAEMON)) +
+            ", [" + repr(str(DAEMON)) + ", *sys.argv[1:]])\n")
+        terminal = host.terminal("compatible-companion")
+        terminal.contains("Launcher fixture ready")
+        self.assertEqual(host.native.resumed, 1)
+        self.assertFalse(any(row.get("method") == "turn/start" for row in host.native.requests))
 
     def test_explicit_attach_accepts_the_daemons_same_native_socket_symlink(self):
         host = self.host(companion=False)

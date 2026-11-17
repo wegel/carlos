@@ -75,6 +75,33 @@ fn fixture_hello() -> carlos_proto::commands::HelloResult {
 }
 
 #[test]
+fn a_different_source_build_is_compatible_unless_exact_matching_was_requested() {
+    let mut hello = fixture_hello();
+    hello.identity.as_mut().expect("identity").build.source = "0".repeat(32);
+    super::probe::validate(&hello, None, false).expect("same wire protocol");
+    assert!(super::probe::validate(&hello, None, true).is_err());
+}
+
+#[test]
+fn incompatible_and_inconsistent_protocol_versions_are_always_rejected() {
+    let mut hello = fixture_hello();
+    hello.protocol += 1;
+    assert!(super::probe::validate(&hello, None, false).is_err());
+    hello.protocol = carlos_proto::PROTOCOL_VERSION;
+    hello.identity.as_mut().expect("identity").build.protocol += 1;
+    assert!(super::probe::validate(&hello, None, false).is_err());
+}
+
+#[test]
+fn optional_identity_is_required_only_for_explicit_build_or_endpoint_checks() {
+    let mut hello = fixture_hello();
+    hello.identity = None;
+    super::probe::validate(&hello, None, false).expect("compatible legacy greeting");
+    assert!(super::probe::validate(&hello, None, true).is_err());
+    assert!(super::probe::validate(&hello, Some(std::path::Path::new("/native")), false).is_err());
+}
+
+#[test]
 fn a_companion_that_never_reports_its_identity_is_killed_before_the_deadline_returns() {
     let root = tempfile::tempdir().expect("stuck companion fixture");
     let daemon = root.path().join("carlosd");

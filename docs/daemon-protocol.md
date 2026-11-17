@@ -20,6 +20,14 @@ and mutation calls. No arbitrary native method enters the public protocol.
 
 ## Clients and commands
 
+The terminal accepts a running daemon or colocated companion built from different
+source code when both declare the same wire protocol. A source hash identifies
+a build; it does not prove that its messages are incompatible. Protocol mismatches
+and inconsistent greetings always fail before session work. Set
+`CARLOS_STRICT_DAEMON_BUILD=1` to require exact build identities for managed
+startup. This optional check is off by default. An explicit native Codex socket
+must still match the running daemon's endpoint.
+
 The managed CLI reads `$XDG_CONFIG_HOME/carlos/daemon.json`, or
 `~/.config/carlos/daemon.json` when XDG_CONFIG_HOME is unset, when it starts a new
 daemon. The optional file saves the phone listener across future CLI starts:
