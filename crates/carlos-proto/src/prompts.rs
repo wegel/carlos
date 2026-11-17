@@ -17,7 +17,7 @@ pub enum PromptSource {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PromptDirection {
-    /// Select the human record bound to this exact transcript entry.
+    /// Select the record bound to this exact transcript entry in the chosen source.
     AtEntry,
     Latest,
     Older,

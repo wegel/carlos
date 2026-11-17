@@ -40,17 +40,19 @@ impl SessionState {
     ) -> Result<PromptSelection, RpcError> {
         let count = self.prompt_count(source);
         let index = match (anchor, direction) {
-            (Some(anchor), PromptDirection::AtEntry) => Some(
-                (0..count)
-                    .find(|index| {
-                        self.prompt_record(source, *index).is_some_and(|record| {
-                            record.entry.map(EntryId::to_wire).as_ref() == Some(anchor)
+            (Some(anchor), PromptDirection::AtEntry) => {
+                let entry = EntryId::from_wire(anchor);
+                Some(
+                    (0..count)
+                        .find(|index| {
+                            self.prompt_record(source, *index)
+                                .is_some_and(|record| record.entry == Some(entry))
                         })
-                    })
-                    .ok_or_else(|| {
-                        failure("entry has no editable prompt in this source/session")
-                    })?,
-            ),
+                        .ok_or_else(|| {
+                            failure("entry has no editable prompt in this source/session")
+                        })?,
+                )
+            }
             (None, PromptDirection::Latest) => count.checked_sub(1),
             (Some(anchor), PromptDirection::Older | PromptDirection::Newer) => {
                 let old = self.prompt_position(source, EntryId::from_wire(anchor))?;

@@ -6,6 +6,25 @@ from test_daemon_client import daemon_support
 
 
 class DaemonSourceRecovery:
+    def test_daemon_terminal_keeps_indented_ascii_output_rows_exact_through_backbuffer_scroll(self):
+        call = "    (root/'summary.json').write_text(json.dumps({'errors':errors,'turnStarts':len(terminal.requests('turn/start'))},indent=2))"
+        output = "WRAP FIRST ROW\n" + (call + "\n") * 60 + "WRAP LAST ROW\n"
+        item = {"type":"commandExecution", "id":"wrapped-code", "command":"cat recorded-code.py",
+                "status":"completed", "exitCode":0, "aggregatedOutput":output}
+        fixture, client, session = self.daemon_session("indented-ascii-wrap", lambda:self.source_history([item]))
+        terminal = self.attach_daemon(fixture, session, "wrapped", width=100)
+        terminal.contains("WRAP LAST ROW")
+        terminal.paste("private draft while reading wrapped output")
+        for _ in range(3):
+            terminal.send(b"\x1b[5~" * 30)
+            terminal.contains("WRAP FIRST ROW")
+            terminal.send(b"\x1b[6~" * 30)
+            terminal.contains("WRAP LAST ROW")
+        self.assertTrue(terminal.input_is("private draft while reading wrapped output"))
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertTrue(terminal.requests("entry/source"))
+        terminal.snapshot("indented-ascii-output-keeps-its-exact-rows")
+
     def test_daemon_terminal_drains_live_backlog_without_accepting_a_cancelled_watch_cursor(self):
         text = "original output\n" * 2000 + "ORIGINAL TAIL\n"
         item = {"type":"agentMessage", "id":"backlog-answer", "phase":"final_answer", "text":text}

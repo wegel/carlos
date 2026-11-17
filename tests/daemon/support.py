@@ -166,7 +166,16 @@ class Fixture:
         if self.origin:
             arguments += ["--allow-origin", self.origin]
         self.process = subprocess.Popen(arguments, env=self.env, stdout=self.log, stderr=self.log, cwd=self.root)
-        wait_for(lambda: self.socket.exists() or self.process.poll() is not None, "daemon socket appeared")
+        def listening():
+            if self.process.poll() is not None:
+                return True
+            with socket.socket(socket.AF_UNIX) as probe:
+                try:
+                    probe.connect(str(self.socket))
+                    return True
+                except (FileNotFoundError, ConnectionRefusedError):
+                    return False
+        wait_for(listening, "daemon accepts connections")
         assert self.process.poll() is None, (self.root / "daemon.log").read_text()
         if self.listen:
             def address():
