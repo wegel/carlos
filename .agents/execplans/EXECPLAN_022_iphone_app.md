@@ -34,6 +34,18 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] (2026-11-17) Commit27853ca adds flat native form fields, exact integer/boolean/enum
+  replies, explicit optional omission, stable sheets with retained private edits, per-card
+  pending states and top-bar keyboard actions. Full cargo test passes in its commit hook;
+  actual form/question/credential and native evidence is recorded below.
+- [ ] Finish browser approval checks with an owned local Safari page. The app now reads
+  whether an actual native turn exists so browser consent without a turn cannot offer
+  enabled Stop. All23 phone tests pass after this narrow facade fact. Browser fixture01
+  captured a wrong test selector variable before the correction; its frozen source must
+  stay unchanged. Browser fixture02 reaches Safari but its heading query fails; fixture03 checks the corrected native element query. Opening the page
+  must leave native consent unanswered, then exactly one explicit Allow response must
+  reach the original native callback. No external website, account or inference is used.
+
 - [ ] (2026-11-17, owner steering) Treat saved credentials and finished UX as hard
   acceptance criteria. The owner reports entering a token again when reopening the
   installed early app and explicitly expects a polished app at the end of EP022.
@@ -171,7 +183,7 @@ compiled SDK helper does not settle that original request before the operation d
 The isolated unchanged case passes in0.720s (forms-settings-recheck-01.log). Preserve
 forms-terminal-gate-01.log and source-terminal-6csLYG; repeat the full gate without
 changing deadlines. No phone/form mutation or form reader was involved in this case.
-The second gate is forms-terminal-gate-02.log and is still running.
+The second gate is forms-terminal-gate-02.log and now passes fully, artifacts source-terminal-ljZ4xx.
 
 
 The form focus trace on source23a7159681c53e3abd3e shows focus=true, then false
@@ -469,6 +481,15 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Decision (2026-11-17,Root): check browser launch with Safari's actual foreground state,
+the local server's real HTTP visit before consent, captured visible screens and the
+exact original native answer. Both browser02/03 images show the correct page, but its
+heading is not exposed to XCTest as text or another element. Testing Safari's internal
+accessibility tree is not a Carlos requirement. Keep both failed runs; browser04 retains
+all Carlos consent/Stop/native-response assertions and the existing deadlines, with
+this direct foreground/HTTP evidence replacing the unavailable heading query.
+
+
 Decision (2026-11-17,Root): keep simple offered approval buttons inline, but open
 structured questions/forms in a native sheet. Long interactive forms must not depend
 on a transcript lazy row's estimated frame, and Submit/error controls must remain
@@ -597,6 +618,21 @@ Literal user/reasoning text uses the same block reader without Markdown interpre
 
 ## Outcomes & Retrospective
 
+The repeat full terminal gate02 passes completely with all225 daemon,330 terminal and
+23 isolated native Codex checks. Preserve the initial Claude helper timeout as failed;
+the isolated and full repeat use unchanged deadlines and pass. This gate covers the
+shared form-reader move; later phone-only changes do not alter that terminal binary.
+Native approval tests13/13 pass without skips onc2d300c443c311c7a02e,
+tests-20261116T234228.xcresult. The new draft test uses actual generated Rust calls:
+changed schema leaves private text and original fields intact, the old editor admits
+no operation, and only explicit restart clears answers and captures the new request.
+The native sheet asks before clearing; no request change silently transfers old inputs.
+Browser02 shows the real Safari page and unchanged consent card, but fails its heading
+query because it asks for StaticText rather than the page heading. Browser03 checks
+all native accessibility element types and folds raw browser details behind disclosure.
+Do not mark browser approval complete until its exact native answer assertion passes.
+
+
 The flat-form checkpoint passes the actual invalid-answer/correction flow and typed
 native callback checks; questions also preserve edits across close/reopen. Native12/12
 passes onbf5931634d358dedfdc9. Form UI08 and keyboard credentials01 prove top-bar Done
@@ -605,7 +641,7 @@ ui-tests-20261116T233338.xcresult, local phone-f36969e569d7, with no runtime-war
 node. The earlier form run retained only its old connection-toolbar warning. Root
 inspected all retained form states and the final keyboard layout. Integer overflow
 now rejects locally instead of rounding and all23 phone tests pass. The full terminal
-reader-change gate02 is still running after all225 daemon tests pass. Browser consent,
+reader-change gate02 passes after all225 daemon,330 terminal and23 native checks. Browser consent,
 remaining screen features, final release/performance evidence and end-only review remain
 unfinished; this is a buildable checkpoint, not EP approval.
 

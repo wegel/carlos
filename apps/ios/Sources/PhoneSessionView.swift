@@ -12,7 +12,7 @@ struct PhoneSessionView: View {
     private var isStop: Bool { info?.activity.phase != .idle && info != nil && host.draft.isEmpty }
     private var sendDisabled: Bool {
         !host.connected || host.submitting || host.controlSubmitting ||
-            (isStop ? host.transcript?.currentSnapshot != true : host.transcript?.ready != true ||
+            (isStop ? host.transcript?.currentSnapshot != true || info?.activity.canInterrupt != true : host.transcript?.ready != true ||
                 host.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 

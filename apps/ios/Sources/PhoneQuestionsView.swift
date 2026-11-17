@@ -6,6 +6,7 @@ struct PhoneQuestionsView: View {
     let card: String
     @Bindable var draft: PhoneQuestionDraft
     @Environment(\.dismiss) private var dismiss
+    @State private var restarting = false
 
     private var current: PhoneApproval? { host.approvals.first { $0.id == card } }
     private var questions: PhoneQuestions? {
@@ -35,6 +36,10 @@ struct PhoneQuestionsView: View {
                     if draft.changed {
                         Text("This request changed. Your answers are kept here; review the current request before replying.")
                             .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.yellow)
+                        if questions != nil {
+                            Button("Review updated request") { restarting = true }
+                                .frame(minHeight: 44).accessibilityIdentifier("questions.restart")
+                        }
                     }
                 }.padding(16).disabled(!enabled)
             }
@@ -48,6 +53,12 @@ struct PhoneQuestionsView: View {
                 if let questions { await draft.refresh(current: questions) }
                 else { draft.checking = false; draft.changed = true }
             }
+            .confirmationDialog("Start new answers?", isPresented: $restarting, titleVisibility: .visible) {
+                Button("Clear answers and review request", role: .destructive) {
+                    guard let questions else { return }
+                    Task { await draft.restart(current: questions) }
+                }
+            } message: { Text("Your previous answers will be cleared. Copy any text you need before starting again.") }
             .onChange(of: current == nil) { _, gone in if gone { dismiss() } }
             .onChange(of: draft.notes) { _, _ in if host.connected { host.error = nil } }
             .onChange(of: draft.choices) { _, _ in if host.connected { host.error = nil } }

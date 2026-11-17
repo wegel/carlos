@@ -2,7 +2,7 @@
 """Run the actual iOS UI against a private daemon and native Codex peer, without inference."""
 
 import argparse
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 import hashlib
 import json
 import os
@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "tests/daemon"))
 from network_support import grant
 from support import Fixture
 from native_task_questions import callback_key, form as native_form, question
+from ios_browser_fixture import browser_page
 
 
 def mac_settings():
@@ -119,13 +120,15 @@ def configure_source(native):
     return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
 
 
-def configure_questions(native, *, form_request=False):
+def configure_questions(native, *, form_request=False, browser_url=None):
     """Reply only to the exact original native question, then publish its actual completion."""
     original_prompt = native.prompt
     original_response = native.task_question_response
-    identity = "phone:form:α" if form_request else "phone:questions:α"
-    prompt_text = "phone form" if form_request else "phone questions"
-    result_text = "Phone form accepted 🦀" if form_request else "Phone answers accepted 🦀"
+    kind = "browser" if browser_url else "form" if form_request else "questions"
+    identity = f"phone:{kind}:α"
+    prompt_text = f"phone {kind}"
+    result_text = {"browser": "Browser consent accepted 🦀", "form": "Phone form accepted 🦀",
+                   "questions": "Phone answers accepted 🦀"}[kind]
 
     async def prompt(link, request):
         if request["params"]["input"][0]["text"] != prompt_text:
@@ -134,6 +137,10 @@ def configure_questions(native, *, form_request=False):
         native.prompts += 1
         await native.notify(link, "turn/started", turn={"id": "live"})
         frame = native_form(identity, turn="live") if form_request else question(identity, thread=native.thread_id, turn="live", blocking=True)
+        if browser_url:
+            frame = native_form(identity, mode="url")
+            frame["params"]["url"] = browser_url
+            await native.notify(link, "turn/completed", turn={"id": "live", "status": "completed"})
         frame["params"]["threadId"] = native.thread_id
         native.task_callbacks[callback_key(identity)] = frame
         native.task_callback_ids.add(callback_key(identity))
@@ -158,8 +165,10 @@ def run(workflow):
     artifacts = ROOT / "target/ios-artifacts" / identity
     artifacts.mkdir(parents=True)
     fixture = Fixture(identity, codex=True, listen="127.0.0.1:0")
+    resources = ExitStack()
     try:
         expected_source = {}
+        browser_visits = None
         if workflow == "controls":
             configure_controls(fixture.native)
         elif workflow == "tools":
@@ -170,6 +179,12 @@ def run(workflow):
             configure_questions(fixture.native)
         elif workflow == "form":
             configure_questions(fixture.native, form_request=True)
+        elif workflow == "browser":
+            browser_port, browser_visits = resources.enter_context(browser_page(fixture.native))
+            browser_artifacts = artifacts / "browser"
+            browser_artifacts.mkdir(mode=0o700)
+            remote_browser = resources.enter_context(forward(browser_port, browser_artifacts))
+            configure_questions(fixture.native, browser_url=f"http://127.0.0.1:{remote_browser}/complete")
         token = grant(fixture, "native-phone")
         local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
         with forward(local_port, artifacts) as remote_port:
@@ -189,7 +204,7 @@ def run(workflow):
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
             expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
                         "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
-                        "questions": ["phone questions"], "form": ["phone form"]}[workflow]
+                        "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}[workflow]
             assert observed == expected, observed
             if workflow == "relaunch":
                 assert fixture.native.started == 1, "Relaunch must not create another native session"
@@ -205,13 +220,18 @@ def run(workflow):
             elif workflow == "form":
                 assert fixture.native.task_answers == [{"id": "phone:form:α", "result": {
                     "action": "accept", "content": {"count": 5, "enabled": False, "mode": "fr"}}}], fixture.native.task_answers
+            elif workflow == "browser":
+                assert browser_visits and all(visit == {"answers_before_open": 0} for visit in browser_visits), browser_visits
+                assert fixture.native.task_answers == [{"id": "phone:browser:α", "result": {"action": "accept"}}], fixture.native.task_answers
+                assert fixture.native.interrupts == 0, "A browser request without a turn cannot offer an enabled Stop"
             assert not fixture.native.errors, fixture.native.errors
             print(f"Actual phone {workflow} screen and native traffic passed: {artifacts}")
     finally:
+        resources.close()
         fixture.close()
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser"), default="prompt")
     run(parser.parse_args().workflow)

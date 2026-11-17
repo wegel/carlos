@@ -15,7 +15,7 @@ struct PhoneApprovalView: View {
         VStack(alignment: .leading, spacing: 12) {
             Label(card.caption.title, systemImage: "checkmark.shield")
                 .font(PhoneTheme.prose(13, weight: .semibold)).foregroundStyle(PhoneTheme.yellow)
-            if !card.caption.details.isEmpty && !hasEditor {
+            if !card.caption.details.isEmpty && detailsInline {
                 Text(card.caption.details.joined(separator: "\n")).font(PhoneTheme.mono(12.5)).textSelection(.enabled)
                     .padding(10).frame(maxWidth: .infinity, alignment: .leading)
                     .background(PhoneTheme.crust).clipShape(RoundedRectangle(cornerRadius: 8))
@@ -49,8 +49,8 @@ struct PhoneApprovalView: View {
         return card.choices.filter { $0 == .deny || $0 == .cancel }
     }
 
-    private var hasEditor: Bool {
-        switch card.input { case .fields?, .form?: true; default: false }
+    private var detailsInline: Bool {
+        switch card.input { case .fields?, .form?, .browser?: false; default: true }
     }
 
     @ViewBuilder private var input: some View {
@@ -67,6 +67,9 @@ struct PhoneApprovalView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }.buttonStyle(.plain).disabled(!enabled).accessibilityIdentifier("questions.open.\(card.id)")
             case .browser(let address):
+                DisclosureGroup("Request details") {
+                    Text(card.caption.details.joined(separator: "\n")).font(PhoneTheme.mono(11.5)).textSelection(.enabled)
+                }.font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.subtext0)
                 Text("Open the link to complete the browser step, then return here and choose whether to allow it.")
                     .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.subtext0)
                 if let url = URL(string: address), ["https", "http"].contains(url.scheme?.lowercased() ?? ""), url.host != nil {

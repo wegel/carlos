@@ -41,6 +41,7 @@ pub struct PhoneActivity {
     pub phase: PhonePhase,
     pub availability: PhoneAvailability,
     pub ralph: bool,
+    pub can_interrupt: bool,
     pub started_at: Option<i64>,
 }
 
@@ -90,6 +91,7 @@ impl From<&SessionInfo> for PhoneSession {
                 phase: info.phase,
                 availability: info.availability,
                 ralph: info.ralph,
+                can_interrupt: info.current_turn.is_some(),
                 started_at: info.turn_started_at,
             },
             usage: PhoneUsage {

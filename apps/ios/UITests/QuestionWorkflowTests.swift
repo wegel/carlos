@@ -3,6 +3,36 @@ import XCTest
 
 extension SessionWorkflowTests {
     @MainActor
+    func testBrowserVisitDoesNotGrantConsent() throws {
+        let app = try connectedSession()
+        let draft = app.textFields["composer.draft"]
+        XCTAssertTrue(draft.waitForExistence(timeout: 15))
+        draft.tap()
+        draft.typeText("phone browser")
+        app.buttons["composer.send"].tap()
+        let open = app.buttons["approval.browser"]
+        XCTAssertTrue(open.waitForExistence(timeout: 15))
+        let stop = app.buttons["composer.stop"]
+        XCTAssertTrue(stop.exists)
+        XCTAssertFalse(stop.isEnabled, "No native turn exists for this browser consent")
+        capture("Browser consent names the destination and keeps the choice explicit", screenshot: app.screenshot())
+        open.tap()
+        let safari = XCUIApplication(bundleIdentifier: "com.apple.mobilesafari")
+        XCTAssertTrue(wait { safari.state == .runningForeground })
+        // The fixture checks the real HTTP page visit before any native answer.
+        // Safari's page heading is not exposed to XCTest on this simulator.
+        capture("Owned browser page completes without sending consent", screenshot: safari.screenshot())
+        app.activate()
+        XCTAssertTrue(open.waitForExistence(timeout: 15), "A page visit must leave consent unanswered")
+        let allow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'approval.' AND label == 'Allow once'")).firstMatch
+        XCTAssertTrue(wait { allow.isEnabled })
+        allow.tap()
+        XCTAssertTrue(app.staticTexts["Browser consent accepted 🦀"].waitForExistence(timeout: 15))
+        XCTAssertFalse(open.exists)
+        app.terminate()
+    }
+
+    @MainActor
     func testNativeFormPreservesRejectedFieldsAndTypedValues() throws {
         let app = try connectedSession()
         let draft = app.textFields["composer.draft"]

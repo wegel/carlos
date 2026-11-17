@@ -90,6 +90,7 @@ fn interrupt_captures_the_original_turn_and_never_changes_the_shared_phase_optim
         .expect("window")
         .expect("metadata");
     assert!(matches!(metadata.info.activity.phase, PhonePhase::Approval));
+    assert!(metadata.info.activity.can_interrupt);
     assert!(!client
         .approvals(SESSION.into())
         .expect("card remains")

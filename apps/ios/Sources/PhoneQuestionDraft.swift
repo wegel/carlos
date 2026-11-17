@@ -6,8 +6,8 @@ import Observation
 final class PhoneQuestionDraft: Identifiable {
     nonisolated let id = UUID()
     let card: String
-    let editor: PhoneQuestions
-    let form: Bool
+    private(set) var editor: PhoneQuestions
+    private(set) var form: Bool
     var fields: [PhoneQuestionField] = []
     var choices: [String: [UInt32]] = [:]
     var notes: [String: String] = [:]
@@ -27,10 +27,20 @@ final class PhoneQuestionDraft: Identifiable {
         let result = await Task.detached(priority: .userInitiated) {
             (editor.fields(), editor.sameQuestions(other: current))
         }.value
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, self.editor === editor else { return }
         fields = result.0
         changed = !result.1
         checking = false
+    }
+
+    func restart(current: PhoneQuestions) async {
+        editor = current
+        form = current.isForm()
+        choices.removeAll()
+        notes.removeAll()
+        included.removeAll()
+        fields.removeAll()
+        await refresh(current: current)
     }
 
     func answers() -> [PhoneQuestionAnswer] {
