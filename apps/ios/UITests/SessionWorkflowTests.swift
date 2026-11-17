@@ -8,6 +8,7 @@ final class SessionWorkflowTests: XCTestCase {
     @MainActor
     func testRunningToolExpandsStreamsAndKeepsItsRowChoice() throws {
         let app = try connectedSession()
+        setTools("Auto", in: app)
         let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
@@ -100,6 +101,7 @@ final class SessionWorkflowTests: XCTestCase {
         let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch
         XCTAssertTrue(session.waitForExistence(timeout: 15))
         session.tap()
+        setTools("Auto", in: app)
         var headerPixels: Data?
         var composerPixels: Data?
         for layout in ["Flow", "Gutter"] {
