@@ -42,9 +42,10 @@ def copy_sources(destination):
     app = ROOT / "apps/ios"
     if app.exists():
         shutil.copytree(app, destination / "apps/ios")
-    script = ROOT / "scripts/ios-remote.sh"
-    if script.exists():
-        shutil.copy2(script, destination / script.name)
+    for name in ("ios-remote.sh", "ios-keyboard.m", "ios-keyboard-test.py"):
+        script = ROOT / "scripts" / name
+        if script.exists():
+            shutil.copy2(script, destination / script.name)
     members = ", ".join(json.dumps(f"crates/{name}") for name in CRATES)
     (destination / "Cargo.toml").write_text(
         f'[workspace]\nmembers = [{members}]\nresolver = "2"\n\n'

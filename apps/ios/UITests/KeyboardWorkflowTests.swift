@@ -1,31 +1,37 @@
-// Dispatch actual physical key events through iOS, then check the original native prompt.
+// Dispatch actual HID key events through iOS, then check the original native prompt.
+import Foundation
 import XCTest
 
 extension SessionWorkflowTests {
     @MainActor
-    func testHardwareReturnSendsAndModifiedReturnKeepsNewlines() throws {
+    func testHardwareReturnSendsAndModifiedReturnKeepsNewlines() async throws {
         let app = try connectedSession()
         let draft = app.textViews["composer.draft"]
         XCTAssertTrue(draft.waitForExistence(timeout: 15))
         draft.tap()
         draft.typeText("phone")
+        XCTAssertEqual(draft.value as? String, "phone", "A native edit must survive an unrelated SwiftUI refresh")
         let oneLineHeight = draft.frame.height
         draft.typeKey("x", modifierFlags: [])
         XCTAssertEqual(draft.value as? String, "phonex", "A printable hardware key must reach the editor before testing Return")
         draft.typeText(XCUIKeyboardKey.delete.rawValue)
         XCTAssertEqual(draft.value as? String, "phone")
-        draft.typeKey(XCUIKeyboardKey.return, modifierFlags: .shift)
-        XCTAssertEqual(draft.value as? String, "phone\n")
+        try await rawReturn("x")
+        XCTAssertTrue(wait { draft.value as? String == "phonex" }, "The raw HID channel must deliver an ordinary key before testing Return")
+        draft.typeText(XCUIKeyboardKey.delete.rawValue)
+        XCTAssertEqual(draft.value as? String, "phone")
+        try await rawReturn("shift")
+        XCTAssertTrue(wait { draft.value as? String == "phone\n" }, "Wait for the externally injected native press to reach UIKit")
         draft.typeText("keyboard")
         XCTAssertEqual(draft.value as? String, "phone\nkeyboard")
-        draft.typeKey(XCUIKeyboardKey.return, modifierFlags: .option)
-        XCTAssertEqual(draft.value as? String, "phone\nkeyboard\n")
+        try await rawReturn("option")
+        XCTAssertTrue(wait { draft.value as? String == "phone\nkeyboard\n" })
         draft.typeText("exact 🦀")
         XCTAssertEqual(draft.value as? String, "phone\nkeyboard\nexact 🦀")
         XCTAssertGreaterThan(draft.frame.height, oneLineHeight + 20)
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)
         capture("Modified hardware Return keeps a multiline draft", screenshot: app.screenshot())
-        draft.typeKey(XCUIKeyboardKey.return, modifierFlags: [])
+        try await rawReturn("plain")
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Answer: phone'")).firstMatch.waitForExistence(timeout: 15))
         XCTAssertEqual(draft.value as? String, "")
         XCTAssertFalse(app.buttons["composer.send"].isEnabled)
@@ -38,5 +44,15 @@ extension SessionWorkflowTests {
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)
         capture("A six-line private draft stops growing after five lines", screenshot: app.screenshot())
         app.terminate()
+    }
+
+    @MainActor private func rawReturn(_ modifier: String) async throws {
+        struct Keyboard: Decodable { let keyboardControlURL: URL }
+        let file = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "fixture", withExtension: "json"))
+        let control = try JSONDecoder().decode(Keyboard.self, from: Data(contentsOf: file))
+        var request = URLRequest(url: control.keyboardControlURL.appendingPathComponent(modifier))
+        request.httpMethod = "POST"
+        let (_, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200, "The raw HID event must reach the owned simulator")
     }
 }

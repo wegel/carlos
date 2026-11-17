@@ -9,6 +9,8 @@ struct PhonePromptInput: UIViewRepresentable {
     func makeUIView(context: Context) -> PhonePromptTextView {
         let view = PhonePromptTextView()
         view.backgroundColor = .clear
+        view.clipsToBounds = true
+        view.layer.cornerRadius = 22
         view.textColor = UIColor(PhoneTheme.text)
         view.tintColor = UIColor(PhoneTheme.blue)
         view.textContainerInset = UIEdgeInsets(top: 12, left: 14, bottom: 12, right: 14)
@@ -32,11 +34,14 @@ struct PhonePromptInput: UIViewRepresentable {
         context.coordinator.parent = self
         view.send = send
         if view.isEditable != context.environment.isEnabled { view.isEditable = context.environment.isEnabled }
-        if view.text != text, view.markedTextRange == nil {
-            let attributes = Self.textAttributes
-            view.attributedText = NSAttributedString(string: text, attributes: attributes)
-            view.typingAttributes = attributes
-            view.selectedRange = NSRange(location: (text as NSString).length, length: 0)
+        if context.coordinator.lastBinding != text, view.markedTextRange == nil {
+            context.coordinator.lastBinding = text
+            if view.text != text {
+                let attributes = Self.textAttributes
+                view.attributedText = NSAttributedString(string: text, attributes: attributes)
+                view.typingAttributes = attributes
+                view.selectedRange = NSRange(location: (text as NSString).length, length: 0)
+            }
         }
     }
 
@@ -60,11 +65,12 @@ struct PhonePromptInput: UIViewRepresentable {
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: PhonePromptInput
+        // Track values SwiftUI rendered, not native edits that can reenter an older render.
+        var lastBinding: String?
         init(_ parent: PhonePromptInput) { self.parent = parent }
 
         func textViewDidChange(_ textView: UITextView) {
             parent.text = textView.text
-            textView.invalidateIntrinsicContentSize()
         }
     }
 }

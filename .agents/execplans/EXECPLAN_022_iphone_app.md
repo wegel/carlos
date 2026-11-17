@@ -347,6 +347,29 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Surprises & Discoveries
 
+Update2026-11-17 Root, clean simulator checks: the release terminal/native gate02
+passes, including all23 public Codex and10 packaged Claude cases. Keyboard11
+(source58bb8a238b6c26ecc79d/ui-tests-20261117T045706, phone-codex-74dd09d47c7b)
+sends exactly one original multiline prompt, but the actual transcript becomes blank:
+Full mode opens the native fixture's10000-line output and the lazy list estimates
+a853723pt content height. This is an app failure, not a keyboard-test false alarm.
+Bound the output viewport to320pt while keeping every checked byte reachable through
+native horizontal/vertical scroll. Short outputs retain their measured natural height.
+
+Syntax04's AX tree proves the file read exists with its actual path and native
+numbers. Its output is a ScrollView, not an Other element, and sits above the viewport
+while the composer keeps keyboard focus after Settings. Check the actual element
+type, deliberately reveal it, and dismiss composer focus before opening navigation
+sheets. No file-color UI pass has been claimed.
+
+Reconnect02 reaches actual uncertainty with both original texts retained, but its
+Reopen button stays absent: the catalog reports the actual stopped session while
+the cached transcript still says ready. Read lifecycle availability from the current
+catalog first. Its repeated downstream assertions eventually hit the unchanged180s
+UI deadline; retain the failed result52c94c22819b7865eef6/ui-tests-20261117T050136.
+The new fixes remain pending exact clean checks. Temporary input traces are removed.
+
+
 History UI01 and02 load the complete older native page but fail the retained top-row
 check: anchor30 moves toY257.67 and252.33 instead of staying belowY177. Keep
 phone-codex-f3e481ff2711/ef8a76e18b9f25ec316a/ui-tests-20261117T033932.xcresult

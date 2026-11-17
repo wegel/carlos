@@ -14,6 +14,7 @@ DEPENDENCIES="$(cat "$SOURCE/dependencies-id")"
 VENDOR="$BASE/ios-dependencies/$DEPENDENCIES/vendor"
 mkdir -p "$BUILD" "$CARLOS_GENERATED"
 cd "$SOURCE"
+APP_RUNNER=(/usr/bin/env)
 
 framework() {
     rust_build --target x86_64-apple-ios
@@ -45,7 +46,7 @@ rust_build() {
 }
 
 app() {
-    xcodebuild -quiet -project "$BUILD/Carlos.xcodeproj" -scheme Carlos \
+    "${APP_RUNNER[@]}" xcodebuild -quiet -project "$BUILD/Carlos.xcodeproj" -scheme Carlos \
         -configuration "${CARLOS_BUILD_CONFIGURATION:-Debug}" -sdk iphonesimulator -derivedDataPath "$BUILD/DerivedData" \
         CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- "$@"
 }
@@ -93,7 +94,11 @@ ui-test)
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac
     checks=(-only-testing:"CarlosUITests/SessionWorkflowTests/$test_case")
-    if [[ "$workflow" == keyboard ]]; then checks+=(-only-testing:CarlosTests/PromptInputTests); fi
+    if [[ "$workflow" == keyboard ]]; then
+        checks+=(-only-testing:CarlosTests/PromptInputTests)
+        xcrun clang -fobjc-arc -fblocks -framework Foundation "$SOURCE/ios-keyboard.m" -o "$BUILD/send-key"
+        APP_RUNNER=(/usr/bin/python3 "$SOURCE/ios-keyboard-test.py" "$BUILD/send-key" "$2" "$CARLOS_GENERATED/UIFixtures/fixture.json")
+    fi
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
         "${checks[@]}" -parallel-testing-enabled NO \
         -test-timeouts-enabled YES -default-test-execution-time-allowance 180 \
