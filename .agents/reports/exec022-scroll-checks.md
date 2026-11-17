@@ -109,3 +109,38 @@ measurements:1000 checked Markdown block reads average30.74ms; formatting500
 lines with the already-loaded Rust grammar averages82.88ms. These are simulator
 unit measurements, not physical-phone frame timings. The grammar runs off the
 UI thread in the app. Raw metrics: final-native-bridge-metrics-01.json.
+
+## Moving-frame reproduction and correction
+
+The owner confirmed9a45 still jerks and required Root to observe it before another
+fix. The new read-only deep-history workflow scrolls six older screens and four
+fast returns in both Flow and Gutter. Its6ffa movie contains clear backward snaps.
+Exact decoded frames4144/4145/4146 show the same transcript moving upward16pt
+during a downward scroll; three independent text patches match at>0.999. Nearby
+frames show15pt and13.8pt reversals too. Random frame seeking through OpenCV did
+not return the requested frames in this variable-rate movie, so only exact
+FFmpeg decoded indices support these visual comparisons. Raw phase candidates
+locate frames to inspect; they do not establish a verdict alone.
+
+Direct numeric traces show cached answers were parsed once, followed by ready
+cache hits. The custom preferred-invalidation callback did not run in this case.
+The measurements also change legitimately between Flow and Gutter. The fault
+appears when the native collection replaces old or estimated cell geometry while
+the reader moves. Root removed all temporary cache/layout logs before testing the
+correction. The corrected native view snapshots existing visible source cells
+after the pan moves the viewport, lets UIKit lay out new sizes, and cancels extra
+movement of a surviving cell caused by changed geometry. It skips elastic
+overscroll and guards against recursive corrections.
+
+Sourcea665e3dbaa349408efd9 runs the same deep gestures in82.97s. Its recording
+has no opposite-direction candidate during scrolling. The single flagged event
+is the settings sheet beginning to open, verified in exact decoded frames831
+through833. Screens also confirm that the panel traverses older messages in both
+layouts. The native/Rust/history checks pass; long-message and tool checks remain
+pending. No physical-phone smoothness claim follows from this simulator result.
+
+The actual before movie, after movie, decoded strips and numeric data remain in
+ignored private artifacts. The temporary opt-in phone recorder6ffa is installed
+but has not recorded: the owner has not answered its optional timing question.
+Camera and microphone stay disabled; iOS consent is required. Remove the recorder
+and its app launch hook before EP022 closes.

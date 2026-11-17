@@ -44,9 +44,32 @@ final class PhoneTranscriptNativeCell: UICollectionViewCell {
 final class PhoneTranscriptNativeView: UICollectionView {
     weak var owner: PhoneTranscriptController?
     private var measuredSize = CGSize.zero
+    private var restoringReader = false
 
     override func layoutSubviews() {
+        let keepPlace = owner?.isReadingGesture == true && !restoringReader
+            && contentOffset.y >= 0
+            && contentOffset.y <= max(0, contentSize.height + contentInset.bottom - bounds.height)
+        let before = keepPlace ? visibleCells.sorted { $0.frame.minY < $1.frame.minY }.compactMap { cell -> (String, CGFloat, CGFloat, CGFloat)? in
+            guard let id = cell.accessibilityIdentifier, id.hasPrefix("entry."),
+                  cell.frame.maxY > contentOffset.y, cell.frame.minY < contentOffset.y + bounds.height else { return nil }
+            return (id, cell.frame.minY - contentOffset.y, cell.frame.minY, cell.frame.height)
+        } : []
         super.layoutSubviews()
+        // A pan already moved the viewport before this layout pass. Preserve that
+        // position only when measuring cells moves their actual content geometry.
+        for (id, y, top, height) in before {
+            guard let cell = visibleCells.first(where: { $0.accessibilityIdentifier == id }) else { continue }
+            if abs(cell.frame.minY - top) > 0.5 || abs(cell.frame.height - height) > 0.5 {
+                let delta = cell.frame.minY - contentOffset.y - y
+                if abs(delta) > 0.5 {
+                    restoringReader = true
+                    setContentOffset(CGPoint(x: contentOffset.x, y: contentOffset.y + delta), animated: false)
+                    restoringReader = false
+                }
+            }
+            break
+        }
         if contentSize != measuredSize {
             measuredSize = contentSize
             owner?.layoutChanged()

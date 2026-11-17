@@ -33,6 +33,8 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
     private var width: CGFloat = 0
     private var height: CGFloat = 0
 
+    var isReadingGesture: Bool { userScrolling }
+
     override func loadView() {
         layout.owner = self
         collection.owner = self

@@ -34,6 +34,61 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Compare the corrected motion on sourcea665e3dbaa349408efd9. The identical
+  deep read-only UI run passes82.97s, fixture reference-motion-1e66083017; movie
+  reference-anchored-motion-a665-01.mp4 is preserved. Whole-viewport phase matching
+  finds only one opposite-direction candidate in that movie, at frame832. Exact
+  decoded frames831/832/833 show the settings sheet beginning to open, before
+  scroll gestures. The previously inspected16pt/15pt/13.8pt backward snaps do not
+  recur during scrolling. The panel still traverses older content in both layouts;
+  it is not frozen. Candidate generation alone is not a universal smooth-motion
+  verdict, and simulator video timing is not a physical-phone refresh measurement.
+  Sourcea665 also passes all native units, cargo test and the31.49s history
+  failure/retry/prepend workflow with original2pt assertions. Tool/live updates,
+  10MB source/exact clipboard and10000-line code remain running in anchored-check-*.
+  Its separately signed phone build is queued in anchored-phone-build-01.log.
+- [ ] Verify native layout anchoring against the captured moving snap. Direct
+  fit logs in efc5e246f0602ae3c494 and cache/offset logs in cf03f1f33ce04b81de8f
+  show no custom preferred-invalidation callback. Each completed answer has one
+  cache miss followed by ready hits; reparsing does not explain this reproduction.
+  The long row also changes height with Flow/Gutter, which is a legitimate change
+  of display mode rather than evidence by itself of a cache failure. Keep the
+  numeric facts in native-layout-file-04.log and native-layout-cache-03.log.
+  Broad NSLog and simulated/host unified-log queries produced no events; direct
+  simulator cache-file logs work. The offset stack filter also catches ordinary
+  deceleration because UIKit can report dragging and decelerating together; do
+  not count every logged stack as a jerk. Restore all temporary layout/cache logs
+  to the committed source before testing the correction. Sourcea665e3dbaa349408efd9
+  adds only a native layout-pass reader anchor: capture visible source-cell positions
+  after the pan has moved the viewport, let UIKit lay out new cell sizes, then
+  cancel extra movement of an existing cell caused by changed geometry. Skip
+  elastic overscroll and prevent recursive corrections. Existing idle history/tool
+  anchors and bottom following keep their own roles. Record the identical deep
+  gestures before installing this candidate; reference-anchored-motion-replay-01
+  and recorder-01 are active. Compare exact decoded frames, not OpenCV random
+  seeking, and retain the original2pt/read/clipboard assertions.
+- [x] See a moving backward snap in the deep simulator movie. The actual decoded
+  frames4144/4145/4146 around76.0667s in reference-deep-motion-6ffa-01.mp4 show
+  the same whole transcript shifting upward16pt during a downward scroll. Three
+  independent text patches match that shift at>0.999 confidence; this is not just
+  a phase-correlation candidate. Inspect exact-reverse-76.png, built from exact
+  FFmpeg frame indices. OpenCV random frame seeking in this variable-frame-rate
+  file returned different frames, so the earlier reverse-76.png is not valid
+  evidence for those timestamps. Keep both and use exact decoding for comparisons.
+  Nearby candidates show15pt/13.8pt reversals. Native layout currently adds its
+  own contentOffsetAdjustment to the superclass result; a20pt footer estimate
+  change plus ongoing finger movement could explain these steps. This is a lead,
+  not yet a proven cause. Source394910d7a104b714ad98 adds opt-in numeric layout
+  logs to the same deep fixture, without changing scroll behavior. Capture the
+  inherited/final offset change before choosing the fix; log reference-layout-trace-01.
+- [x] Install and launch temporary phone recorder6ffab956a0f1a4b461a5 after all19
+  native units pass. Signed preview6ffa-20261117T164528Z has executable SHA256
+  a9223b75aa6455fa4a2d705ff4d4f06fb2891083bd3bd48b21a856c5756b5692.
+  The app launched normally at16:45:36Z, without starting a recording. The owner
+  has a pending Ready now/Later timing question; only launch --carlos-scroll-record
+  after their reply and let them accept iOS's prompt. Retrieval helper
+  device-tools/collect-phone-scroll.py can copy just the diagnostic from the exact
+  iPhone to the owned Mac. Independent simulator diagnosis continues meanwhile.
 - [ ] Capture the actual phone motion if the simulator does not clearly show it.
   The first61.66s simulator movie (reference-motion-9a45-01.mp4) contains3320
   frames and four one-screen slow-down/fast-up cycles. Pixel phase-correlation
@@ -2114,3 +2169,15 @@ Revision2026-11-17: add a temporary opt-in app-only phone recorder and deeper
 read-only simulator gestures to observe the reported jerk. No additional scroll
 fix is chosen until moving evidence reproduces it. Keep denied Mac capture and
 the corrected callback warning honest, and remove temporary diagnosis code later.
+
+Revision2026-11-17: confirm an actual16pt backward snap from exact decoded
+moving frames and add a narrow native-layout trace before any correction. The
+phone recorder is installed but remains idle pending the owner's timing reply.
+
+Revision2026-11-17: rule out reparsing and the unused custom correction callback
+for this reproduction. Test one native layout-pass anchor with the same deep
+recorded gestures; no phone install or smoothness claim is made for it yet.
+
+Revision2026-11-17: save the actual before/after moving-frame comparison. The
+inspected backward scrolling snaps disappear in the candidate; native/Rust/history
+checks pass. Keep long-source checks, phone install and final EP gates pending.
