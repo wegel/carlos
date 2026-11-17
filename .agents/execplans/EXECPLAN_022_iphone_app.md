@@ -34,6 +34,68 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Check recorder-free de74 native units19/19 and actual history failure/retry/
+  prepend. Live-tool scrolling/expansion also passes95.01s, retaining all2pt limits.
+  The native-list-final-gates runner continues with exact10MB source/copy and
+  10000-line code. The passing flick candidatea1 differs only by the removed
+  inactive recorder/task; all scrolling and fixture/test files match byte for byte.
+- [ ] Check the generated-history native-flick/native-motion fixture workflows.
+  They allow another contributor to repeat the actual app/daemon check without
+  the private captured conversation. They reuse one resumed native owner and
+  require no prompt. Existing private deep-motion/flick evidence remains retained.
+
+- [ ] Finish the native list checks before another phone install. Source01dd58ff5c166397ace0
+  replaces flow layout and removes manual gesture-offset corrections and their
+  unused owner callbacks. Keep stable IDs, parsed documents, diffable updates and
+  explicit idle history/tool anchors. Its102.04s deep replay passes. The exact
+  sequential6125-frame movie reference-native-list-motion-01dd-01.mp4 has no
+  opposite-direction candidate with the same confidence/movement rule that found
+  the earlier failures. The overview shows genuine travel through older messages
+  in both layouts, not a frozen viewport. The first raw-offset flick comparison
+  fails at1.151x native travel; raw offsets also include revised row estimates.
+  Sourcea1cd46ea2e458602996c measures the same visible cell across layout passes,
+  preserving the10% limit, and adds a4000-velocity long fling alongside .fast.
+  Run it and the identical slow-setter baselineb09f246eb38d8cf8f704 before deciding
+  whether the new counter measures native travel correctly. Never weaken the
+  native comparison to hide a real speed difference. The temporary phone recorder
+  and its startup hook are now removed from the working tree; no phone recording
+  was started. Keep its earlier frozen sources and all videos privately.
+- [x] Retain the failed native-context candidate799. It passes native flick parity
+  620pt versus615pt, native units, Rust, history, live-tool, exact10MB source/copy
+  and10000-line code checks, but its movie flags two large backward movements.
+  Exact strips2310-2314 and4353-4357 show the last answer moving upward and back
+  during older-history gestures. Settled-coordinate passes do not prove motion.
+  The sampled source-test RSS peaks926036KiB; this is an intermediate source,
+  not the final list candidate's memory cost. Keep source-memory-799...json.
+- [x] Match native flick travel in the real captured conversation. Candidatea1cd46ea2e458602996c
+  passes the unchanged10% comparison using visible text: normal606pt versus native
+  616pt; strong4000-velocity fling2390pt versus2446pt. Both differ by less than3%.
+  The same coordinate path,637pt viewport and source depth drive both panels.
+  Keep native-list-visible-flick-02.log and its passed97.04s test, fixture
+  reference-flick-15d2448f4f. Test-only counters and the native reference panel
+  compile solely under CARLOS_FIXTURE; Release includes neither. The raw-offset
+  earlier failure remains retained, not rewritten as passing. The older slow setter
+  also fails the strengthened raw-offset comparison at0.386x native travel; keep
+  momentum-setter-native-baseline-02.log. Its visible-text counterpart remains
+  running. The clean source de74af3e4ef7529f93d6 removes only the inactive temporary
+  phone recorder/hook froma1; the native layout/controller/test code is unchanged.
+  Its native/history/tool/source/code gates are queued in native-list-final-gates-01.
+  Workspace cargo test passes1795 tests,12 ignored in native-list-clean-cargo-01.
+- [x] Reproduce the slow-flick regression in installeda665. The owner reports no
+  jerking but cannot swing far through history. Its setContentOffset(animated:false)
+  call can cancel UIKit's coast. Baseline914 travels881.33pt in the initial fast
+  swipe check; bounds-onlybb4 travels1163pt. The initial1.5-viewport floor is not
+  the final criterion: sourcea926 shows the plain native control itself travels
+  only800pt with XCUIElement.swipeDown(.fast). Replace that arbitrary absolute
+  floor with the owner's stronger native comparison using identical coordinate
+  paths, unchanged velocity and a10% relative tolerance. Do not tune the native
+  deceleration rate or require Carlos to move faster than ordinary iOS text.
+- [x] Install anchor previewa665 after its checked native/history/tool/source/code
+  gates. Its signed executable SHA256 is
+  e1903cf1bdab44cafd6d7e23a4833ff65b115e6fc7ca9903ad9338139d3c5c5b.
+  Install succeeds at17:46Z; automatic launch fails because the owner phone is
+  locked. The owner later opens it and reports the momentum regression above.
+  The normal-shell daemon remains untouched, and no phone recording was started.
 - [x] Compare the corrected motion on sourcea665e3dbaa349408efd9. The identical
   deep read-only UI run passes82.97s, fixture reference-motion-1e66083017; movie
   reference-anchored-motion-a665-01.mp4 is preserved. Whole-viewport phase matching
@@ -2181,3 +2243,22 @@ recorded gestures; no phone install or smoothness claim is made for it yet.
 Revision2026-11-17: save the actual before/after moving-frame comparison. The
 inspected backward scrolling snaps disappear in the candidate; native/Rust/history
 checks pass. Keep long-source checks, phone install and final EP gates pending.
+
+Revision2026-11-17: retain the owner-confirmed a665 momentum regression. Add a
+real fast-flick travel check and compare a bounds-only correction with the slow
+setter before any further deployment. Keep UIKit's normal deceleration settings.
+
+Revision2026-11-17: retain the measured881pt/1163pt flick comparison and the
+failed absolute native-control threshold. The owner requires normal iOS behavior,
+so compare identical coordinate gestures directly with a fixture-only native
+text panel, within10%, rather than imposing an arbitrary faster-than-native floor.
+
+Revision2026-11-17: record the passing native flick comparison and the remaining exact-frame3pt reversal; test native layout-context offset changes before another phone install.
+
+Revision2026-11-17: retain the799 native-context motion failure and test native compositional list cells without custom gesture-offset correction.
+
+Revision2026-11-17: record the native-list movie, preserve the raw-offset comparison failure, measure visible-cell travel for both normal and strong flicks, and remove the unused temporary phone recorder.
+
+Revision2026-11-17: record native normal/strong flick parity within3%, preserve the slow baseline failure, and freeze recorder-free source de74 for clean gates and phone packaging.
+
+Revision2026-11-17: record clean native/history/live-tool passes and the visible-text slow-setter failure; add deterministic generated-history checks without private captures.

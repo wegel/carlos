@@ -4,6 +4,65 @@ import XCTest
 
 extension SessionWorkflowTests {
     @MainActor
+    func testFastFlickKeepsNativeMomentum() throws {
+        try compareNativeFlick(velocity: .fast)
+        try compareNativeFlick(velocity: XCUIGestureVelocity(4000))
+    }
+
+    @MainActor
+    private func compareNativeFlick(velocity: XCUIGestureVelocity) throws {
+        let app = try connectedHost()
+        let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 15))
+        session.tap()
+        setTools("Auto", in: app)
+        app.buttons["header.settings"].tap()
+        app.segmentedControls["settings.layout"].buttons["Gutter"].tap()
+        app.navigationBars["Session settings"].buttons["Done"].tap()
+        let transcript = app.collectionViews["transcript"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 15))
+        let before = try scrollMetrics(transcript)
+        XCTAssertGreaterThan(before.offset, before.height * 3, "This fixture must have plenty of older history")
+        fastFlick(in: transcript, velocity: velocity)
+        let after = try scrollMetrics(transcript)
+        let distance = after.motion - before.motion
+        capture("Fast flick travels \(Int(distance)) points across a \(Int(before.height))-point viewport", screenshot: app.screenshot())
+        app.terminate()
+        app.launchArguments = []
+        app.launchEnvironment["CARLOS_NATIVE_SCROLL_REFERENCE"] = "\(before.content)"
+        app.launch()
+        let reference = app.scrollViews["transcript.native-reference"]
+        XCTAssertTrue(reference.waitForExistence(timeout: 15))
+        XCTAssertEqual(Double(reference.frame.height), before.height, accuracy: 1)
+        let nativeBefore = try scrollMetrics(reference)
+        fastFlick(in: reference, velocity: velocity)
+        let nativeAfter = try scrollMetrics(reference)
+        let nativeDistance = nativeAfter.motion - nativeBefore.motion
+        XCTAssertGreaterThan(nativeDistance, before.height * 0.9,
+                             "The native control must coast substantially beyond the 0.6-viewport finger path")
+        XCTAssertEqual(distance / nativeDistance, 1, accuracy: 0.10,
+                       "Carlos must preserve the same fast-flick travel as an ordinary native iOS text panel")
+        capture("Carlos flick \(Int(distance)) points, native iOS flick \(Int(nativeDistance)) points", screenshot: app.screenshot())
+        app.terminate()
+    }
+
+    @MainActor
+    private func fastFlick(in element: XCUIElement, velocity: XCUIGestureVelocity) {
+        let start = element.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.2))
+        let end = element.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.8))
+        start.press(forDuration: 0.05, thenDragTo: end, withVelocity: velocity, thenHoldForDuration: 0)
+    }
+
+    @MainActor
+    private func scrollMetrics(_ element: XCUIElement) throws -> (offset: Double, height: Double, content: Double, motion: Double) {
+        let value = try XCTUnwrap(element.value as? String)
+        let parts = value.split(separator: "/").compactMap { Double($0) }
+        XCTAssertEqual(parts.count, 4)
+        return (try XCTUnwrap(parts.first), try XCTUnwrap(parts.dropFirst().first),
+                try XCTUnwrap(parts.dropFirst(2).first), try XCTUnwrap(parts.last))
+    }
+
+    @MainActor
     func testReadOnlyReferenceScrollsThroughOlderRows() throws {
         let app = try connectedHost()
         let session = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'session.'")).firstMatch

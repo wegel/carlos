@@ -144,3 +144,50 @@ ignored private artifacts. The temporary opt-in phone recorder6ffa is installed
 but has not recorded: the owner has not answered its optional timing question.
 Camera and microphone stay disabled; iOS consent is required. Remove the recorder
 and its app launch hook before EP022 closes.
+
+## Native flick speed and list layout
+
+The owner found installeda665 free of the previous jerks but too slow after a flick.
+Its direct setContentOffset call can stop native deceleration. Bounds-only correction
+restores the first flick check, but the a926 movie retains one inspected3pt backward
+step. Native invalidation-context candidate799 preserves flick travel620pt versus615pt
+for a plain native scroll control, yet its longer movie contains two large upward
+movements during older-history gestures. Keep both failures; none was deployed.
+
+Candidate01dd replaces flow layout with UIKit's plain compositional list. It removes
+custom gesture-offset correction and its owner callbacks while keeping stable cells,
+parsed documents, pending updates and explicit history/tool anchors. Its102.04s deep
+replay traverses older messages in both layouts. The same exact-sequential-frame scan
+finds no opposite-direction candidate in6125 decoded frames. This is stronger evidence
+than settled screenshots; it is not a physical-phone refresh-rate measurement.
+
+The first raw-offset native comparison fails at1.151x native travel. Raw offsets also
+include changes to estimated offscreen heights. A fixture-only counter now follows the
+same visible source cell before and after layout, so the comparison measures visible
+text travel instead. The native control has fixed geometry. The10% relative tolerance
+remains unchanged; both a standard flick and a4000-velocity long fling must pass.
+The same counter/gestures also run against the slow-setter baseline. Those checks and
+the clean candidate's history/tool/source/code gates remain pending at this checkpoint.
+
+The temporary physical-phone recorder and its startup hook have been removed from the
+working tree. No phone recording was started. All private videos remain ignored; no
+captured conversation body appears in this report.
+
+The visible-text comparison passes on a1cd46ea2e458602996c: normal606pt versus
+native616pt, strong2390pt versus2446pt. Both differ by less than3%, against the
+unchanged10% limit. The identical visible-text test rejects the slow setter:
+normal618pt versus619pt passes, but the strong fling travels696pt and fails at
+0.27857x native travel. The stronger case therefore catches the owner's actual
+lost-momentum report, which the moderate flick alone misses. Keep the passing
+native-list-visible-flick-02 result and failed momentum-setter-visible-baseline-03.
+
+Clean source de74af3e4ef7529f93d6 differs from that passing candidate only by removal
+of PhoneScrollRecording.swift and its inactive CarlosApp startup task. All layout,
+controller, fixture and test files match byte for byte. It passes19 native tests,
+1795 Rust tests (12 ignored), history failure/retry/prepend, and95.01s live-tool
+scroll checks with the original2pt limits. Large-source/code gates remain pending.
+
+scripts/ios-fixture.py now offers native-flick and native-motion workflows backed
+by generated native history. They use the real daemon/phone and check that the
+same resumed native owner receives no prompt. Their first runs remain pending;
+they add a repeatable public command alongside the private real-session replay.

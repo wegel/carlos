@@ -33,10 +33,7 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
     private var width: CGFloat = 0
     private var height: CGFloat = 0
 
-    var isReadingGesture: Bool { userScrolling }
-
     override func loadView() {
-        layout.owner = self
         collection.owner = self
         collection.backgroundColor = .clear
         collection.delegate = self
@@ -61,7 +58,6 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         super.viewDidLayoutSubviews()
         if collection.bounds.width > 0, width != collection.bounds.width {
             width = collection.bounds.width
-            layout.estimatedItemSize = CGSize(width: width, height: 26)
             layout.invalidateLayout()
             layoutChanged()
         }
@@ -125,12 +121,6 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         }.margins(.all, 0).minSize(width: 0, height: 0)
     }
 
-    func shouldKeepPlace(above path: IndexPath) -> Bool {
-        if following && !userScrolling { return true }
-        if let anchor, let target = source.indexPath(for: anchor.id) { return path.item < target.item }
-        return layout.layoutAttributesForItem(at: path).map { $0.frame.maxY <= collection.contentOffset.y + 0.5 } ?? false
-    }
-
     func layoutChanged() {
         guard !followScheduled else { return }
         followScheduled = true
@@ -184,7 +174,13 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         max(0, collection.contentSize.height + collection.contentInset.bottom - collection.bounds.height - collection.contentOffset.y)
     }
 
-    private func publishReadingState() { configuration?.readingChanged(!following && distance > 260) }
+    private func publishReadingState() {
+        #if CARLOS_FIXTURE
+        collection.motion.record(collection)
+        collection.accessibilityValue = "\(collection.contentOffset.y)/\(collection.bounds.height)/\(collection.contentSize.height)/\(collection.motion.distance)"
+        #endif
+        configuration?.readingChanged(!following && distance > 260)
+    }
 
     private func loadHistory() {
         guard let host = configuration?.host, !host.history.loading, host.transcript?.hasOlder == true else { return }

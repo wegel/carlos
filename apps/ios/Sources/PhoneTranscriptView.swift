@@ -9,8 +9,19 @@ struct PhoneTranscriptView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            PhoneTranscriptCollection(host: host, preferences: preferences,
-                items: PhoneTranscriptCellItem.read(host: host, width: geometry.size.width, preferences: preferences),
+            #if CARLOS_FIXTURE
+            if let height = ProcessInfo.processInfo.environment["CARLOS_NATIVE_SCROLL_REFERENCE"].flatMap(Double.init) {
+                PhoneNativeScrollReference(contentHeight: height)
+            } else { panel(width: geometry.size.width) }
+            #else
+            panel(width: geometry.size.width)
+            #endif
+        }
+    }
+
+    private func panel(width: CGFloat) -> some View {
+        PhoneTranscriptCollection(host: host, preferences: preferences,
+                items: PhoneTranscriptCellItem.read(host: host, width: width, preferences: preferences),
                 version: host.contentVersion, followRequest: host.followRequest, session: host.selected,
                 openQuestions: openQuestions, readingChanged: { value in if showLatest != value { showLatest = value } })
                 .overlay(alignment: .bottom) {
@@ -25,7 +36,6 @@ struct PhoneTranscriptView: View {
                         }.accessibilityIdentifier("transcript.latest").padding(.bottom, 12)
                     }
                 }
-        }
     }
 }
 

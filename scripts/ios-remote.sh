@@ -79,6 +79,7 @@ ui-test)
         reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;
         reference-perf) test_case=testReadOnlyReferenceScrollPerformance ;;
         reference-motion) test_case=testReadOnlyReferenceScrollsThroughOlderRows ;;
+        reference-flick) test_case=testFastFlickKeepsNativeMomentum ;;
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
         token-update) test_case=testRejectedReplacementKeepsTheSavedTokenThroughCancelAndRestart ;;

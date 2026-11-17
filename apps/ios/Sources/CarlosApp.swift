@@ -10,7 +10,6 @@ struct CarlosApp: App {
         WindowGroup {
             PhoneRootView(store: store)
                 .preferredColorScheme(.dark)
-                .task { PhoneScrollRecording.shared.startIfRequested() }
                 .onChange(of: scenePhase, initial: true) { _, phase in
                     if phase == .background { reconnectAfterBackground = true }
                     if phase == .active { resumeConnections() }

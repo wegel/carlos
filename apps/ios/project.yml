@@ -19,6 +19,7 @@ targets:
     platform: iOS
     sources:
       - path: ${CARLOS_APP}/Sources
+      - path: ${CARLOS_APP}/FixtureSupport
       - path: ${CARLOS_GENERATED}/Swift
       - path: ${CARLOS_APP}/Resources
         buildPhase: resources
@@ -49,6 +50,7 @@ targets:
       configs:
         Fixture:
           PRODUCT_BUNDLE_IDENTIFIER: app.carlos.phone.fixture
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) CARLOS_FIXTURE"
           # Exercise documented iPadOS hardware-key tests; the shipping app stays iPhone-only.
           TARGETED_DEVICE_FAMILY: "1,2"
   CarlosTests:
