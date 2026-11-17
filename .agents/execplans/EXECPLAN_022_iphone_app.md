@@ -35,13 +35,45 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Add the owner's phone message controls: explicit Steer/Queue choice while
-  work runs and Edit from here on a saved user message. Keep the existing Stop
-  button only when the main composer is empty, as the owner clarified. Load an
-  exact original prompt by its stable transcript row, then fork through the same
-  session/rewind command as the TUI only after an explicit Fork and send action.
-  Keep the main composer draft, reject stale/foreign selections, preserve failed
-  edits and prove actual native requests in simulator checks before installation.
+- [x] (2026-11-17 23:29Z) Install final phone controls on the exact iPhone18 Pro.
+  Source803de11aabdd9e72988f builds Release, passes strict signing and installs
+  successfully. Launch is denied only because the phone is locked; the owner
+  can open Carlos after unlocking. Executable SHA256 and receipts are recorded
+  in exec022-phone-controls-handoff.md. Keep the accepted scrolling unchanged.
+- [ ] Complete the idle daemon upgrade, then inspect its real connectivity proof.
+  The checked6d95ccf1448677ce01b8656d96b11f47 CLI/daemon/helper package is
+  installed asUID1000 with515 hashes verified and backups at
+  ~/.local/lib/carlos/backups/20261117T232124Z. The running daemon remains
+  PID1723001/sourcefa5890c2 and hosts this active turn. Its existing
+  carlos-phone-daemon.service must not be stopped during this turn. The new
+  carlos-phone-controls-daemon.service is armed separately, currently waiting
+  for every saved session to be idle. It targets the exact old PID/birth and
+  preserves its normal-shell environment, state, socket, config and device
+  grants. The old service recovery plan is pinned to its immutable fa589
+  package. The new checker writes phone-controls/normal-phone-connectivity.json
+  below tmp/phone-handover-tools after activation; do not claim it passed yet.
+  The isolated new-source handover check passes with the same session/device
+  grant and zero native prompts. Ending this turn lets the real update run.
+- [x] Add explicit Steer/Queue choice while work runs and Edit from here on a
+  saved user message. Keep Stop only when the main composer is empty, as the
+  owner clarified. Resolve an immutable original prompt through its exact row,
+  load complete checked chunks into a separate editor, and fork only after an
+  explicit Fork and send. Stop running work explicitly first. Cancel/rejection
+  preserve both drafts; uncertain outcomes never replay automatically. Final
+  source803de passes24 native units without skips and all three actual app/
+  native-request workflows: modes94.768s, edit/cancel89.398s, rejected91.394s.
+  Root inspected all three captured screens, including the44pt primary action.
+  Linux release checks pass226 daemon and332/333 terminal cases; the single
+  queue paging timeout at34/45 versus35/45 passes unchanged in isolation.
+  The remaining selection/source/dictation/ANSI checks,23 native Codex cases
+  and10 native Claude cases pass on the same6d95 pair. Preserve all original
+  failed runs, including the gate01 socket-created-before-listen fixture race.
+  The fixture now probes an actual connection; focused Grok rechecks pass.
+  Full sources, commits, logs, costs and receipts: exec022-phone-controls-handoff.md.
+- [ ] Finish the EP error-label polish: the rejected-fork screenshot proves
+  both drafts survive, but the existing backend error exposes its JSON wrapper.
+  Show the human error message while retaining detailed diagnostics. Preserve
+  Apple hosting-view warning attachments from the passing simulator runs.
 - [x] Reproduce and correct the passive debug scroll assertion59 vs60 offline.
   The46 captured rows isolate one indented ASCII call. The greedy-only ASCII
   counter returns4 lines where the existing painter returns3 at width95/98.
@@ -1062,6 +1094,22 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+2026-11-17 phone controls: final native screenshots confirm the separate editor
+retains a rejected edit and cannot replace a nonempty main draft. They also
+expose the existing backend JSON error wrapper; keep that error-label polish
+open for the final EP pass. Five interleaved1000-turn perf runs compare the
+frozen fa5890c2 and checked6d95ccf1 packages: exact long-ASCII row counting
+raises median initial layout16.53ms to20.58ms, while scroll p95 stays0.70ms
+versus0.69ms and typing p95 stays0.51ms versus0.49ms. Both render39347 lines.
+The harness reports zero RSS, so these runs establish no memory comparison.
+
+2026-11-17 phone edit identity: a pending prompt keeps its own immutable record
+id when the native echo binds it to a visible row. The two ids can differ, so a
+phone cannot safely send its row id as session/rewind's prompt. Add at_entry to
+the existing prompt/select read, match only the chosen source/session's exact
+bound entry, and pass its returned record id through original-text reads and
+fork submission. Identical text never supplies an alternate anchor.
+
 2026-11-17 watch race: a superseded output watch produces a legitimate -32012
 reply from the daemon when its original engine read returns. The client removed
 desired watch state but retained that pending request, so the stale error reached
@@ -1810,6 +1858,14 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+2026-11-17 phone controls: preserve Queue as the existing phone default and let
+the user choose Steer explicitly while composing during a running response.
+Keep the main Stop/Send replacement when the draft is empty; the owner says this
+is a sensible compromise. Open old-message edits in a separate sheet to retain
+the normal draft. The user must explicitly choose Fork and send, or Stop first
+when a response still runs. Retain rejected/uncertain text through the existing
+private recovery UI without replaying it or overwriting a different draft.
+
 2026-11-17: retire cancelled output/source watch requests by their owned key and
 request id rather than matching daemon error text or weakening body validation.
 Clear the terminal's matching pending state when it pauses the watch. Accepting
@@ -2087,6 +2143,16 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+2026-11-17 phone-controls checkpoint: the exact-row prompt read, typed send
+modes and separate editor are implemented and committed. All24 final native
+units and all three actual simulator/native-request workflows pass on source
+803de11aabdd9e72988f. The checked Linux6d95ccf1 package is installed with
+backups; the live fa5890c2 daemon remains untouched during this turn. The final physical
+phone install also passes; launch is denied only because the phone is locked.
+The separately armed idle-only daemon upgrade is the immediate next step. See exec022-phone-controls-handoff.md for every failed/retried gate,
+exact source, screenshot and measured cost. EP022 remains open and no end-only
+review or delegated approval has occurred.
 
 2026-11-17 watch/phone checkpoint: the output-watch repair and optional build
 guard are committed as5dc0abfc andfb414108. Both deterministic terminal regressions
@@ -2633,3 +2699,5 @@ Revision2026-11-17: record the explicit normal-install request, read-only mount 
 Revision2026-11-17: save the owner-requested sandbox restart checkpoint, verified normal install, idle local-only daemon facts, server-manager changes and exact UI test-selector retry state. No EP approval or new phone deployment.
 
 Revision2026-11-17: resume after the sandbox restart and prioritize the newly reported oversized Codex history response; diagnose with isolated private copies before modifying paging or limits.
+
+Revision2026-11-17: prove explicit phone send modes and exact old-message forks on the final simulator source, preserve failed-run evidence and drafts, install the checked Linux package, and stage the separately named idle daemon upgrade without killing this turn. Keep EP022 open for final app polish and end-only review.
