@@ -123,6 +123,18 @@ The normal daemon still needs its listener. An optional private daemon.json star
 file and authenticated managed-restart checks are being completed under EP022.
 Keep existing preview/catalogues unchanged and install only matching checked
 packages. Arrange the one-time normal restart after this active turn finishes.
+The owner now permits different source builds to attach to the same daemon when
+their protocol matches. CARLOS_STRICT_DAEMON_BUILD=1 opts into the former exact
+build guard; protocol and explicit native endpoint checks remain mandatory.
+EP022 also fixes late replies from cancelled source/output watches, including
+the owner's superseded-watch status and old-cursor disconnect reports. Keep
+the current normal daemon alive until this turn and every other session are idle.
+Checked runtimefa5890c2 is installed with backups at~/.local/lib/carlos/backups/20261117T220849Z.
+Phone source122768f838c06ad4231a passes24 simulator tests and is installed and
+launched on iPhone18 Pro. Idle restart and authenticated LAN-check user services
+are armed; actual listener readiness must be confirmed after this turn ends.
+`.agents/reports/exec022-watch-phone-handoff.md` records checks, original failures,
+unchanged successful rechecks and the remaining EP022 work.
 
 The owner can test `target/preview-9cc99ff/try-carlos`, a fully checked snapshot that predates
 only the narrow final API/compiler corrections; it keeps separate Carlos session state.

@@ -54,15 +54,18 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   pass. The old checked package stalls on the backlog before that late reply.
   Strict current-body checks remain unchanged. Release gate01 was deliberately
   interrupted for this second reported race; coherent gate02 now runs.
-- [ ] Finish the owner's compatible-build override and checked install. Exact
+- [x] Finish the owner's compatible-build override and checked install. Exact
   source equality is now opt-in via CARLOS_STRICT_DAEMON_BUILD=1; protocol and
   explicit native endpoint checks remain mandatory. All15 debug launcher checks
   pass. The first compatibility-only release gate was deliberately interrupted
   to include the newly reported watch fix in one coherent checked package.
-  The installed195960d6 pair differs from the live284b3acc daemon. Idle restart
-  and connectivity-proof user services are stopped until the final package is
-  checked and installed; neither service has restarted production.
-- [ ] Continue after the owner resumes this conversation inside Carlos. Root now
+  Final sourcefa5890c2b5fc4cf106fd45f1217b84fe is installed after checks, with
+  all515 hashes verified and backups under~/.local/lib/carlos/backups/20261117T220849Z.
+  The full release run passes224/225 daemon and331/332 terminal cases; each
+  missed Claude case passes unchanged in isolation. Keep the original failures.
+  All remaining source/copy checks,23 native Codex and10 native Claude checks
+  pass against the same source. Details: exec022-watch-phone-handoff.md.
+- [x] Prepare normal phone access after the owner resumes inside Carlos. Root now
   runs in the normal user namespace (UID1000) and can identify the live normal
   daemon, PID1458745. It has no network listener; neither33731 nor33732 listens.
   Keep this active native turn alive. Add an optional private startup configuration
@@ -75,8 +78,20 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   workflows pass, including a real authenticated WebSocket/Unix session shared
   across a managed restart with the same device grant. The normal catalogue now
   has an iPhone18 Pro grant; its token is private at ~/.config/carlos/iphone18-pro.token.
-  The full release/native gate runs before a matching normal install. Keep every
-  failure; no frame cap, assertion or deadline has been weakened.
+  The checked package is installed. The normal user services are armed and wait
+  for all sessions to be idle before the one-time listener restart. Their private
+  plan, restart receipt and connectivity proof stay under tmp/phone-handover-tools.
+  No frame cap, assertion or deadline has been weakened.
+- [ ] Confirm the real listener after this active turn ends. The handover receipt
+  must leave waiting-for-idle, and normal-phone-connectivity.json must confirm
+  the normal token, sourcefa5890c2, current logical session and Mac LAN reachability.
+  This is an activation handover, not EP approval. The owner must relaunch each
+  existing TUI to load the client fix; F5 alone retains its old executable.
+- [x] Build, test, sign, install and launch phone source122768f838c06ad4231a,
+  including the shared watch fix. All24 actual simulator tests pass. Strict
+  signing passes; the first device install loses XPC, and the unchanged retry
+  installs and launches on the exact iPhone18 Pro. Keep both device logs and
+  signed bundle previews/122768f838c06ad4231a-20261117T221212Z/Carlos.app.
 - [x] Deploy checked saved-server app23952a4b8d31245275a0 to the exact iPhone18 Pro.
   The Release build and strict signing pass. Immutable signed Mac bundle:
   previews/23952a4b8d31245275a0-20261117T210725Z/Carlos.app, executable SHA256
@@ -2057,6 +2072,26 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+2026-11-17 watch/phone checkpoint: the output-watch repair and optional build
+guard are committed as5dc0abfc andfb414108. Both deterministic terminal regressions
+pass against the fixed debug and release pairs and fail against frozen195960d6.
+No new reviewer or developer agent was used. Release/native checks finish across
+the retained original runs and unchanged isolated rechecks described in
+exec022-watch-phone-handoff.md. Runtimefa5890c2 is installed with515 verified
+hashes and backups; the updated phone app passes24 simulator tests and installs
+and launches on iPhone18 Pro. Production still hosts this active turn and has
+not restarted. Both normal user handover services are armed; the restart receipt
+confirms waiting-for-idle against PID1458745. End this turn so it can finish.
+The following turn must inspect the real authenticated LAN proof before claiming
+the phone listener is ready. Relaunch existing terminal processes for the client
+fix; F5 only reconnects their old executable. EP022 is not complete or approved.
+The separate passive debug scroll observer04 hit the existing render-cache
+line-count assertion59 vs60 at render_cache_state.rs350. Do not count that
+observer as a clean runtime check; keep its private artifact and investigate
+that renderer discrepancy in EP022 after this urgent client/listener handover.
+The release observer05 captured90 seconds without a reconnect, which is useful
+diagnostic evidence but does not prove the intermittent error is absent.
 
 2026-11-17 resume repair complete: Root traced the failure to one oversized
 native history batch and implemented bounded complete-turn reads plus shared
