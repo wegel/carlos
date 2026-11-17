@@ -111,6 +111,8 @@ impl Client {
             _ => unreachable!("typed body watch"),
         }
         let outgoing = self.requests.issue(connection, command, kind)?;
+        self.requests
+            .retire_watches(&key.session, &key.entry, key.source, Some(outgoing.id));
         self.watches.desired.insert(key, token.clone());
         Ok(outgoing)
     }
@@ -119,6 +121,8 @@ impl Client {
     pub fn close_body(&mut self, token: &BodyToken) -> Effects {
         let key = Key::token(token);
         if self.watches.desired.get(&key) == Some(token) {
+            self.requests
+                .retire_watches(&key.session, &key.entry, key.source, None);
             self.watches.desired.remove(&key);
             self.watches.active.remove(&key);
             self.cancel_watch(key);

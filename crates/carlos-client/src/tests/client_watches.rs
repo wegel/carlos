@@ -302,3 +302,6 @@ mod restore;
 
 #[path = "client_body_pause.rs"]
 mod pause;
+
+#[path = "client_watch_cancellation.rs"]
+mod cancellation;

@@ -35,6 +35,33 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Reproduce the owner's `output watch was superseded` status message with a
+  deterministic terminal race: hold the first source watch, replace its source,
+  accept the new output, then deliver the old request error. Checked package195960d6
+  fails the visible-screen assertion; the corrected debug pair passes, preserving
+  the replacement tail and editable private draft with no send or reconnect.
+  Retire pending watch requests when closing, explicitly pausing or replacing
+  their watch. Match session/entry/format, never error-message text. Three shared
+  client tests cover both body formats, a reused token, pause and current failures.
+  All208 carlos-client tests pass. Full workspace/release checks remain pending.
+- [x] Extend the fix for the owner's repeated `F5 reconnects: body reply has a
+  different entry, revision, cursor or byte interval` reports in both live TUIs.
+  When a large live append pauses a pending source watch, clear the platform's
+  pending id alongside the client's retired request, then pull the backlog from
+  its checked cursor. A terminal check holds that watch, appends200KiB, drains
+  the tail, then delivers an old valid chunk from an earlier byte interval.
+  Both terminal race checks pass against the debug pair; all209 client checks
+  pass. The old checked package stalls on the backlog before that late reply.
+  Strict current-body checks remain unchanged. Release gate01 was deliberately
+  interrupted for this second reported race; coherent gate02 now runs.
+- [ ] Finish the owner's compatible-build override and checked install. Exact
+  source equality is now opt-in via CARLOS_STRICT_DAEMON_BUILD=1; protocol and
+  explicit native endpoint checks remain mandatory. All15 debug launcher checks
+  pass. The first compatibility-only release gate was deliberately interrupted
+  to include the newly reported watch fix in one coherent checked package.
+  The installed195960d6 pair differs from the live284b3acc daemon. Idle restart
+  and connectivity-proof user services are stopped until the final package is
+  checked and installed; neither service has restarted production.
 - [ ] Continue after the owner resumes this conversation inside Carlos. Root now
   runs in the normal user namespace (UID1000) and can identify the live normal
   daemon, PID1458745. It has no network listener; neither33731 nor33732 listens.
@@ -1005,6 +1032,19 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+2026-11-17 watch race: a superseded output watch produces a legitimate -32012
+reply from the daemon when its original engine read returns. The client removed
+desired watch state but retained that pending request, so the stale error reached
+the terminal status line. A real terminal regression fails against the frozen
+195960d6 package and passes against the fix. This test reproduces the message,
+not a transport disconnect; do not claim it explains every earlier F5 report.
+
+2026-11-17 package policy: the owner explicitly wants different source builds to
+share a protocol-compatible daemon by default. Preserve strict matching as an
+environment opt-in and continue rejecting incompatible protocols and an explicit
+native endpoint mismatch. The one-time idle restart remains necessary for the
+new saved phone listener, not merely to equalize build hashes.
+
 2026-11-17 phone handover: this resumed turn runs as hostUID1000 rather than
 containerUID0, and the normal socket reports actual PID1458745. Its command has
 no --listen; neither33731 nor33732 is open. Eleven actual launcher checks pass,
@@ -1739,6 +1779,17 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+2026-11-17: retire cancelled output/source watch requests by their owned key and
+request id rather than matching daemon error text or weakening body validation.
+Clear the terminal's matching pending state when it pauses the watch. Accepting
+an earlier cursor into a newer body would duplicate bytes or disconnect a reader;
+the old request no longer has authority to update that body.
+
+2026-11-17: make exact build equality opt-in at the owner's explicit request.
+CARLOS_STRICT_DAEMON_BUILD=1 retains the diagnostic guard. Mandatory protocol
+checks and explicitly requested native socket checks still reject incompatible
+peers. Do not restart production solely because a compatible build changed.
 
 2026-11-17: persist only the network settings needed by this actual phone setup.
 The managed CLI passes the existing ~/.config/carlos/daemon.json when starting

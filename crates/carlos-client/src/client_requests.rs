@@ -157,7 +157,10 @@ impl Client {
                 session,
                 entry,
                 source,
-            } => self.watches.unsubscribed(session, entry, source),
+            } => {
+                self.requests.retire_watches(&session, &entry, source, None);
+                self.watches.unsubscribed(session, entry, source);
+            }
             _ => {}
         }
     }

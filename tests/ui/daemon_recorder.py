@@ -6,7 +6,7 @@ import threading
 
 
 class DaemonRecorder:
-    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0):
+    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0, defer_source_watch_once=False):
         self.source_error_once = source_error_once
         self.source_read_error_after = source_read_error_after
         self.goal_error_once = goal_error_once
@@ -17,6 +17,9 @@ class DaemonRecorder:
         self.drop_text_once = False
         self.hold_sources = False
         self.held_sources = []
+        self.defer_source_watch_once = defer_source_watch_once
+        self.deferred_source_watch = None
+        self.source_watch_held = threading.Event()
         self.path = path
         self.upstream = upstream
         self.root = root
@@ -118,7 +121,12 @@ class DaemonRecorder:
                     if self.stop.is_set():
                         break
                     error = self.source_failure(message) if direction == "client" else None
-                    if error is not None:
+                    if direction == "client" and self.defer_source_watch_once and message.get("method") == "entry/source/subscribe":
+                        self.defer_source_watch_once = False
+                        with self.device_write:
+                            self.deferred_source_watch = (source, message["id"])
+                            self.source_watch_held.set()
+                    elif error is not None:
                         self.record("server", error)
                         with self.device_write:
                             source.sendall(json.dumps(error).encode()+b"\n")
@@ -197,6 +205,18 @@ class DaemonRecorder:
     def pause_sources(self):
         with self.device_write:
             self.hold_sources = True
+
+    def reject_deferred_source_watch(self):
+        self.finish_deferred_source_watch({"error":{
+            "code":-32012, "message":"output watch was superseded"}})
+
+    def finish_deferred_source_watch(self, reply):
+        with self.device_write:
+            device, identity = self.deferred_source_watch
+            self.deferred_source_watch = None
+            message = {"jsonrpc":"2.0", "id":identity, **reply}
+            self.record("server", message)
+            device.sendall(json.dumps(message).encode()+b"\n")
 
     def resume_sources(self):
         with self.device_write:

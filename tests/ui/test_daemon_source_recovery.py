@@ -6,6 +6,67 @@ from test_daemon_client import daemon_support
 
 
 class DaemonSourceRecovery:
+    def test_daemon_terminal_drains_live_backlog_without_accepting_a_cancelled_watch_cursor(self):
+        text = "original output\n" * 2000 + "ORIGINAL TAIL\n"
+        item = {"type":"agentMessage", "id":"backlog-answer", "phase":"final_answer", "text":text}
+        fixture, client, session = self.running_sources("watch-backlog", [item])
+        terminal = self.attach_daemon(fixture, session, "backlog", defer_source_watch_once=True)
+        recorder = terminal.daemon_recorder
+        terminal.wait(recorder.source_watch_held.is_set, "first source watch pending")
+        terminal.contains("ORIGINAL TAIL")
+        terminal.paste("private backlog draft")
+        terminal.wait(lambda:terminal.input_is("private backlog draft"), "draft ready")
+        watch = terminal.requests("entry/source/subscribe")[0]
+        self.source_append(fixture, "backlog-answer", "live appended output\n" * 10000 + "LIVE BACKLOG TAIL\n")
+        terminal.contains("LIVE BACKLOG TAIL")
+        reads = {request["id"] for request in terminal.requests("entry/source")
+                 if request["params"]["cursor"] == watch["params"]["cursor"]}
+        self.assertTrue(reads, "the paused watch gives way to a direct read at its accepted cursor")
+        delayed = next(message["result"] for message in terminal.messages("server")
+                       if message.get("id") in reads)
+        self.assertTrue(delayed["has_more"], "the old reply ends before the accepted tail")
+        recorder.finish_deferred_source_watch({"result":delayed})
+        terminal.paste(" survives")
+        terminal.wait(lambda:terminal.input_is("private backlog draft survives"), "typing after stale cursor")
+        self.assertIn("LIVE BACKLOG TAIL", terminal.text)
+        self.assertNotIn("F5 reconnects", terminal.text)
+        self.assertNotIn("Source failed", terminal.text)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(len(terminal.requests("hello")), 1)
+        terminal.snapshot("paused-watch-late-cursor-keeps-live-backlog")
+
+    def test_daemon_terminal_ignores_a_superseded_watch_error_after_source_replacement(self):
+        def item(text):
+            return {"type":"commandExecution", "id":"replaced-tool", "command":"printf output",
+                    "status":"completed", "exitCode":0, "aggregatedOutput":text}
+        original = "old output\n" * 5000 + "OLD OUTPUT TAIL\n"
+        fixture, client, session = self.running_sources("superseded-watch", [item(original)])
+        terminal = self.attach_daemon(fixture, session, "replacement", defer_source_watch_once=True)
+        recorder = terminal.daemon_recorder
+        terminal.wait(recorder.source_watch_held.is_set, "first source watch is still pending")
+        terminal.contains("OLD OUTPUT TAIL")
+        terminal.paste("private draft survives a stale watch error")
+        terminal.wait(lambda:terminal.input_is("private draft survives a stale watch error"), "private draft ready")
+
+        async def replace():
+            for link in list(fixture.native.connections):
+                await fixture.native.notify(link,"item/completed",turnId="history-turn",
+                                            item=item("replacement output\n" * 4000 + "NEW OUTPUT TAIL\n"))
+        asyncio.run_coroutine_threadsafe(replace(),fixture.native.loop).result(timeout=5)
+        terminal.contains("NEW OUTPUT TAIL")
+        terminal.wait(lambda:len(terminal.requests("entry/source/subscribe")) >= 2, "replacement watch issued")
+        recorder.reject_deferred_source_watch()
+        terminal.paste(" and still editable")
+        terminal.wait(lambda:terminal.input_is("private draft survives a stale watch error and still editable"),
+                      "terminal keeps handling input after the late error")
+        self.assertNotIn("output watch was superseded", terminal.text)
+        self.assertNotIn("F5 reconnects", terminal.text)
+        self.assertNotIn("Source failed", terminal.text)
+        self.assertIn("NEW OUTPUT TAIL", terminal.text)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(len(terminal.requests("hello")), 1, "no reconnect")
+        terminal.snapshot("superseded-watch-keeps-replacement-and-draft")
+
     @staticmethod
     def source_history(items):
         return {"id":"native-root", "status":{"type":"idle"}, "model":"fixture-model",

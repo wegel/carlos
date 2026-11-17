@@ -70,6 +70,7 @@ impl DocumentReads {
                     },
                 )?)?;
                 read.watched = false;
+                read.pending = None;
             }
             if read.pending.is_some() || blocked || read.watched {
                 continue;

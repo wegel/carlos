@@ -168,6 +168,30 @@ impl Requests {
         })
     }
 
+    pub fn retire_watches(
+        &mut self,
+        session: &SessionId,
+        entry: &EntryId,
+        source: bool,
+        except: Option<i64>,
+    ) {
+        self.entries.retain(|id, pending| {
+            let target = match &pending.kind {
+                Kind::Source(target) if source => target,
+                Kind::Output(target) if !source => target,
+                _ => return true,
+            };
+            let retired = Some(*id) != except
+                && target.watch
+                && &target.session == session
+                && &target.entry == entry;
+            if retired {
+                self.bytes -= pending.bytes;
+            }
+            !retired
+        });
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
         self.bytes = 0;
