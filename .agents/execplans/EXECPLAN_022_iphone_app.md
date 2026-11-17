@@ -34,6 +34,50 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Complete the owner's newly requested normal local installation. The owner
+  asks to use this branch as normal Carlos under~/.local/bin. This supersedes the
+  earlier no-install scope for this explicitly requested install only. Current
+  Rust source remains92d3a53538102e52153236eb9c0b4ba0; the full release/native gate04
+  already passes, a fresh release build is current,515 package hashes match, and
+  normal-install-package-smoke-01 passes. The tool container binds~/.local/bin
+  read-only; a require_escalated retry still fails with EROFS. No installed file
+  changed. Container-private~/.local/lib is NOT the host home, so do not give the
+  owner its paths. The complete verified package, old CLI/helper backups and
+  reviewed installer are in the shared checkout at tmp/install-carlos-92d3a535/.
+  The installer --check passes. The owner must run, without sudo, from their shell:
+  python3 /home/wegel/work/perso/carlos-daemon/tmp/install-carlos-92d3a535/install.py
+  It installs helper/daemon before CLI, saves the full package and backups under
+  their real~/.local/lib/carlos, verifies identities, and starts/stops no daemon.
+  An async preference asks whether plain Carlos should share the phone daemon
+  or use its own managed default; no answer has arrived. Do not alter that route
+  or restart the owner daemon without settling the actual normal-shell handover.
+- [x] Measure the prefetch-only large-source probe39c0e5c6fadc2526a385. It passes
+  the identical10MB/exact-copy test47.51s and samples447560KiB peak RSS versus
+  de74's1126612KiB, about60% lower. Keep no-prefetch-source-01, memory-01 and
+  source-memory-39c0...json on the Mac. The working tree and installed phone still
+  keep the owner-accepted normal prefetch setting. This implicates native cell
+  prefetch in the stress-case cost; do not add an unrelated document cache.
+  After the normal-install handover, consider disabling native cell prefetch only
+  for oversized source documents, keeping ordinary history unchanged, and verify
+  the actual source/scroll checks before adopting it. Final sweep/reviews remain.
+
+- [x] Owner validates the installed native-list app on the actual iPhone18 Pro:
+  "ah yes it's awesome now, thanks". The reported jerk and slow-fling problem is
+  accepted on the physical device as well as covered by the recorded/native checks.
+  Keep this normal-session behavior while finishing the remaining EP cost/review work.
+
+- [x] Install the checked native-list preview de74 on iPhone18 Pro at19:03:50Z.
+  Signing/strict verification succeeds; executable SHA256 is
+  ec790a19d6fb7ffe25cabb2754aa19377fcaaf3da11a0402e0d3dca35fb241ca.
+  Immutable Mac bundle:previews/de74af3e4ef7529f93d6-20261117T190305Z/Carlos.app.
+  Install receipt reports success; auto-launch is denied because the phone is
+  locked. The owner can open it normally. No phone recording was started.
+- [ ] Check one bounded large-source memory hypothesis before the final sweep.
+  Separate uncommitted snapshot39c0e5c6fadc2526a385 disables only UIKit prefetch;
+  the working tree and installed de74 keep the proven normal setting. Run the
+  identical source/exact-copy case and sampled RSS observer in no-prefetch-*-01.
+  Use the result to distinguish speculative cache changes from a measured cause.
+
 - [ ] Explain the measured large-source memory cost before final EP approval.
   The clean de74 10MB original-source/exact-copy workflow passes47.60s, fixture
   phone-codex-0abdb961c675, but its sampled app RSS peaks1126612KiB and remains
@@ -121,7 +165,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   failure/retry/prepend workflow with original2pt assertions. Tool/live updates,
   10MB source/exact clipboard and10000-line code remain running in anchored-check-*.
   Its separately signed phone build is queued in anchored-phone-build-01.log.
-- [ ] Verify native layout anchoring against the captured moving snap. Direct
+- [x] Verify native layout anchoring against the captured moving snap. Direct
   fit logs in efc5e246f0602ae3c494 and cache/offset logs in cf03f1f33ce04b81de8f
   show no custom preferred-invalidation callback. Each completed answer has one
   cache miss followed by ready hits; reparsing does not explain this reproduction.
@@ -163,7 +207,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   after their reply and let them accept iOS's prompt. Retrieval helper
   device-tools/collect-phone-scroll.py can copy just the diagnostic from the exact
   iPhone to the owned Mac. Independent simulator diagnosis continues meanwhile.
-- [ ] Capture the actual phone motion if the simulator does not clearly show it.
+- [x] Capture the actual phone motion if the simulator does not clearly show it.
   The first61.66s simulator movie (reference-motion-9a45-01.mp4) contains3320
   frames and four one-screen slow-down/fast-up cycles. Pixel phase-correlation
   locates movements but has not established a matching geometric jump. Retain
@@ -184,7 +228,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   change global Mac privacy settings. Phone build/sign/install02 and deep-motion
   recorder/replay01 are active, serialized by the existing Mac lock. Ask the owner
   for the brief manual recording/scroll gestures only after the recorder is ready.
-- [ ] Reproduce the moving jerk before changing the scroller again. The owner
+- [x] Reproduce the moving jerk before changing the scroller again. The owner
   confirms that installed9a45429810146c725110 still jerks and explicitly asks Root
   to find a way to see it. The settled2pt tests and lower scroll CPU have not
   established a fix. Pause the broad matrix launcher1973481 with SIGSTOP only;
@@ -216,7 +260,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   app sizes are now recorded in .agents/reports/exec022-scroll-checks.md. The owner
   has a concise optional question pending about stutters/jumps on this installed
   preview; independent checks continue without treating silence as a result.
-- [ ] Finish the owner's motion-stutter and jump fix. Source982f15b87f37886beb7f
+- [x] Finish the owner's motion-stutter and jump fix. Source982f15b87f37886beb7f
   retains parsed inline documents in an NSCache (64 entries and2MiB cost hints),
   prepares up to16 upcoming entries, shares rendered blocks across cell reuse and
   removes the asynchronous22pt placeholder for already-parsed block metadata.
@@ -866,6 +910,14 @@ time. The current acceptance checklist above states what remains before approval
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+The stronger native comparison catches a regression the moderate gesture misses.
+The slow setter travels618pt versus619pt native on the moderate flick but only
+28% of native travel on a strong fling. Raw offsets also count revised offscreen
+height estimates; following the same visible source cell instead gives an honest
+comparison. The native-list candidate passes both the captured and generated
+histories, and its deep movie has none of the former backward-step candidates.
+
 
 The native collection alone did not remove the owner's motion stutter. Reused cells
 still recreated inline parsers and briefly measured parsed blocks at22pt before
@@ -1569,6 +1621,15 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+- Decision: use UIKit's plain compositional list and remove flow-layout gesture
+  offset compensation. Retain only explicit idle history/tool anchors.
+  Rationale: direct offset calls stop momentum; bounds-only correction retains a
+  small backward step, and layout-context correction produces larger snaps. The
+  native list passes moving-frame checks and normal/strong flick comparisons
+  without a custom deceleration rate or another layout cache.
+  Date/Author:2026-11-17, Root.
+
+
 Decision2026-11-17 Root: use one native collection scroller, retain bounded parsed
 inline documents and block facts, and defer structural updates until a gesture
 ends. Remove the former SwiftUI marker controller instead of retaining competing
@@ -1799,6 +1860,22 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The owner tests installed de74 on iPhone18 Pro and calls the scrolling "awesome".
+This closes the physical jerk/momentum report. Keep the proven normal-session
+behavior; the high10MB stress-case RSS and remaining whole-EP checks stay separate
+open work. No physical recording was needed or started.
+
+
+The native-list checkpoint fixes the measured momentum regression without adding
+manual scroll physics. Clean source de74 passes19 native tests,1795 Rust tests,
+the original2pt history/tool checks, exact10MB source/copy and10000-line code.
+Both captured and generated histories match plain native fling travel within3%.
+The checked phone build is signed and installed asde74; iOS denies auto-launch
+while the phone is locked. Keep native-list-phone-{build,sign,install}-01.log.
+The full final sweep, measured large-source RSS explanation, cost report and end
+reviews remain open. No EP approval follows from this checkpoint.
+
 
 The credential/caret checkpoint is checked by real UI, native13 and full Rust tests.
 A pending connection holds an entered secret only until its own greeting succeeds;
@@ -2278,3 +2355,11 @@ Revision2026-11-17: record clean native/history/live-tool passes and the visible
 Revision2026-11-17: retain the clean10MB/exact-copy pass and its high sampled RSS as an open final-cost question; continue the checked native scrolling phone preview independently.
 
 Revision2026-11-17: record the deterministic public flick pass and matching slow-baseline failure, with repeat commands in docs/ios-build.md.
+
+Revision2026-11-17: update the discoveries, chosen native-list design and checkpoint outcome after all five clean scrolling gates pass; start the checked phone build.
+
+Revision2026-11-17: record the checked native-list phone install and locked-device launch result; begin one separate prefetch-only large-source memory experiment without changing the installed candidate.
+
+Revision2026-11-17: record the owner’s successful physical-phone scroll check and close the moving jerk/momentum task while keeping the remaining EP checks open.
+
+Revision2026-11-17: record the explicit normal-install request, read-only mount blocker, checked shared installer and outstanding daemon-route preference; retain the measured prefetch memory reduction without changing accepted phone scrolling.

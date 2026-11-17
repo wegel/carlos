@@ -105,6 +105,15 @@ supported data take precedence over an arbitrary line quota. Phone-specific cach
 error policies wait for the real EP022 facade. Version1 remains provisional.
 
 Keep main, the installed binary and all frozen owner preview packages unchanged.
+On2026-11-17 the owner explicitly requests using this branch as their normal local
+Carlos and installing under~/.local/bin. That request authorizes a matching checked
+CLI/daemon/helper install with backups; it does not authorize a daemon restart,
+merge, push or changing frozen previews. The tool environment mounts~/.local/bin
+read-only even after an escalated retry. Root prepared the checked package and a
+normal-shell installer at tmp/install-carlos-92d3a535/install.py in the shared spike
+checkout. Installation remains pending the owner's shell command. The old installed
+CLI/helper are unchanged. Keep the owner's working phone daemon running.
+
 The owner can test `target/preview-9cc99ff/try-carlos`, a fully checked snapshot that predates
 only the narrow final API/compiler corrections; it keeps separate Carlos session state.
 No installation, merge or push is included in delegated approval.
