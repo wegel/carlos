@@ -20,6 +20,20 @@ and mutation calls. No arbitrary native method enters the public protocol.
 
 ## Clients and commands
 
+`session/send` captures an explicit `steer` or `queue` policy with each message.
+The phone keeps Queue as its default and offers a Steer/Queue menu while a response
+runs and the composer has text. Its empty composer still replaces Send with Stop.
+
+An old-message editor first sends `prompt/select` with `source: human`,
+`direction: at_entry` and the visible transcript entry as `anchor`. The owner
+returns the immutable prompt record bound to that exact row. Its record id can
+differ from the transcript id. The client reads the original through bounded
+`prompt/text` chunks, then uses that record id in `session/rewind` only when the
+user chooses Fork and send. Selecting or cancelling an editor starts no work.
+Retired entries, another source/session and replies for a different selected row
+are rejected. An older daemon can reject the additive `at_entry` direction with
+an ordinary request error; it must be updated before this phone feature is used.
+
 The terminal accepts a running daemon or colocated companion built from different
 source code when both declare the same wire protocol. A source hash identifies
 a build; it does not prove that its messages are incompatible. Protocol mismatches

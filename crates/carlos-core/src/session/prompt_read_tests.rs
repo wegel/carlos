@@ -8,6 +8,53 @@ use crate::session::models::Role;
 use crate::session::state::SessionState;
 
 #[test]
+fn selecting_a_transcript_row_resolves_its_exact_prompt_despite_identical_text() {
+    let mut state = SessionState::new("root".into(), Default::default(), false);
+    let mut saved = Vec::new();
+    for _ in 0..2 {
+        state.record_prompt_history("same", None);
+        let record = state
+            .select_prompt(PromptSource::Human, None, PromptDirection::Latest)
+            .expect("pending record")
+            .record
+            .expect("record");
+        let position = state.append_message(Role::User, "same");
+        let entry = state.messages()[position].id.to_wire();
+        state.record_prompt_history("same", Some(state.messages()[position].id));
+        saved.push((entry, record.id));
+    }
+    for (entry, prompt) in saved {
+        let selected = state
+            .select_prompt(PromptSource::Human, Some(&entry), PromptDirection::AtEntry)
+            .expect("exact visible row")
+            .record
+            .expect("bound record");
+        assert_eq!(selected.id, prompt);
+        assert_eq!(selected.entry, Some(entry.clone()));
+        assert!(state
+            .select_prompt(
+                PromptSource::Unknown,
+                Some(&entry),
+                PromptDirection::AtEntry
+            )
+            .is_err());
+    }
+    assert!(state
+        .select_prompt(PromptSource::Human, None, PromptDirection::AtEntry)
+        .is_err());
+    let foreign = format!("{}-0000000000000001", "f".repeat(32))
+        .parse()
+        .expect("foreign entry");
+    assert!(state
+        .select_prompt(
+            PromptSource::Human,
+            Some(&foreign),
+            PromptDirection::AtEntry
+        )
+        .is_err());
+}
+
+#[test]
 fn a_pending_record_keeps_its_identity_when_bound_and_a_retired_id_cannot_choose_equal_text() {
     let mut state = SessionState::new("root".into(), Default::default(), false);
     state.record_prompt_history("same", None);

@@ -15,6 +15,7 @@ pub(crate) enum PromptTarget {
     Select {
         session: SessionId,
         source: PromptSource,
+        entry: Option<EntryId>,
     },
     Text {
         session: SessionId,
@@ -27,10 +28,16 @@ pub(crate) enum PromptTarget {
 pub(crate) fn kind(command: &Command) -> Kind {
     Kind::Prompts(match command {
         Command::PromptSelect {
-            session, source, ..
+            session,
+            source,
+            anchor,
+            direction,
         } => PromptTarget::Select {
             session: session.clone(),
             source: *source,
+            entry: (*direction == carlos_proto::prompts::PromptDirection::AtEntry)
+                .then(|| anchor.clone())
+                .flatten(),
         },
         Command::PromptText {
             session,
@@ -49,12 +56,23 @@ pub(crate) fn kind(command: &Command) -> Kind {
 
 pub(crate) fn reply(target: PromptTarget, value: Value) -> Result<ReadReply, ClientError> {
     match target {
-        PromptTarget::Select { session, source } => {
+        PromptTarget::Select {
+            session,
+            source,
+            entry,
+        } => {
             let selection: PromptSelection = parse(value)?;
             if selection.session != session {
                 return Err(ClientError::ForeignSession);
             }
             if selection.source != source
+                || entry.as_ref().is_some_and(|expected| {
+                    selection
+                        .record
+                        .as_ref()
+                        .and_then(|record| record.entry.as_ref())
+                        != Some(expected)
+                })
                 || selection
                     .record
                     .as_ref()

@@ -11,6 +11,29 @@ use crate::codec::Incoming;
 use crate::ReadReply;
 
 #[test]
+fn selecting_an_exact_entry_rejects_another_record_with_the_same_text_length() {
+    for wrong_entry in [None, Some(entry_id(11))] {
+        let (mut client, connection) = attached();
+        let request = client
+            .read(
+                connection,
+                Command::PromptSelect {
+                    session: session(),
+                    source: PromptSource::Human,
+                    anchor: Some(entry_id(10)),
+                    direction: PromptDirection::AtEntry,
+                },
+            )
+            .expect("select an exact visible entry");
+        assert!(client.receive(connection, Incoming::Success {
+            id: request.id(),
+            result: json!({"session":session(),"source":"human","has_older":false,"has_newer":false,
+                "record":{"id":entry_id(20),"entry":wrong_entry,"source":"human","bytes":"4"}}),
+        }).is_err());
+    }
+}
+
+#[test]
 fn prompt_selection_and_exact_text_use_the_original_typed_request() {
     let (mut client, connection) = attached();
     let request = client

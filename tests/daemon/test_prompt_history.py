@@ -26,6 +26,37 @@ def check_native_recall(case, client, session, expected, source="human"):
 
 
 class PromptHistoryTests:
+    def test_exact_transcript_entry_selects_the_original_duplicate_and_retires_after_fork(self):
+        fixture, first, other, session = self.prompt_fixture("prompt-at-entry")
+        original = self.prompt_selection(first, session)["record"]
+        original_prompt = fixture.native.prompt
+        async def echo_duplicate(link, request):
+            text = request["params"]["input"][0]["text"]
+            if text != "original prompt":
+                await original_prompt(link, request)
+                return
+            fixture.native.prompts += 1
+            await fixture.native.notify(link, "turn/started", turn={"id":"duplicate-turn"})
+            await fixture.native.notify(link, "item/completed", turnId="duplicate-turn", item={
+                "type":"userMessage", "id":"native-duplicate", "content":[{"type":"text","text":text}]})
+            await fixture.native.notify(link, "turn/completed", turn={"id":"duplicate-turn","status":"completed"})
+        fixture.native.prompt = echo_duplicate
+        send = first.operation(2)
+        first.call("session/send", session=session, operation=send, text="original prompt")
+        self.assertEqual(first.outcome(send)["state"]["kind"], "accepted")
+        newer = self.prompt_selection(first, session)["record"]
+        self.assertNotEqual(original["id"], newer["id"])
+        for record in (original, newer):
+            selected = self.prompt_selection(other, session, record["entry"], "at_entry")
+            self.assertEqual(selected["record"], record)
+            self.assertEqual(other.call("prompt/text", session=session, prompt=record["id"], offset="0", limit=65536)["text"], "original prompt")
+        edit = first.operation(3)
+        first.call("session/rewind", session=session, operation=edit, entry=original["id"], text="edited exact original")
+        self.assertEqual(first.outcome(edit)["state"]["kind"], "accepted")
+        stale = other.response(other.send("prompt/select", session=session, source="human", anchor=original["entry"], direction="at_entry"))
+        self.assertIn("error", stale)
+        self.assertEqual(sum(request.get("method") == "thread/fork" for request in fixture.native.requests), 1)
+
     def prompt_fixture(self, name):
         fixture = Fixture(name, codex=True)
         self.addCleanup(fixture.close)

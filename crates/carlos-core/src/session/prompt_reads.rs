@@ -40,13 +40,24 @@ impl SessionState {
     ) -> Result<PromptSelection, RpcError> {
         let count = self.prompt_count(source);
         let index = match (anchor, direction) {
+            (Some(anchor), PromptDirection::AtEntry) => Some(
+                (0..count)
+                    .find(|index| {
+                        self.prompt_record(source, *index).is_some_and(|record| {
+                            record.entry.map(EntryId::to_wire).as_ref() == Some(anchor)
+                        })
+                    })
+                    .ok_or_else(|| {
+                        failure("entry has no editable prompt in this source/session")
+                    })?,
+            ),
             (None, PromptDirection::Latest) => count.checked_sub(1),
             (Some(anchor), PromptDirection::Older | PromptDirection::Newer) => {
                 let old = self.prompt_position(source, EntryId::from_wire(anchor))?;
                 match direction {
                     PromptDirection::Older => Some(old.saturating_sub(1)),
                     PromptDirection::Newer => (old + 1 < count).then_some(old + 1),
-                    PromptDirection::Latest => unreachable!("relative prompt direction"),
+                    _ => unreachable!("relative prompt direction"),
                 }
             }
             _ => return Err(failure("prompt direction requires its original anchor")),
@@ -83,7 +94,7 @@ impl SessionState {
             PromptDirection::Older => {
                 selected.record.as_ref().map(|record| &record.id) == anchor.as_ref()
             }
-            PromptDirection::Newer => false,
+            PromptDirection::Newer | PromptDirection::AtEntry => false,
         };
         Ok(stalled && self.prompt_has_native_history(*source))
     }
