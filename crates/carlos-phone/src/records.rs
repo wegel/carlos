@@ -37,6 +37,7 @@ impl PhoneFrame {
 /// A peer rejected one request; this never grants permission to resend a mutation.
 #[derive(uniffi::Record)]
 pub struct PhoneFailure {
+    pub request_id: Option<i64>,
     pub code: i32,
     pub message: String,
 }

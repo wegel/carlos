@@ -23,6 +23,7 @@ final class PhoneHostModel: Identifiable {
     var contentVersion = UUID()
     var followRequest = UUID()
     var controlSubmitting = false
+    let history = PhoneHistoryModel()
     private var approvalRequests: [String: ApprovalSubmission] = [:]
     var draft = ""
     var submitting = false
@@ -115,6 +116,7 @@ final class PhoneHostModel: Identifiable {
     func select(_ session: String) {
         guard connected else { error = "Reconnect to choose a session"; return }
         guard selected != session else { return }
+        history.reset()
         draft = ""
         let old = selected
         selected = session
@@ -267,6 +269,7 @@ final class PhoneHostModel: Identifiable {
 
     private func changedLink(_ state: PhoneLinkState) {
         link = state
+        if case .connected = state {} else { history.reset() }
         if case .connected = state {} else { for source in sources.values { source.suspend() } }
         if case .connected = state {} else { for output in outputs.values { output.suspend() } }
         if case .connected = state {} else if var cached = transcript {
@@ -291,7 +294,8 @@ final class PhoneHostModel: Identifiable {
     }
 
     private func received(_ batch: PhoneBatch) {
-        for failure in batch.failures { error = failure.message }
+        let historyFailure = history.receive(batch)
+        for failure in batch.failures where historyFailure == nil || failure.requestId != historyFailure { error = failure.message }
         for body in batch.bodies where body.session() == selected {
             if body.isSource() { sources[body.entry()]?.refresh(body) }
             else { outputs[body.entry()]?.refresh(body) }
@@ -322,8 +326,10 @@ final class PhoneHostModel: Identifiable {
                         orderedEntries = order
                         let retained = Set(order)
                         rows = rows.filter { retained.contains($0.key) }
+                        retainBodies(retained)
                     }
                     for entry in update.rows { rows[entry.id] = entry }
+                    if let transcript = update.transcript { history.updated(transcript, first: orderedEntries.first) }
                 }
                 for operation in update.operations {
                     accept(operation)
@@ -351,6 +357,13 @@ final class PhoneHostModel: Identifiable {
         case .rejected(let message), .uncertain(let message): error = message
         default: break
         }
+    }
+
+    private func retainBodies(_ ids: Set<String>) {
+        for (id, source) in sources where !ids.contains(id) { source.close() }
+        sources = sources.filter { ids.contains($0.key) }
+        for (id, output) in outputs where !ids.contains(id) { output.close() }
+        outputs = outputs.filter { ids.contains($0.key) }
     }
 
     private func completeCreation(_ operation: PhoneOperation) {

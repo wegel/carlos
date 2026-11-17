@@ -30,6 +30,9 @@ struct PhoneHostUpdate: Sendable {
         if reorder, let transcript = update.transcript {
             update.order = try order(client: client, session: selected, count: transcript.count)
             wanted.formUnion(update.order?.suffix(64) ?? [])
+            // Fetch the bounded prepended page before publishing its ids. Otherwise
+            // placeholder heights move the reader again when hidden rows resolve.
+            wanted.formUnion((update.order ?? []).prefix { !knownIDs.contains($0) }.prefix(100))
         }
         let ids = Array(wanted)
         for offset in stride(from: 0, to: ids.count, by: 64) {

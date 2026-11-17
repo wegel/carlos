@@ -34,6 +34,61 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] History UI07 passes the stronger exact-coordinate checks on the pinned
+  c3a71f02db8a30a1680d/ui-tests-20261117T040732.xcresult,
+  phone-codex-a8ed61a3b596. The same visible message stays within2pt on both axes
+  across a real native read failure, explicit retry of the original cursor and
+  successful prepend; the oldest native message is reachable. UI06 is a useful red:
+  its duplicate fixed-header error moves the message fromY174 to218.67. The specific
+  history error now stays beside Retry rather than also resizing the fixed header.
+  Full workspace cargo test passes at history-cargo-01.log. A diagnostic-free source
+  rerun and the existing scroll/source regressions remain final requirements.
+
+- [ ] Verify the first-character editor fix and raw physical Return. Raw HID UI04
+  stops before the new raw x probe: the original software phone becomes hone, then
+  XCTest's printable x gives honex. Five native insert callbacks are recorded, so
+  unrelated SwiftUI refreshes may replace native text before its editing callback.
+  Track the last binding value; apply only actual external draft changes, keeping
+  native editing/IME untouched otherwise. UI05 fails before XCTest because the Mac
+  dependency copy omitted a nested build/probe.rs file. That sync filter is fixed
+  in da63d52 and an actual nested-source/root-build probe passes. Rerun the checked
+  input after the complete dependency copy; no hardware pass is claimed.
+
+- [ ] Require exact before/after history measurements against a held native page.
+  The first three UI cases assumed where the previous row should appear instead of
+  measuring before the reply; their failures remain evidence but cannot alone prove
+  the size of a jump. The stronger workflow resumes an actual saved native thread,
+  holds its original next page, measures X/Y, releases one real read failure, retries
+  the same native cursor, then releases the page and checks both coordinates within2pt.
+  The headless native scenario passes (phone-history-control-probe-03). Empty native
+  reasoning rows are skipped by the actual backend, so100 native turns yield8 visible
+  rows; the older30 turns yield1 actual visible row. No rows are fabricated for Swift.
+  History UI04 fails in the Mac Bash3 empty-array wrapper; UI05 fails to compile
+  unisolated test helpers. Both are setup failures. UI06 checks their concrete fixes.
+
+- [ ] Check hardware Return through raw simulator HID, bypassing XCTest's character
+  translation. The bounded Mac helper finds only a named Carlos simulator and sends
+  Return/Shift/Option press/release events; it never links into the app. Its read-only
+  API probe passes without GUI login or keyboard-setting changes. The UI keeps the
+  original exact prompt/newline/five-line assertions. Raw HID UI01 fails in the same
+  Bash3 wrapper; UI02 catches Swift6's test-helper actor requirement; UI03 checks those
+  fixes. No end-to-end hardware pass is claimed yet.
+
+- [x] Ralph UI02 passes on30b5dc9007a393132442/ui-tests-20261117T034813.xcresult,
+  phone-codex-9d25ae112a08. The real engine enables Ralph and sends exactly the
+  configured automatic prompt; its active turn keeps Stop available after Ralph is
+  turned off; the original native interrupt completes the turn. UI01 correctly saw no
+  automatic prompt with the fixture's native queue unavailable. Enable the peer's real
+  queue and goal methods, as the existing engine Ralph fixtures do; do not fake a phone
+  phase or bypass those checks. Inspect its actual retained images before final approval.
+
+- [ ] Wire the actual older-history call to the transcript top and verify unchanged
+  reading position. PhoneHistoryModel tracks only this device's pending read; Rust
+  retains the original history cursor/fence. Read failures now expose their existing
+  numeric request address so an unrelated failure cannot clear another read's spinner.
+  The deterministic history workflow uses130 actual native rows with sparse visible
+  messages and no inference. history-ui-01.log and history-cargo-01.log are pending.
+
 - [x] Native input, speech and scroll checkpoint2de6b7c7100c7c369398 passes all14
   native tests without skips at tests-20261117T033135.xcresult,
   input-checkpoint-native-02.log. Full workspace cargo test passes at
@@ -257,6 +312,17 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+History UI01 and02 load the complete older native page but fail the retained top-row
+check: anchor30 moves toY257.67 and252.33 instead of staying belowY177. Keep
+phone-codex-f3e481ff2711/ef8a76e18b9f25ec316a/ui-tests-20261117T033932.xcresult
+andphone-codex-3bf4f3f0985a/3b35002f3358b9a215d3/ui-tests-20261117T034519.xcresult.
+Root inspected the actual last recording frame: the newly prepended user0 replaces
+user30 at the top. Identity-based scrolling and eager bounded prefix headers alone
+are insufficient. Finish the gesture before requesting a page and retain the visible
+row's measured content origin across the prepend. The correction has one stable row,
+clears on the next user gesture, and avoids a clock, full height cache or invented rows.
+History UI03 checks this change; it is not yet a pass.
 
 iPad08 (keyboard-ipad-ui-08-enter.log) inserts the literal copyright character after
 phone when XCTest sends modified XCUIKeyboardKey.enter. The installed XCTest constants
@@ -822,6 +888,27 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+- Decision: try syntect5.3 with only bundled syntax grammars and the pure Rust
+  fancy-regex engine in carlos-phone, not carlos-client/core. Before adding it, the
+  isolated stripped Linux release probe measures2366352 added executable bytes,
+  grammar load0.827/0.862/0.839ms and35,000-byte Rust parsing59.339/61.543/60.051ms;
+  child peak RSS11208KiB (whole probe, not app or isolated library allocation).
+  The probe includes default themes; the phone needs no themes, YAML, HTML, C regex,
+  file reads or network. Classify only bounded visible snippets into semantic roles
+  off the UI thread; Swift chooses Mocha colors. Unknown/oversized/error input keeps
+  complete plain text. Require actual Mac build, dependency/size and UI evidence
+  before accepting this pending syntax change. Probe files are under
+  /tmp/carlos-ep022/syntax-cost; Mac syntax-native-01 fails on an incomplete vendor
+  transfer, not a grammar result. The root-only sync exclusions preserve crate build
+  sources. Date/Author:2026-11-17,Root.
+
+- Decision: initialize the native scroll position with String row identities before
+  adding paged history. Apple's ScrollPosition documentation says this lets SwiftUI
+  update the topmost visible view identity and keep its position stable as content
+  changes. The earlier edge-only position could not track those identities. Keep the
+  successful tool/reader checks unchanged and rerun them after the history check.
+  Date/Author:2026-11-17,Root.
 
 Check actual hardware Return on a separate Carlos-owned iPad simulator, retaining
 the existing iPhone simulator for all phone layout and flow checks. Apple’s current
@@ -1401,3 +1488,15 @@ and fix the view structure; do not increase waits, hide source or weaken Copy ch
 Revision2026-11-17: checkpoint the checked native composer, on-device speech error flow
 and stable reader position. Keep hardware synthesis unresolved and begin older history;
 no reviewer or EP approval has occurred.
+
+Revision2026-11-17: add the phone top-of-history flow and exact failed-read identity,
+then check real native rows instead of simulating history inside Swift.
+
+Revision2026-11-17: record the actual Ralph pass and retained history jumps; keep the
+new source check pending until its exact source/result are known.
+
+Revision2026-11-17: strengthen the history check with a held real native page and
+exact coordinates; add a project-local raw HID test tool after proving its API exists.
+
+Revision2026-11-17: checkpoint the real history failure/retry/prepend pass, retain the
+first-character failure and measure the pending grammar library before adding it.

@@ -21,6 +21,7 @@ from network_support import grant
 from support import Fixture
 from native_task_questions import callback_key, form as native_form, question
 from ios_browser_fixture import browser_page
+from ios_history_fixture import configure_history, history_control
 
 
 def mac_settings():
@@ -183,6 +184,13 @@ def configure_workflow(fixture, workflow, artifacts, resources):
     source, visits = {}, None
     if workflow == "controls":
         configure_controls(fixture.native)
+    elif workflow == "history":
+        visits = configure_history(fixture)
+        port = resources.enter_context(history_control(visits))
+        directory = artifacts / "history"
+        directory.mkdir(mode=0o700)
+        remote = resources.enter_context(forward(port, directory))
+        source["historyControlURL"] = f"http://127.0.0.1:{remote}/release"
     elif workflow == "tools":
         configure_controls(fixture.native, stream_output=True)
     elif workflow == "source":
@@ -228,13 +236,17 @@ def observed_prompts(fixture, backend):
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
     expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"], "scroll": ["phone stream"],
-                "voice": [], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
+                "voice": [], "history": [], "keyboard": ["phone\nkeyboard\nexact 🦀"], "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
     if backend != "codex":
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
     native = fixture.native
+    if workflow == "history":
+        assert native.started == 0 and native.resumed == 1
+        assert len(visits.pages) == 3, visits.pages
+        assert [page.get("cursor") for page in visits.pages] == [None, "PRIVATE_HISTORY:desc:100", "PRIVATE_HISTORY:desc:100"]
     if workflow in ("relaunch", "token-update"):
         assert native.started == 1, "Relaunch must not create another native session"
     elif workflow == "credentials":
@@ -292,7 +304,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update", "keyboard", "voice", "scroll", "history"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":

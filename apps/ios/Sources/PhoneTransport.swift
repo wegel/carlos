@@ -72,8 +72,19 @@ final class PhoneTransport: @unchecked Sendable {
         _ call: @escaping @Sendable (PhoneClient) throws -> PhoneFrame,
         completion: @escaping @MainActor @Sendable (Result<Void, any Error>) -> Void
     ) {
+        request(call) { completion($0.map { _ in () }) }
+    }
+
+    func request(
+        _ call: @escaping @Sendable (PhoneClient) throws -> PhoneFrame,
+        completion: @escaping @MainActor @Sendable (Result<PhoneFrame, any Error>) -> Void
+    ) {
         queue.async {
-            let result = Result { try self.admit(call(self.client)) }
+            let result = Result {
+                let frame = try call(self.client)
+                try self.admit(frame)
+                return frame
+            }
             DispatchQueue.main.async { completion(result) }
         }
     }

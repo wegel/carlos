@@ -3,6 +3,7 @@
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use carlos_client::{codec, Client, ConnectionId, Effects};
+use carlos_proto::commands::RequestId;
 use carlos_proto::devices::AccessToken;
 
 use crate::{PhoneBatch, PhoneError, PhoneFailure, PhoneFrame};
@@ -116,6 +117,10 @@ impl State {
                 .failures
                 .into_iter()
                 .map(|failure| PhoneFailure {
+                    request_id: match failure.id {
+                        Some(RequestId::Integer(id)) => Some(id),
+                        _ => None,
+                    },
                     code: failure.error.code,
                     message: failure.error.message,
                 })

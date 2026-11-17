@@ -59,3 +59,6 @@ mod question_tests;
 
 #[cfg(test)]
 mod body_tests;
+
+#[cfg(test)]
+mod history_tests;

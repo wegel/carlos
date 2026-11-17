@@ -5,7 +5,7 @@ struct PhoneTranscriptView: View {
     let host: PhoneHostModel
     let openQuestions: (PhoneApproval, PhoneQuestions) -> Void
     @Environment(PhonePreferences.self) private var preferences
-    @State private var position = ScrollPosition(edge: .bottom)
+    @State private var position = ScrollPosition(idType: String.self)
     @State private var following = true
     @State private var userScrolling = false
     @State private var metrics = TranscriptMeasurement()
@@ -15,6 +15,9 @@ struct PhoneTranscriptView: View {
         GeometryReader { geometry in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {
+                    if host.transcript?.hasOlder == true {
+                        PhoneHistoryButton(history: host.history, load: loadHistory)
+                    }
                     if host.selected == nil {
                         Text("Choose a session").font(PhoneTheme.prose(15, weight: .semibold))
                             .frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -25,6 +28,18 @@ struct PhoneTranscriptView: View {
                     }
                     ForEach(PhoneTranscriptItem.read(host: host, width: geometry.size.width - 32, layout: preferences.layout)) { item in
                         PhoneTranscriptItemView(host: host, item: item).padding(.horizontal, 16).id(item.id)
+                            .onGeometryChange(for: CGRect.self) { proxy in
+                                let frame = proxy.frame(in: .named("transcript.viewport"))
+                                return CGRect(x: frame.minX, y: frame.minY + item.gap,
+                                              width: frame.width, height: max(0, frame.height - item.gap))
+                            } action: { frame in
+                                metrics.frames[item.id] = frame
+                                if let anchor = metrics.anchor, anchor.id == item.id, metrics.restoring,
+                                   !userScrolling, abs(frame.minY - anchor.y) > 0.5 {
+                                    position.scrollTo(y: metrics.value.offset + frame.minY - anchor.y)
+                                }
+                            }
+                            .onDisappear { metrics.frames.removeValue(forKey: item.id) }
                     }
                     ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.horizontal, 16).padding(.top, 18) }
                     ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.horizontal, 16).padding(.top, 18) }
@@ -32,9 +47,10 @@ struct PhoneTranscriptView: View {
                 }.scrollTargetLayout().frame(width: max(0, geometry.size.width), alignment: .leading)
                     .padding(.bottom, 20)
             }
+            .coordinateSpace(name: "transcript.viewport")
             .accessibilityIdentifier("transcript")
             .clipped().scrollDismissesKeyboard(.interactively).scrollIndicators(.hidden).defaultScrollAnchor(.bottom, for: .initialOffset)
-            .scrollPosition($position)
+            .scrollPosition($position, anchor: .top)
             .environment(\.preserveTranscriptPosition) {
                 following = false
                 position.scrollTo(y: metrics.value.offset)
@@ -52,17 +68,32 @@ struct PhoneTranscriptView: View {
             }
             .onScrollPhaseChange { _, phase in
                 switch phase {
-                case .tracking, .interacting, .decelerating: userScrolling = true
+                case .tracking, .interacting, .decelerating:
+                    userScrolling = true
+                    metrics.anchor = nil
+                    metrics.restoring = false
                 case .idle:
-                    if userScrolling { following = metrics.value.distance <= 40 }
+                    if userScrolling {
+                        following = metrics.value.distance <= 40
+                        if metrics.value.offset <= 20 && host.history.error == nil { loadHistory() }
+                    }
                     userScrolling = false
                 case .animating: break
                 @unknown default: break
                 }
             }
             .onChange(of: host.selected) { _, _ in
+                metrics.anchor = nil
+                metrics.restoring = false
+                metrics.frames.removeAll()
                 following = true
                 position.scrollTo(id: "transcript.bottom", anchor: .bottom)
+            }
+            .onChange(of: host.orderedEntries.first) { old, new in
+                if old != new, let anchor = metrics.anchor, host.orderedEntries.contains(anchor.entry) {
+                    metrics.restoring = true
+                    position.scrollTo(id: anchor.id, anchor: .top)
+                }
             }
             .onChange(of: host.contentVersion) { _, _ in
                 if following && !userScrolling { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
@@ -72,9 +103,12 @@ struct PhoneTranscriptView: View {
                 position.scrollTo(id: "transcript.bottom", anchor: .bottom)
             }
             .overlay(alignment: .bottom) {
-                if !following && showLatest {
+                if !following && showLatest || host.transcript?.hasNewer == true {
                     Button {
                         following = true
+                        metrics.anchor = nil
+                        metrics.restoring = false
+                        host.history.latest(host: host)
                         withAnimation { position.scrollTo(id: "transcript.bottom", anchor: .bottom) }
                     } label: {
                         Label("Latest", systemImage: "arrow.down").font(PhoneTheme.mono(12))
@@ -84,6 +118,18 @@ struct PhoneTranscriptView: View {
                 }
             }
         }
+    }
+
+    private func loadHistory() {
+        guard !host.history.loading else { return }
+        following = false
+        metrics.restoring = false
+        if let visible = metrics.frames.filter({ $0.value.maxY > 0 }).min(by: { $0.value.minY < $1.value.minY }) {
+            let entry = host.orderedEntries.first { visible.key == $0 || visible.key.hasPrefix($0 + "/") }
+            if let entry { metrics.anchor = TranscriptAnchor(id: visible.key, entry: entry, y: visible.value.minY) }
+        }
+        metrics.restoring = metrics.anchor != nil
+        host.history.load(host: host)
     }
 
     private var recoveries: [PhoneOperation] {
@@ -99,6 +145,15 @@ struct PhoneTranscriptView: View {
 @MainActor
 private final class TranscriptMeasurement {
     var value = TranscriptMetrics()
+    var frames: [String: CGRect] = [:]
+    var anchor: TranscriptAnchor?
+    var restoring = false
+}
+
+private struct TranscriptAnchor {
+    let id: String
+    let entry: String
+    let y: CGFloat
 }
 
 private struct TranscriptMetrics: Equatable {

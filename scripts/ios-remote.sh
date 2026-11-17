@@ -81,6 +81,7 @@ ui-test)
         form) test_case=testNativeFormPreservesRejectedFieldsAndTypedValues ;;
         browser) test_case=testBrowserVisitDoesNotGrantConsent ;;
         scroll) test_case=testToolExpansionAndNativeUpdatesKeepTheReadersPlace ;;
+        history) test_case=testReachingTheTopLoadsOlderHistoryWithoutMovingText ;;
         voice)
             # Reset only this synthetic app so the real native permission prompt repeats.
             xcrun simctl privacy "$2" reset all app.carlos.phone.fixture
