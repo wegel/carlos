@@ -34,6 +34,27 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] (2026-11-17 14:43Z) Install and launch the owner's requested current app on
+  iPhone18 Pro. Normal Release source56e36e29e767c7c9471b is strictly signed at
+  previews/56e36e29e767c7c9471b-20261117T144140Z/Carlos.app; executableSHA256
+  155fc54b826ec0aee5becc193d2c511d68af53fafecad2406157b11c4bad1fd9. Device install
+  and launch both succeed. Exact logs: current-phone-{build,sign,install}-01.log.
+  The old8bc sign/install logs that used those temporary names are copied to
+  earlier-8bc-current-phone-{sign,install}-01.log before the new stages write them.
+  Signed previews and device receipts remain separate and unchanged.
+- [x] Hand over the current preview daemon to the owner's normal shell. The owner
+  explicitly asks Root to stop it after asking how to run it outside this execution
+  environment. This supersedes the earlier keep-PID1154145-alive rule for that one
+  process. Verify its exact executable/socket/catalogue before SIGTERM; it exits
+  gracefully in less than one second. Keep catalogue, device token, all binaries and
+  socket directory. Receipt: /tmp/carlos-ep022/owner-daemon-shell-handover.json.
+  Tell the owner to run the frozen preview carlosd from their own shell with socket
+  $PWD/tmp/phone-preview-b7744b8/daemon.sock, state /var/tmp/carlos-phone-preview-b7744b8/catalog,
+  CLAUDE_CONFIG_DIR=$HOME/.claude-tt and listener192.168.3.11:33731. Do not restart or
+  stop their normal-shell daemon without another explicit request. Answered side
+  question: branch Carlos auto-starts a local-only daemon by default; explicit
+  --daemon-socket only attaches. The shared phone listener needs an explicit carlosd.
+
 - [x] (2026-11-17 14:33Z) Check the completed phone controls and shared tool relation.
   Source833cf6a1a264ca8cf57a passes actual Claude one-header/complete-output/Full-two-row
   and exactly-one-native-prompt checks in43.9s: claude-tool-pairs-02.log,
