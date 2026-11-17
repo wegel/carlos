@@ -111,14 +111,18 @@ CLI/daemon/helper install with backups; it does not authorize a daemon restart,
 merge, push or changing frozen previews. The tool environment mounts~/.local/bin
 read-only even after an escalated retry. Root prepared the checked package and a
 normal-shell installer at tmp/install-carlos-92d3a535/install.py in the shared spike
-checkout. The normal-shell installation is now visible: all three installed executable
-hashes match checked source92d3a535. The owner runs its automatically started daemon
-and reports it idle. That daemon currently has only local Unix access; phone access
-still needs its own listener/token. Keep the working preview phone daemon running.
-The owner now requests a convenient stop to restart the sandbox with the real Carlos
-binary/config/state/runtime directories writable. The current handoff is
-.agents/reports/exec022-restart-handoff.md; server management UI changes are saved
-but not deployed, and the corrected Remove test selector still needs its repeat.
+checkout. Root subsequently installed the checked source284b3acc7aa71615fed2cef9509c316b
+package after fixing oversized Codex history replies, with rollback files under
+~/.local/lib/carlos/backups/20261117T203941Z. The owner resumed this conversation
+inside Carlos and asks Root to continue until the phone reaches normal sessions
+reliably. Root now runs as hostUID1000; do not stop the daemon hosting an active
+turn. The current handoff is .agents/reports/exec022-codex-resume-handoff.md.
+Saved-server app23952 passes edit/remove/duplicates/credentials/relaunch/token-change
+checks and is installed on iPhone18 Pro; automatic launch was denied while locked.
+The normal daemon still needs its listener. An optional private daemon.json startup
+file and authenticated managed-restart checks are being completed under EP022.
+Keep existing preview/catalogues unchanged and install only matching checked
+packages. Arrange the one-time normal restart after this active turn finishes.
 
 The owner can test `target/preview-9cc99ff/try-carlos`, a fully checked snapshot that predates
 only the narrow final API/compiler corrections; it keeps separate Carlos session state.

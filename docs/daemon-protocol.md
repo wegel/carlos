@@ -20,6 +20,28 @@ and mutation calls. No arbitrary native method enters the public protocol.
 
 ## Clients and commands
 
+The managed CLI reads `$XDG_CONFIG_HOME/carlos/daemon.json`, or
+`~/.config/carlos/daemon.json` when XDG_CONFIG_HOME is unset, when it starts a new
+daemon. The optional file saves the phone listener across future CLI starts:
+
+```json
+{"listen":"10.0.0.2:33732"}
+```
+
+Use an address assigned to the computer's LAN or VPN interface. The file must
+be a regular file owned by the user, with mode0600, and no more than4096 bytes.
+Only `listen` and `allow_origin` are accepted. The CLI passes its path to
+`carlosd --config PATH`; a manually started daemon reads a file only when this
+option is supplied. Explicit `--listen` and `--allow-origin` arguments override
+their respective saved values. Invalid settings stop startup with an error;
+Carlos never silently replaces them or changes a running daemon. A saved device
+grant belongs to the daemon catalogue and remains valid after a restart. Client
+retry rights still expire on that restart, as described below.
+
+Remove the `listen` setting to keep future starts local. Restart a running
+daemon only after its active turns finish. The CLI leaves a running daemon alone
+when the file changes; it does not stop sessions to apply preferences.
+
 The daemon serves newline-delimited JSON-RPC on a private Unix socket. It checks
 that each peer belongs to the same OS user. It opens no TCP listener by default.
 The operator may supply `--listen IP:PORT` for loopback or a WireGuard address;

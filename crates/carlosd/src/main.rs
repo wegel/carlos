@@ -2,6 +2,7 @@
 
 mod device_cli;
 mod operator_connection;
+mod startup_config;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -40,10 +41,11 @@ fn arguments() -> Result<Option<Config>> {
     let mut socket = None;
     let mut state = None;
     let mut codex_socket = None;
+    let mut configuration = None;
     let mut network = NetworkOptions::default();
     while let Some(option) = arguments.next() {
         if option == "--help" || option == "-h" {
-            println!("carlosd --socket PATH --state-dir PATH [--codex-socket PATH] [--listen IP:PORT] [--allow-origin ORIGIN]");
+            println!("carlosd --socket PATH --state-dir PATH [--codex-socket PATH] [--config PATH] [--listen IP:PORT] [--allow-origin ORIGIN]");
             device_cli::help();
             return Ok(None);
         }
@@ -54,6 +56,7 @@ fn arguments() -> Result<Option<Config>> {
             Some("--socket") => &mut socket,
             Some("--state-dir") => &mut state,
             Some("--codex-socket") => &mut codex_socket,
+            Some("--config") => &mut configuration,
             _ => bail!("unknown option: {}", option.to_string_lossy()),
         };
         if target.is_some() {
@@ -63,12 +66,13 @@ fn arguments() -> Result<Option<Config>> {
             arguments.next().context("option requires a path")?,
         ));
     }
+    let settings = startup_config::read(configuration.as_deref())?;
     Ok(Some(Config {
         socket: socket.context("--socket is required")?,
         state: state.context("--state-dir is required")?,
         codex_socket,
-        listen: network.listen,
-        allowed_origin: network.origin,
+        listen: network.listen.or(settings.listen),
+        allowed_origin: network.origin.or(settings.allow_origin),
     }))
 }
 

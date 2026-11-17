@@ -45,6 +45,8 @@ artifacts="$(mktemp -d "$PWD/target/ui-artifacts/run-XXXXXX")"
 printf 'Test artifacts: %s\n' "$artifacts"
 target/ui-venv/bin/python tests/ui/test_terminal_daemon_native.py \
   --daemon-binary "target/$profile/carlosd" --artifacts "$artifacts/daemon-ownership"
+target/ui-venv/bin/python tests/ui/test_daemon_launcher.py \
+  --binary "target/$profile/carlos" --daemon "target/$profile/carlosd" --artifacts "$artifacts/launcher"
 daemon_arguments=(--daemon-binary "$PWD/target/$profile/carlosd")
 target/ui-venv/bin/python tests/daemon/test_daemon.py \
   --binary "target/$profile/carlosd" --artifacts "$artifacts/daemon" -v

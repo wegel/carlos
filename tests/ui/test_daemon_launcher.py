@@ -8,9 +8,10 @@ import time
 import unittest
 
 from daemon_launcher_fixture import GreetingProxy, Host, daemon_support, subreaper
+from test_daemon_launcher_network import LauncherNetworkTests
 
 
-class LauncherTests(unittest.TestCase):
+class LauncherTests(LauncherNetworkTests, unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.previous_subreaper = subreaper(True)

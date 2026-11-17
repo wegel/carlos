@@ -63,6 +63,9 @@ pub(super) fn start(daemon: &Path, paths: &Paths, endpoint: Option<&Path>) -> Re
     if let Some(endpoint) = endpoint {
         command.arg("--codex-socket").arg(endpoint);
     }
+    if let Some(config) = configuration()? {
+        command.arg("--config").arg(config);
+    }
     // setsid is async-signal-safe and prevents the terminal's hangup from owning the daemon.
     unsafe {
         command.pre_exec(|| {
@@ -74,6 +77,20 @@ pub(super) fn start(daemon: &Path, paths: &Paths, endpoint: Option<&Path>) -> Re
         });
     }
     command.spawn().context("start colocated Carlos daemon")
+}
+
+fn configuration() -> Result<Option<PathBuf>> {
+    let Some(directory) = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+    else {
+        return Ok(None);
+    };
+    if !directory.is_absolute() {
+        bail!("daemon configuration directory must be absolute");
+    }
+    let path = directory.join("carlos/daemon.json");
+    Ok(path.try_exists()?.then_some(path))
 }
 
 fn read_identity(child: &mut Child, deadline: Instant) -> Result<BuildInfo> {

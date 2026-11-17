@@ -35,6 +35,28 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Continue after the owner resumes this conversation inside Carlos. Root now
+  runs in the normal user namespace (UID1000) and can identify the live normal
+  daemon, PID1458745. It has no network listener; neither33731 nor33732 listens.
+  Keep this active native turn alive. Add an optional private startup configuration
+  that the managed CLI passes to carlosd, prove authenticated phone access and a
+  retained device grant across managed restarts, then arrange one idle restart
+  after this turn ends. Do not restart the daemon hosting the active turn.
+  The optional ~/.config/carlos/daemon.json now has a bounded private reader;
+  managed startup passes --config only when that file exists. Explicit network
+  flags override saved fields. Rust workspace/all-target checks and11 launcher
+  workflows pass, including a real authenticated WebSocket/Unix session shared
+  across a managed restart with the same device grant. The normal catalogue now
+  has an iPhone18 Pro grant; its token is private at ~/.config/carlos/iphone18-pro.token.
+  The full release/native gate runs before a matching normal install. Keep every
+  failure; no frame cap, assertion or deadline has been weakened.
+- [x] Deploy checked saved-server app23952a4b8d31245275a0 to the exact iPhone18 Pro.
+  The Release build and strict signing pass. Immutable signed Mac bundle:
+  previews/23952a4b8d31245275a0-20261117T210725Z/Carlos.app, executable SHA256
+ 58721b2aa07526089d0e985af286d88a75fd007c479edcc77ec2fddbf5f09878.
+  The device install succeeds; automatic launch is denied because the phone is
+  locked. The owner can open it. Keep install-host-manager-01.log and its device
+  receipt. The accepted scrolling code remains unchanged.
 - [x] Stop at the owner's requested handover after the Codex repair is checked
   and installed. The owner wants to resume this same session inside Carlos.
   Finish only the running gates and safe installed-pair update, save the checkpoint,
@@ -80,7 +102,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Codex0.169.0 schemas are generated there. Metadata-only read does not hydrate
   native item pages; the isolated resume probe now seeds them first.
 
-- [ ] Resume after the owner's requested sandbox restart. The owner offers writable
+- [x] Resume after the owner's requested sandbox restart. The owner offers writable
   access to the real Carlos binary/config/state/runtime directories and asks Root
   to stop at a convenient checkpoint. No tests/builds remain running. Current host
   management source23952a4b8d31245275a0 is saved but not deployed. Source713e524dd1050306d293
@@ -983,6 +1005,14 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+2026-11-17 phone handover: this resumed turn runs as hostUID1000 rather than
+containerUID0, and the normal socket reports actual PID1458745. Its command has
+no --listen; neither33731 nor33732 is open. Eleven actual launcher checks pass,
+including authenticated Unix/WebSocket sharing, rejected unpaired access and
+the same device grant after a managed restart. The phone23952 build and signature
+pass; the exact device accepts the install but rejects automatic launch while
+locked. No native active turn has been stopped.
+
 - 2026-11-17, Codex resume: the owner's431MB rollout produces83618724bytes
   across25 native complete-turn replies, with a47477424byte largest turn. A
  100-turn native request therefore exceeded the64MiB stdout bound; native
@@ -1709,6 +1739,15 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+2026-11-17: persist only the network settings needed by this actual phone setup.
+The managed CLI passes the existing ~/.config/carlos/daemon.json when starting
+a daemon. carlosd reads an explicit --config PATH, limited to4096 bytes, owned
+private regular files, and known listen/allow_origin fields. Explicit flags win.
+Manual/custom daemon launches do not implicitly borrow the managed configuration.
+Invalid settings fail rather than enabling another interface or silently dropping
+phone access. Preserve the normal shell environment for the one-time idle restart;
+do not kill the backend hosting this turn.
 
 - 2026-11-17: request one complete Codex turn per native history reply. A turn
   can already contain tens of MiB, so a fixed100-turn batch cannot bound bytes.
