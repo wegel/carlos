@@ -86,6 +86,10 @@ ui-test)
         history) test_case=testReachingTheTopLoadsOlderHistoryWithoutMovingText ;;
         ralph) test_case=testRalphUsesEngineFactsAndKeepsStopAvailable ;;
         syntax) test_case=testCodeColorsKeepTheOriginalMarkdownOnTheClipboard ;;
+        idle-perf) test_case=testIdleCpuAndResidentMemory ;;
+        launch-perf) test_case=testSavedLaunchPerformance ;;
+        typing-perf) test_case=testPrivateTypingAndNativeScrollPerformance ;;
+        scroll-perf) test_case=testNativeScrollPerformance ;;
         reconnect) test_case=testRestartRetainsPrivateTextWithoutResendingAndReopensTheSession ;;
         voice)
             # Reset only this synthetic app so the real native permission prompt repeats.
@@ -102,6 +106,9 @@ ui-test)
         checks+=(-only-testing:CarlosTests/PromptInputTests)
         xcrun clang -fobjc-arc -fblocks -framework Foundation "$SOURCE/ios-keyboard.m" -o "$BUILD/send-key"
         APP_RUNNER=(/usr/bin/python3 "$SOURCE/ios-keyboard-test.py" "$BUILD/send-key" "$2" "$CARLOS_GENERATED/UIFixtures/fixture.json")
+    fi
+    if [[ "$workflow" == idle-perf ]]; then
+        APP_RUNNER=(/usr/bin/python3 "$SOURCE/ios-idle-test.py" "$2" "$CARLOS_GENERATED/UIFixtures/fixture.json" "$BUILD/idle-metrics.json")
     fi
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \
         "${checks[@]}" -parallel-testing-enabled NO \

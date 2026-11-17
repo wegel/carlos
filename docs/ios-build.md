@@ -64,14 +64,20 @@ and Grok’s native client protocol.
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow credentials
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow relaunch
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow source
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow code-source
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow tools
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow questions
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow form
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow browser
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow stream
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow code-stream
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow keyboard
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow voice
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow scroll
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow history
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow ralph
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow syntax
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow reconnect
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow token-update
     target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
     target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
@@ -101,6 +107,33 @@ prepare target/ui-venv if missing, and build the fixture daemon with:
 
     cargo build -p carlosd --features carlos-core/test-support
 
+The history check forces a real native page failure, retries the same cursor and
+compares the visible row's exact position. The syntax check counts painted code colors
+and checks the original Markdown on the system clipboard. The reconnect check restarts
+only its private daemon after an actual accepted send whose result it withholds, then
+checks private recovery and a newer draft without another send.
+
+The keyboard check uses a test-only Mac helper to send raw simulator HID events, the
+same low-level key presses that UIKit receives from a physical keyboard. It accepts
+only the selected simulator whose name starts with `carlos `. It never changes the
+Mac keyboard settings or adds a product test hook. The helper's private simulator API
+was checked against Meta idb v1.1.7 and can need an update after an Xcode upgrade.
+
+Performance checks use the same frozen-source option and private daemon:
+
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow launch-perf
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow typing-perf
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow scroll-perf
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow idle-perf
+
+XCTest stores launch, typing, CPU, memory and scroll metrics in each result bundle.
+Typing wall time includes XCTest's event synthesis and screen queries; it is not
+keystroke-to-pixel latency. The idle check samples only the Carlos process inside the
+owned simulator for ten seconds after the screen settles. It saves CPU-time deltas
+and resident pages in `builds/<source>/idle-metrics.json` on the Mac. The native test
+suite also measures actual Rust block reads and grammar work through generated Swift.
+Simulator figures describe this Intel Mac and simulator, not physical iPhone limits.
+
 The scripts stage a small workspace under `target/ios-source/<hash>` containing
 phone/client/protocol sources, the app, its build script, license and dependencies.
 Cargo verifies the offline vendored crates. The script checks that their versions
@@ -108,6 +141,9 @@ match Cargo.lock, while removing features selected only by other workspace membe
 No terminal, backend, helper, private `etc` settings or Linux build products are
 copied. The Mac receives the bundle under `sources/<hash>` and builds under
 `builds/<hash>`, with shared caches in `rust-target` and `toolchains/cargo`.
+The stager also bundles original notices from the locked phone dependencies, keeping
+identical license texts once. The UniFFI source and pinned syntax-data notices are
+included beside the font notices.
 Verified third-party sources live separately under `ios-dependencies/<hash>`;
 their stable paths let Cargo reuse them after an app edit.
 Generated Swift, headers, XCFrameworks, Xcode projects, DerivedData, screenshots and

@@ -42,7 +42,7 @@ def copy_sources(destination):
     app = ROOT / "apps/ios"
     if app.exists():
         shutil.copytree(app, destination / "apps/ios")
-    for name in ("ios-remote.sh", "ios-keyboard.m", "ios-keyboard-test.py"):
+    for name in ("ios-remote.sh", "ios-keyboard.m", "ios-keyboard-test.py", "ios-idle-test.py"):
         script = ROOT / "scripts" / name
         if script.exists():
             shutil.copy2(script, destination / script.name)
@@ -104,6 +104,7 @@ def main():
         if not actual <= expected:
             raise ValueError(f"phone dependency graph changed: {actual - expected}")
         vendor(stage)
+        subprocess.run(["python3", str(ROOT / "scripts/ios-notices.py"), str(stage)], check=True)
         destination = parent / fingerprint(stage)
         if not destination.exists():
             shutil.copytree(stage, destination)
