@@ -3,11 +3,13 @@ import SwiftUI
 
 struct PhoneActivityLine: View {
     let info: PhoneSession?
-    let connected: Bool
+    let link: PhoneLinkState
+    var currentSnapshot = false
     var dictating = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var active: Bool { connected && info?.activity.phase != .idle && info != nil }
+    private var connected: Bool { if case .connected = link { true } else { false } }
+    private var active: Bool { connected && currentSnapshot && info?.activity.phase != .idle && info != nil }
 
     var body: some View {
         Group {
@@ -31,7 +33,7 @@ struct PhoneActivityLine: View {
     private func contents(now: Date) -> some View {
         HStack(spacing: 8) {
             if info?.activity.ralph == true { Text("RALPH").bold().foregroundStyle(PhoneTheme.pink) }
-            Text(status(now: now)).foregroundStyle(dictating ? PhoneTheme.red : info?.activity.phase == .approval ? PhoneTheme.yellow : PhoneTheme.overlay2)
+            Text(status(now: now)).foregroundStyle(dictating ? PhoneTheme.red : connected && currentSnapshot && info?.activity.phase == .approval ? PhoneTheme.yellow : PhoneTheme.overlay2)
                 .fixedSize(horizontal: true, vertical: false)
             Spacer(minLength: 0)
             if let context = info?.usage.context, context.maximum > 0 {
@@ -50,8 +52,13 @@ struct PhoneActivityLine: View {
 
     private func status(now: Date) -> String {
         if dictating { return "dictating" }
-        guard connected else { return "disconnected" }
+        switch link {
+        case .connecting: return "connecting…"
+        case .disconnected: return "disconnected"
+        case .connected: break
+        }
         guard let info else { return "choose a session" }
+        guard currentSnapshot else { return "loading session…" }
         guard active else { return info.status }
         let label = info.activity.phase == .approval ? "awaiting approval" : "working"
         guard let start = info.activity.startedAt else { return label }

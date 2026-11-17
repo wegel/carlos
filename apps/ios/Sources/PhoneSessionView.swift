@@ -9,6 +9,10 @@ struct PhoneSessionView: View {
     @State private var editing: PhoneQuestionDraft?
 
     private var info: PhoneSession? { host.transcript?.info ?? host.catalog.first { $0.id == host.selected } }
+    private var statusColor: Color {
+        if case .disconnected = host.link { return PhoneTheme.red }
+        return host.connected && host.transcript?.currentSnapshot == true ? (info?.statusColor ?? PhoneTheme.overlay1) : PhoneTheme.overlay1
+    }
     private var isStop: Bool { info?.activity.phase != .idle && info != nil && host.draft.isEmpty }
     private var sendDisabled: Bool {
         !host.connected || host.submitting || host.controlSubmitting ||
@@ -33,7 +37,7 @@ struct PhoneSessionView: View {
                 Button("Reopen session") { host.reopen() }.frame(minHeight: 44)
                     .disabled(!host.connected || host.controlSubmitting).fixedSessionBar()
             }
-            PhoneActivityLine(info: info, connected: host.connected).fixedSessionBar()
+            PhoneActivityLine(info: info, link: host.link, currentSnapshot: host.transcript?.currentSnapshot == true).fixedSessionBar()
             composer.fixedSessionBar()
         }
         .background(PhoneTheme.mantle).foregroundStyle(PhoneTheme.text)
@@ -60,7 +64,7 @@ struct PhoneSessionView: View {
                 VStack(spacing: 3) {
                     Text(info?.title ?? "Carlos").font(PhoneTheme.prose(16, weight: .semibold)).lineLimit(1)
                     HStack(spacing: 6) {
-                        Circle().fill(host.connected ? (info?.statusColor ?? PhoneTheme.overlay1) : PhoneTheme.red)
+                        Circle().fill(statusColor)
                             .frame(width: 7, height: 7)
                         Text(info?.subtitle ?? host.configuration.name).font(PhoneTheme.mono(11)).lineLimit(1)
                             .foregroundStyle(PhoneTheme.overlay2)

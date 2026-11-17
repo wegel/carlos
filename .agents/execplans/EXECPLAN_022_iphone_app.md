@@ -41,7 +41,8 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Local artifacts are phone-codex-527840feb882, edd76833420f,522b48d0af0e and8562385c4e48.
   All13 native tests pass without skips at tests-20261117T003735.xcresult; full workspace
   cargo test passes at native-polish-cargo-01.log. No traces remain in product code.
-- [ ] Compile the small current-status polish at current-status-native-01.log:
+- [x] Current-status polish compiles and passes all13 native checks on89ce36e8545f4ba7b2ed,
+  tests-20261117T005608.xcresult, current-status-native-01.log:
   connecting/loading session labels and a muted status dot must distinguish retained
   facts from a fresh current snapshot. This does not change native state or controls.
 
