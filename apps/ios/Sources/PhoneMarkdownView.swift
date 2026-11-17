@@ -5,12 +5,13 @@ struct PhoneMarkdownView: View {
     let document: PhoneDocument
     let color: Color
     var role: PhoneEntryKind = .answer
+    var streaming = false
     var changed: @MainActor () -> Void = {}
 
     var body: some View {
         LazyVStack(alignment: .leading, spacing: PhoneTheme.paragraphGap) {
             ForEach(0..<Int(document.blockCount()), id: \.self) { index in
-                PhoneMarkdownBlockView(document: document, index: UInt32(index), color: color, role: role, changed: changed)
+                PhoneMarkdownBlockView(document: document, index: UInt32(index), color: color, role: role, streaming: streaming && index + 1 == Int(document.blockCount()), changed: changed)
             }
         }
     }
@@ -21,6 +22,7 @@ struct PhoneMarkdownBlockView: View {
     let index: UInt32
     let color: Color
     var role: PhoneEntryKind = .answer
+    var streaming = false
     var changed: @MainActor () -> Void = {}
     @State private var block: PhoneMarkdownBlock?
     @State private var error: String?
@@ -50,10 +52,11 @@ struct PhoneMarkdownBlockView: View {
     @ViewBuilder private func content(_ block: PhoneMarkdownBlock) -> some View {
         switch block.kind {
         case .paragraph:
-            Text(styled(block.spans, size: role == .notice ? 11.5 : 15))
+            PhoneStreamingText(text: Text(styled(block.spans, size: role == .notice ? 11.5 : 15)), streaming: streaming)
                 .lineSpacing(role == .notice ? 0 : PhoneTheme.proseLeading).textSelection(.enabled)
         case .heading(let level):
-            Text(styled(block.spans, size: max(15, 25 - CGFloat(level) * 2), strong: true)).textSelection(.enabled)
+            PhoneStreamingText(text: Text(styled(block.spans, size: max(15, 25 - CGFloat(level) * 2), strong: true)), streaming: streaming)
+                .textSelection(.enabled)
         case .code(let language):
             VStack(alignment: .leading, spacing: 6) {
                 if let language { Text(language).font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.overlay2) }

@@ -65,7 +65,9 @@ struct PhoneTranscriptItemView: View {
                         } else { Color.clear.frame(width: 14) }
                     }
                     PhoneMarkdownBlockView(document: document, index: index,
-                        color: row.kind == .answer ? PhoneTheme.text : PhoneTheme.flamingo, role: row.kind, changed: host.contentChanged)
+                        color: row.kind == .answer ? PhoneTheme.text : PhoneTheme.flamingo, role: row.kind,
+                        streaming: row.kind == .answer && !row.done && host.connected && host.transcript?.currentSnapshot == true && host.transcript?.info.activity.canInterrupt == true
+                            && index + 1 == document.blockCount(), changed: host.contentChanged)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }.modifier(SourceRowLifetime(source: source, row: row))
             case .footer(let row, let source):

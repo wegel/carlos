@@ -28,6 +28,7 @@ final class PhoneHostModel: Identifiable {
     var creating = false
     var error: String?
     @ObservationIgnored let transport = PhoneTransport()
+    @ObservationIgnored private(set) var connectionIdentity: UUID?
     @ObservationIgnored private var catalogRequested = false
     @ObservationIgnored private var creation: String?
     @ObservationIgnored private let bodyBudget: PhoneBodyBudget
@@ -76,17 +77,38 @@ final class PhoneHostModel: Identifiable {
     }
 
     func connect() {
-        do {
-            let token = try HostTokens.read(for: id)
-            let url = try configuration.url()
-            let callbacks = PhoneCallbacks(
-                received: { [weak self] batch in self?.received(batch) },
-                link: { [weak self] state in self?.changedLink(state) }
-            )
-            error = nil
-            link = .connecting
-            transport.connect(url: url, token: token, callbacks: callbacks)
-        } catch { self.error = PhoneFailureMessage.describe(error) }
+        do { _ = connect(url: try configuration.url(), token: try HostTokens.read(for: id)) }
+        catch {
+            connectionIdentity = nil
+            transport.disconnect()
+            changedLink(.disconnected(PhoneFailureMessage.describe(error)))
+        }
+    }
+
+    func connect(url: URL, token: String) -> UUID {
+        let identity = UUID()
+        connectionIdentity = identity
+        let callbacks = PhoneCallbacks(
+            received: { [weak self] batch in
+                guard let self, self.connectionIdentity == identity else { return }
+                self.received(batch)
+            },
+            link: { [weak self] state in
+                guard let self, self.connectionIdentity == identity else { return }
+                self.changedLink(state)
+            }
+        )
+        error = nil
+        changedLink(.connecting)
+        transport.connect(url: url, token: token, callbacks: callbacks)
+        return identity
+    }
+
+    func cancelConnection(_ identity: UUID) {
+        guard connectionIdentity == identity else { return }
+        connectionIdentity = nil
+        transport.disconnect()
+        changedLink(.disconnected(nil))
     }
 
     func select(_ session: String) {

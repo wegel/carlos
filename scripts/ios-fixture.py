@@ -120,6 +120,25 @@ def configure_source(native):
     return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
 
 
+def configure_stream(native):
+    """Hold one native answer until the original Stop, without approvals or fake UI state."""
+    configure_controls(native)
+    original = native.prompt
+
+    async def prompt(link, request):
+        if request["params"]["input"][0]["text"] != "phone stream":
+            await original(link, request)
+            return
+        native.prompts += 1
+        await native.notify(link, "turn/started", turn={"id": "live"})
+        await native.notify(link, "item/started", turnId="live", item={
+            "type": "agentMessage", "id": "phone-stream", "phase": "final_answer", "text": ""})
+        await native.notify(link, "item/agentMessage/delta", turnId="live", itemId="phone-stream",
+                            delta="Streaming paragraph 🌍")
+
+    native.prompt = prompt
+
+
 def configure_questions(native, *, form_request=False, browser_url=None):
     """Reply only to the exact original native question, then publish its actual completion."""
     original_prompt = native.prompt
@@ -168,6 +187,8 @@ def configure_workflow(fixture, workflow, artifacts, resources):
         configure_controls(fixture.native, stream_output=True)
     elif workflow == "source":
         source = configure_source(fixture.native)
+    elif workflow == "stream":
+        configure_stream(fixture.native)
     elif workflow == "questions":
         configure_questions(fixture.native)
     elif workflow == "form":
@@ -197,15 +218,15 @@ def observed_prompts(fixture, backend):
 
 def check_native(fixture, backend, workflow, observed, visits):
     """Prove exact human text and original native callbacks, not only a plausible screen."""
-    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
-                "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
+    expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"], "stream": ["phone stream"],
+                "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [], "token-update": ["phone exact prompt 🦀", "phone token restart"],
                 "questions": ["phone questions"], "form": ["phone form"], "browser": ["phone browser"]}
     assert observed == expected[workflow], observed
     if backend != "codex":
         assert [process["backend"] for process in fixture.pids()] == [backend], fixture.pids()
         return
     native = fixture.native
-    if workflow == "relaunch":
+    if workflow in ("relaunch", "token-update"):
         assert native.started == 1, "Relaunch must not create another native session"
     elif workflow == "credentials":
         assert native.started == 0, "Connecting must not create a native session"
@@ -213,6 +234,8 @@ def check_native(fixture, backend, workflow, observed, visits):
         assert native.answers == 1 and native.interrupts == 1
         answers = [request for request in native.requests if request.get("id") == "card"]
         assert len(answers) == 1 and answers[0]["result"]["decision"] == "accept", answers
+    elif workflow == "stream":
+        assert native.interrupts == 1 and native.answers == 0
     elif workflow == "questions":
         assert native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
             "field-str": {"answers": ["Listed value", "user_note: phone note 🦀"]}}}}], native.task_answers
@@ -260,7 +283,7 @@ def run(workflow, backend="codex"):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form", "browser", "stream", "token-update"), default="prompt")
     parser.add_argument("--backend", choices=("codex", "claude", "grok"), default="codex")
     arguments = parser.parse_args()
     if arguments.backend != "codex" and arguments.workflow != "prompt":

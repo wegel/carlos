@@ -64,6 +64,8 @@ and Grok’s native client protocol.
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow questions
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow form
     target/ui-venv/bin/python scripts/ios-fixture.py --workflow browser
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow stream
+    target/ui-venv/bin/python scripts/ios-fixture.py --workflow token-update
     target/ui-venv/bin/python scripts/ios-fixture.py --backend claude
     target/ui-venv/bin/python scripts/ios-fixture.py --backend grok
 
@@ -76,8 +78,10 @@ relaunch, a10MB answer's exact clipboard bytes, running-tool expansion and nativ
 question answers. The form check corrects an invalid integer while retaining choices
 and sends one typed native response. The browser check opens a fixed local page in
 Safari and returns to the original approval; a page visit never sends consent. The
-backend flags select the real backend in the app and verify one exact native prompt
-and one native process. Each command checks the actual screen and native requests
+stream check measures blinking green pixels, then checks the original Stop and retained
+answer. The token-update check rejects an edited token, cancels, sends with the previous
+credential and sends again after a cold restart. The backend flags select the real
+backend in the app and verify one exact native prompt and one native process. Each command checks the actual screen and native requests
 without an account or inference. Each command uses a fresh
 daemon, a separate app bundle id, synthetic credentials in the test target only, the
 owned simulator and its own saved native trace/XCResult. Run scripts/test.sh once to

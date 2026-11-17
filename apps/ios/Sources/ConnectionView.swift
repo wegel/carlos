@@ -1,5 +1,6 @@
 // Accept explicit host credentials; unencrypted WebSocket requires the person's private-network choice.
 import SwiftUI
+import UIKit
 
 struct ConnectionView: View {
     let store: PhoneStore
@@ -11,7 +12,7 @@ struct ConnectionView: View {
     @State private var token = ""
     @State private var privateWebSocket = false
     @State private var error: String?
-    @State private var pending: PhoneHostModel?
+    @State private var pending: PhoneConnectionAttempt?
     @FocusState private var field: Field?
 
     private enum Field: Hashable { case host, address, token }
@@ -34,7 +35,7 @@ struct ConnectionView: View {
             Form {
                 fields
                 Section {
-                    Text("Use a device token provisioned by your Carlos daemon. Carlos stores it in this device’s Keychain.")
+                    Text("Get a device token from Carlos on your computer. This iPhone saves it securely in Keychain.")
                         .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.overlay2)
                 }.listRowBackground(PhoneTheme.base)
             }
@@ -55,31 +56,46 @@ struct ConnectionView: View {
             }
             .font(PhoneTheme.prose()).tint(PhoneTheme.blue)
             .foregroundStyle(PhoneTheme.text)
-            .onChange(of: pending?.connected) { _, connected in
-                guard connected == true, let host = pending, host.error == nil else { return }
-                store.selectedHost = host.id
-                pending = nil
-                token = ""
-                completed()
+            .onChange(of: pending?.host.connected) { _, connected in
+                guard connected == true, let attempt = pending else { return }
+                do {
+                    let host = try store.saveConnection(attempt)
+                    store.selectedHost = host.id
+                    pending = nil
+                    token = ""
+                    completed()
+                } catch {
+                    self.error = PhoneFailureMessage.describe(error)
+                    attempt.cancel()
+                    pending = nil
+                }
             }
-            .onChange(of: pending?.error) { _, message in
-                guard let message else { return }
+            .onChange(of: pending?.host.error) { _, message in
+                guard let message, let attempt = pending, !attempt.host.connected else { return }
                 error = message
+                attempt.cancel()
                 pending = nil
+            }
+            .onDisappear {
+                pending?.cancel()
+                if UIApplication.shared.applicationState == .active && UIApplication.shared.isProtectedDataAvailable {
+                    store.resumeConnections()
+                }
             }
         }
     }
 
     private var fields: some View {
-        Section("Carlos daemon") {
-            TextField("Host name", text: $host).accessibilityIdentifier("connection.host")
+        Section("Carlos server") {
+            TextField("Name (optional)", text: $host, prompt: Text("Name (optional)").foregroundColor(PhoneTheme.overlay2)).accessibilityIdentifier("connection.host")
                 .focused($field, equals: .host).submitLabel(.next).onSubmit { field = .address }
-            TextField("wss://host:port", text: $address)
+            TextField("Server URL", text: $address, prompt: Text("Server URL (wss://host:port)").foregroundColor(PhoneTheme.overlay2))
                 .textContentType(.URL).keyboardType(.URL)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .accessibilityIdentifier("connection.address")
                 .focused($field, equals: .address).submitLabel(.next).onSubmit { field = .token }
-            SecureField(usesSavedToken ? "Saved token (unchanged)" : "Device token", text: $token)
+            SecureField(usesSavedToken ? "Saved token (unchanged)" : "Device token", text: $token,
+                        prompt: Text(usesSavedToken ? "Saved token (unchanged)" : "Device token").foregroundColor(PhoneTheme.overlay2))
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
                 .accessibilityIdentifier("connection.token")
                 .focused($field, equals: .token).submitLabel(.go).onSubmit { if canConnect { connect() } }
@@ -120,7 +136,7 @@ struct ConnectionView: View {
         do {
             error = nil
             field = nil
-            pending = try store.connect(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
+            pending = try store.beginConnection(name: host, address: address, token: token, privateWebSocket: privateWebSocket)
         } catch { self.error = PhoneFailureMessage.describe(error) }
     }
 }

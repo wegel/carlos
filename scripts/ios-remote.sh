@@ -75,10 +75,12 @@ ui-test)
         reference) test_case=testReadOnlyReferenceKeepsFixedControlsInBothLayouts ;;
         relaunch) test_case=testRelaunchReusesSavedConnectionAndToken ;;
         credentials) test_case=testInvalidTokenKeepsTheFormAndAllowsCorrection ;;
+        token-update) test_case=testRejectedReplacementKeepsTheSavedTokenThroughCancelAndRestart ;;
         tools) test_case=testRunningToolExpandsStreamsAndKeepsItsRowChoice ;;
         questions) test_case=testNativeQuestionKeepsTheChoiceAndPrivateNote ;;
         form) test_case=testNativeFormPreservesRejectedFieldsAndTypedValues ;;
         browser) test_case=testBrowserVisitDoesNotGrantConsent ;;
+        stream) test_case=testStreamingCaretBlinksAndStopsWithTheOriginalTurn ;;
         *) echo "unknown phone fixture workflow" >&2; exit 2 ;;
     esac
     CARLOS_BUILD_CONFIGURATION=Fixture app test -destination "platform=iOS Simulator,id=$2" \

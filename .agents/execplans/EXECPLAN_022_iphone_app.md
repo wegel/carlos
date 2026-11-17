@@ -34,7 +34,18 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Protect a working saved token when the person types a rejected replacement.
+- [x] (2026-11-17) Credential staging and trace-free caret pass on589f3adae575cb5d84ca:
+  stream04 (ui-tests-20261117T003806), rejected-new-token repair
+  (ui-tests-20261117T004433), saved-token/session relaunch (004534) and rejected
+  replacement/Cancel/cold-restart (004648) all pass their exact native traffic checks.
+  Local artifacts are phone-codex-527840feb882, edd76833420f,522b48d0af0e and8562385c4e48.
+  All13 native tests pass without skips at tests-20261117T003735.xcresult; full workspace
+  cargo test passes at native-polish-cargo-01.log. No traces remain in product code.
+- [ ] Compile the small current-status polish at current-status-native-01.log:
+  connecting/loading session labels and a muted status dot must distinguish retained
+  facts from a fresh current snapshot. This does not change native state or controls.
+
+- [x] Protect a working saved token when the person types a rejected replacement (token-update03 passes).
   Direct code inspection shows PhoneStore.connect writes Keychain before the greeting
   accepts that token. Add a real existing-host rejection/Cancel/relaunch workflow, then
   commit the new credential only after its exact connection authenticates. Keep this
@@ -185,6 +196,27 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+The token replacement workflow reproduces the existing-host failure on4d683461d007481a9358,
+ui-tests-20261117T002718.xcresult, local phone-codex-67093b172e86: after a rejected edit
+and Cancel, the old connection cannot send (the assertion names this exact behavior).
+The current fix holds a new token only in a small native connection attempt, saves it
+and its configuration only after that exact authenticated greeting, and fences old UI
+callbacks by attempt identity. A blank existing-token edit does not rewrite Keychain.
+Cancelling the sheet resumes the previous saved connection only while active/unlocked;
+new rejected hosts are not persisted. Token-update UI02 passes on34bdad3e0b4ed7c84eac (ui-tests-20261117T003504);
+the final guarded UI03 and native13 tests pass on589f3adae575cb5d84ca. This changes no protocol, Rust operation store or owner daemon.
+
+Streaming UI03 passes on53c248595f1e2a1e6e5d, ui-tests-20261117T002438.xcresult,
+local phone-codex-25f123fef314. Actual green-pixel counts change from267 to1239; the
+render trace now shows paint on each clock phase with a6x18 caret after native glyph
+bounds. Disabling selection only while streaming enables TextRenderer. Completed text
+remains selectable, with exact original accessibility text and byte-counted Copy after
+native Stop. Temporary traces are removed; the final trace-free stream04 passes on589f3adae575cb5d84ca.
+The stream image also places a private local echo below its native answer; check the
+fixture’s user-item events and the existing shared operation anchor before changing UI
+order. Do not reorder rows heuristically or invent a confirmed native user entry.
+
 
 Streaming UI01 fails its actual pixel check: all seven samples contain265 green pixels
 from static content and no visible blinking caret. UI02 adds geometry-only traces and
@@ -671,6 +703,18 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The credential/caret checkpoint is checked by real UI, native13 and full Rust tests.
+A pending connection holds an entered secret only until its own greeting succeeds;
+failed edits leave stored credentials and host settings intact. Cancel resumes the
+previous saved connection, old callbacks cannot commit a newer attempt, and unchanged
+tokens are not rewritten. The app restores its existing native session across restart.
+The native caret blinks as painted pixels and never becomes copied/accessibility text;
+observed Stop removes it and keeps the partial answer and Copy. Completed text remains
+selectable. Current-status labels, local-echo ordering, full scrolling, syntax/file
+output, hardware keys, on-device speech and final release/performance/review gates
+remain incomplete. Do not treat these checkpoints as EP approval.
+
 
 Browser05 now proves the complete real Safari round trip and exact native callback.
 The shared-client fix restores controls after an unchanged reconnect without adding a

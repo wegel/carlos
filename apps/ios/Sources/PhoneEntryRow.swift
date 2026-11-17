@@ -60,7 +60,8 @@ struct PhoneEntryRow: View {
 
     @ViewBuilder private var contents: some View {
         if let document = source?.document ?? inlineMarkup.document {
-            PhoneMarkdownView(document: document, color: color, role: row.kind, changed: host.contentChanged)
+            PhoneMarkdownView(document: document, color: color, role: row.kind,
+                streaming: row.kind == .answer && !row.done && host.connected && host.transcript?.currentSnapshot == true && host.transcript?.info.activity.canInterrupt == true, changed: host.contentChanged)
         }
         else {
             Text(acceptedInline.isEmpty ? row.text.preview : acceptedInline)
