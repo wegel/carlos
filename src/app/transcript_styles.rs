@@ -3,6 +3,8 @@
 
 use std::collections::VecDeque;
 
+pub(super) use carlos_client::source::code_line_gutter_prefix_len;
+
 use ansi_to_tui::IntoText as _;
 
 use super::style_convert::{core_style_to_style, CarlosMarkdownStyleSheet};
@@ -72,53 +74,6 @@ pub(super) fn markdown_document_segments(text: &str, width: usize) -> Vec<Vec<St
 }
 
 /// Find the numbered `│` gutter used by RTK read output.
-pub(super) fn code_line_gutter_prefix_len(text: &str) -> Option<usize> {
-    let mut chars = text.char_indices().peekable();
-
-    while let Some((_, ch)) = chars.peek().copied() {
-        if ch == ' ' {
-            chars.next();
-        } else {
-            break;
-        }
-    }
-
-    let mut saw_digit = false;
-    while let Some((_, ch)) = chars.peek().copied() {
-        if ch.is_ascii_digit() {
-            saw_digit = true;
-            chars.next();
-        } else {
-            break;
-        }
-    }
-    if !saw_digit {
-        return None;
-    }
-
-    let mut saw_post_digit_space = false;
-    while let Some((_, ch)) = chars.peek().copied() {
-        if ch == ' ' {
-            saw_post_digit_space = true;
-            chars.next();
-        } else {
-            break;
-        }
-    }
-    if !saw_post_digit_space {
-        return None;
-    }
-
-    let (_, bar) = chars.next()?;
-    if bar != '│' {
-        return None;
-    }
-    let (space_idx, space) = chars.next()?;
-    if space != ' ' {
-        return None;
-    }
-    Some(space_idx + space.len_utf8())
-}
 
 pub(super) fn ansi_line_segments(text: &str) -> Option<Vec<Vec<StyledSegment>>> {
     let parsed = text.into_text().ok()?;

@@ -34,6 +34,26 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Move the terminal's existing native read-gutter split into the pure shared
+  client without changing its rules. The terminal delegates to the same functions;
+  the phone uses the actual prefix, never a guessed line1 offset or a display label.
+  The new prefix/body test proves byte-for-byte recombination for boxed, arrow, tab
+  and colon forms and leaves unmarked lines unnumbered. The combined230 client/phone
+  checks and full syntax-cargo-01 workspace run pass. Run the full terminal/release
+  checks after this shared formatter move before final acceptance.
+
+- [ ] Fix the now-proven native text reentrancy. Raw HID UI07 captures the complete
+  causal trace on8c1df7d6d8c41528e373/ui-tests-20261117T043052.xcresult:
+  first synthetic scalar112 enters an empty view; the delegate reports length1;
+  an external old1/new0 render runs before insertText returns length0. The earlier
+  binding guard updated its marker in the delegate, so it treated that previous
+  render as a new external change. Keep the marker only for values SwiftUI rendered
+  and remove the redundant intrinsic-size invalidation. UI08 verifies this concrete
+  change. Syntax UI01 also sends hone syntax rather than phone syntax and correctly
+  fails; it proves no code-color UI result. Keep phone-codex-9920bd85ce52 and
+  9c69953cd7a8f964a6a4/ui-tests-20261117T042737.xcresult. No test assertion or timeout
+  has been weakened, and no hardware success is claimed yet.
+
 - [x] The real Mac grammar caller passes all15 native tests without skips on
   484a9f14cdf3e7a34a5d/tests-20261117T041937.xcresult, syntax-native-02.log.
   The standalone Apple graph compiles fancy-regex with no C regex backend. The
@@ -1519,3 +1539,6 @@ Revision2026-11-17: record the actual Mac grammar test and inspected Ralph scree
 The first-character keyboard issue still reproduces after the binding guard; a small
 fixture-only scalar/length trace checks where UIKit loses it. That guard is not called
 a proven fix, and every temporary trace must be removed before the clean final run.
+
+Revision2026-11-17: share the existing pure read-gutter parser and record the proven
+first-character loss; check the smaller render-marker fix with the unchanged real UI.

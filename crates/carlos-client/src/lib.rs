@@ -43,6 +43,7 @@ mod settings_panel_drive;
 mod settings_panel_replies;
 mod settings_reads;
 mod settings_state;
+pub mod source;
 mod startup;
 mod task_activity;
 mod task_activity_drive;

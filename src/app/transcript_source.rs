@@ -1,5 +1,6 @@
 //! Color visible file reads while leaving command labels and line numbers intact.
 
+use carlos_client::source::split_read_gutter;
 use carlos_core::session::models::Role;
 use ratatui::style::Style;
 
@@ -79,25 +80,4 @@ pub(super) fn count_source_lines(text: &str, width: usize) -> Option<usize> {
             })
             .sum(),
     )
-}
-
-fn split_read_gutter(line: &str) -> (&str, &str) {
-    if let Some(end) = super::transcript_styles::code_line_gutter_prefix_len(line) {
-        return (&line[..end], &line[end..]);
-    }
-    let trimmed = line.trim_start_matches(' ');
-    let digits = trimmed.bytes().take_while(u8::is_ascii_digit).count();
-    if digits == 0 {
-        return ("", line);
-    }
-    let rest = &trimmed[digits..];
-    let prefix = if rest.starts_with('\t') || rest.starts_with('→') {
-        rest.chars().next().map(char::len_utf8).unwrap_or(0)
-    } else if rest.starts_with(':') {
-        1
-    } else {
-        return ("", line);
-    };
-    let end = line.len() - rest.len() + prefix;
-    (&line[..end], &line[end..])
 }
