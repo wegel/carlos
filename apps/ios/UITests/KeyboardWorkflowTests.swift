@@ -43,8 +43,12 @@ extension SessionWorkflowTests {
         XCTAssertFalse(app.buttons["composer.send"].isEnabled)
         capture("Hardware Return sends exactly one native prompt", screenshot: app.screenshot())
         let unsent = "private\nsecond\nthird\nfourth\nfifth\nsixth 🦀"
-        draft.typeText(unsent)
+        draft.typeText("private\nsecond\nthird\nfourth\nfifth")
+        let fiveLineHeight = draft.frame.height
+        draft.typeText("\nsixth 🦀")
         XCTAssertEqual(draft.value as? String, unsent, "Text-entry newlines must stay in the draft")
+        XCTAssertEqual(draft.frame.height, fiveLineHeight, accuracy: 0.5,
+                       "The sixth line must scroll inside the existing five-line input area")
         XCTAssertGreaterThan(draft.frame.height, 95)
         XCTAssertLessThanOrEqual(draft.frame.height, 137, "The composer must scroll internally beyond five lines")
         XCTAssertTrue(app.buttons["composer.send"].isEnabled)

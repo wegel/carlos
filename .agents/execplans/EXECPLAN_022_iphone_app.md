@@ -34,6 +34,33 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] (2026-11-17 14:33Z) Check the completed phone controls and shared tool relation.
+  Source833cf6a1a264ca8cf57a passes actual Claude one-header/complete-output/Full-two-row
+  and exactly-one-native-prompt checks in43.9s: claude-tool-pairs-02.log,
+  ui-tests-20261117T092549, phone-claude-f146f9efa59c. Its first run on73 fails at the
+  settings picker before sending a prompt; the helper now waits for the session
+  picker to close and for the real tools control. Source56e36e29e767c7c9471b passes
+  the strengthened native keyboard/idle-caret/Done test in52.5s, including equal
+  five/six-line editor heights and all original Unicode bytes:
+  final-keyboard-01.log, ui-tests-20261117T092821, phone-codex-122ad6243f49.
+  Root inspects the actual b604 closed-keyboard and73 Claude quota PNGs. The small
+  output count is checked in c4 and remains in the current app code.
+- [x] Keep old tool pairs quiet when prepending a native archive. Only results that
+  existed before the prefix need a link update. Cargo08 passes the300-pair no-live-
+  facts/no-reset regression and all existing tests. Commit2931ab3 adds the scoped
+  relation/index/terminal fold. Commit9b60162 includes the phone quota/fold screens
+  and quiet-prefix correction. A staged commit hook combined the two intended
+  follow-up commits; Root corrects the combined commit description and verifies no
+  code is lost. The hook runs cargo test; do not mutate the index until it exits.
+- [ ] Finish the exact-source terminal package and actual mixed Claude reference.
+  Release gate02 passes225 daemon tests but fails its matching-package source check
+  after Rust files changed during the gate. Preserve that failed run; gate03 is
+  running after the last Rust correction. The private reference loader03 fails
+  before connecting because scripts/ is absent from its Python import path; fix
+  that temporary loader and rerun. This is not a phone layout failure. Frozen owner
+  daemon/CLI/previews remain untouched. The old owner daemon cannot supply the new
+  optional tool-call relation until it is replaced at an authorized later step.
+
 - [ ] Fix the owner's real backbuffer jumps and the reproduced large-code layout
   stall, then recheck the actual Claude reference and exact history/tool anchors.
   The b604 code-source repeat also times out; the bounded native watcher captures
@@ -53,7 +80,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   This restores the large-source behavior without reintroducing SwiftUI per-row
   geometry callbacks. Check the real mixed Claude reference before declaring the
   owner's backbuffer report fixed. The compact output summary is in that source too.
-- [ ] Add the owner's requested weekly quota beside context, using the TUI's
+- [x] Add the owner's requested weekly quota beside context, using the TUI's
   remaining-quota meaning. PhoneUsage already carries the data; PhoneActivityLine
   currently hides it for Claude with a Codex-only check and places it after the
   model. Remove that restriction and keep adjacent percentages with honest absence
