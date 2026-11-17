@@ -10,6 +10,7 @@ mod controls;
 mod document;
 mod entries;
 mod error;
+mod form_answers;
 mod operations;
 mod records;
 mod session_calls;
@@ -17,8 +18,8 @@ mod sessions;
 mod transcript;
 
 pub use approval_inputs::{
-    PhoneApprovalInput, PhoneQuestionAnswer, PhoneQuestionField, PhoneQuestionOption,
-    PhoneQuestions,
+    PhoneApprovalInput, PhoneFieldKind, PhoneQuestionAnswer, PhoneQuestionField,
+    PhoneQuestionOption, PhoneQuestions,
 };
 pub use approvals::{PhoneApproval, PhoneApprovalCaption, PhoneDecision};
 pub use bodies::PhoneBody;

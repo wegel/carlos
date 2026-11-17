@@ -22,6 +22,7 @@ final class PhoneHostModel: Identifiable {
     var contentVersion = UUID()
     var followRequest = UUID()
     var controlSubmitting = false
+    private var approvalRequests: [String: ApprovalSubmission] = [:]
     var draft = ""
     var submitting = false
     var creating = false
@@ -102,6 +103,7 @@ final class PhoneHostModel: Identifiable {
         orderedEntries = []
         rows = [:]
         approvals = []
+        approvalRequests = [:]
         if let old, old != session {
             transport.command({ try $0.unsubscribe(session: old) }, completion: report)
         }
@@ -150,15 +152,45 @@ final class PhoneHostModel: Identifiable {
     }
 
     func approve(_ card: PhoneApproval, decision: PhoneDecision) {
-        guard let selected, connected, !controlSubmitting else { return }
+        guard let selected, connected, !controlSubmitting, !approvalBusy(card.id) else { return }
         followRequest = UUID()
-        submitControl { try $0.approve(session: selected, approval: card.id, decision: decision) }
+        submitApproval(card.id) { try $0.approve(session: selected, approval: card.id, decision: decision) }
     }
 
-    func answer(_ questions: PhoneQuestions, answers: [PhoneQuestionAnswer]) {
-        guard connected, !controlSubmitting else { return }
+    func answer(_ questions: PhoneQuestions, card: String, answers: [PhoneQuestionAnswer]) {
+        guard connected, !controlSubmitting, !approvalBusy(card) else { return }
         followRequest = UUID()
-        submitControl { try $0.answerQuestions(questions: questions, answers: answers) }
+        submitApproval(card) { try $0.answerQuestions(questions: questions, answers: answers) }
+    }
+
+    func approvalBusy(_ card: String) -> Bool {
+        guard let request = approvalRequests[card] else { return false }
+        switch request {
+        case .writing: return true
+        case .operation(let key):
+            switch operations[key]?.state {
+            case .rejected?, .uncertain?: return false
+            default: return true
+            }
+        }
+    }
+
+    private func submitApproval(_ card: String, _ call: @escaping @Sendable (PhoneClient) throws -> PhoneSubmission) {
+        error = nil
+        approvalRequests[card] = .writing
+        controlSubmitting = true
+        transport.submit(call) { [weak self] result in
+            guard let self else { return }
+            controlSubmitting = false
+            switch result {
+            case .success(let operation):
+                approvalRequests[card] = .operation(operation.key)
+                accept(operation)
+            case .failure(let failure):
+                approvalRequests.removeValue(forKey: card)
+                error = PhoneFailureMessage.describe(failure)
+            }
+        }
     }
 
     func reopen() {
@@ -251,7 +283,11 @@ final class PhoneHostModel: Identifiable {
             case .success(let update):
                 if let catalog = update.catalog { self.catalog = catalog }
                 if self.selected == selected {
-                    if let approvals = update.approvals { self.approvals = approvals }
+                    if let approvals = update.approvals {
+                        self.approvals = approvals
+                        let live = Set(approvals.map(\.id))
+                        approvalRequests = approvalRequests.filter { live.contains($0.key) }
+                    }
                     if let transcript = update.transcript {
                         self.transcript = transcript
                         if transcript.currentSnapshot { for source in sources.values { source.resume() } }
@@ -308,4 +344,9 @@ final class PhoneHostModel: Identifiable {
     private func report(_ result: Result<Void, any Error>) {
         if case .failure(let failure) = result { error = PhoneFailureMessage.describe(failure) }
     }
+}
+
+private enum ApprovalSubmission {
+    case writing
+    case operation(String)
 }

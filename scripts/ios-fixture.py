@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests/daemon"))
 from network_support import grant
 from support import Fixture
-from native_task_questions import callback_key, question
+from native_task_questions import callback_key, form as native_form, question
 
 
 def mac_settings():
@@ -119,19 +119,22 @@ def configure_source(native):
     return {"sourceSha256": hashlib.sha256(raw).hexdigest(), "sourceBytes": len(raw)}
 
 
-def configure_questions(native):
+def configure_questions(native, *, form_request=False):
     """Reply only to the exact original native question, then publish its actual completion."""
     original_prompt = native.prompt
     original_response = native.task_question_response
-    identity = "phone:questions:α"
+    identity = "phone:form:α" if form_request else "phone:questions:α"
+    prompt_text = "phone form" if form_request else "phone questions"
+    result_text = "Phone form accepted 🦀" if form_request else "Phone answers accepted 🦀"
 
     async def prompt(link, request):
-        if request["params"]["input"][0]["text"] != "phone questions":
+        if request["params"]["input"][0]["text"] != prompt_text:
             await original_prompt(link, request)
             return
         native.prompts += 1
         await native.notify(link, "turn/started", turn={"id": "live"})
-        frame = question(identity, thread=native.thread_id, turn="live", blocking=True)
+        frame = native_form(identity, turn="live") if form_request else question(identity, thread=native.thread_id, turn="live", blocking=True)
+        frame["params"]["threadId"] = native.thread_id
         native.task_callbacks[callback_key(identity)] = frame
         native.task_callback_ids.add(callback_key(identity))
         await native.send(link, frame)
@@ -141,7 +144,7 @@ def configure_questions(native):
         if handled and answer.get("id") == identity:
             await native.notify(link, "serverRequest/resolved", requestId=identity)
             await native.notify(link, "item/agentMessage/delta", turnId="live", itemId="phone-question-result",
-                                delta="Phone answers accepted 🦀")
+                                delta=result_text)
             await native.notify(link, "turn/completed", turn={"id": "live", "status": "completed"})
         return handled
 
@@ -165,6 +168,8 @@ def run(workflow):
             expected_source = configure_source(fixture.native)
         elif workflow == "questions":
             configure_questions(fixture.native)
+        elif workflow == "form":
+            configure_questions(fixture.native, form_request=True)
         token = grant(fixture, "native-phone")
         local_port = int(fixture.ws_uri.rsplit(":", 1)[1])
         with forward(local_port, artifacts) as remote_port:
@@ -184,7 +189,7 @@ def run(workflow):
                 raise RuntimeError(f"Actual phone UI test failed; native evidence: {artifacts}")
             expected = {"controls": ["held"], "tools": ["held"], "source": ["phone long source"],
                         "prompt": ["phone exact prompt 🦀"], "relaunch": [], "credentials": [],
-                        "questions": ["phone questions"]}[workflow]
+                        "questions": ["phone questions"], "form": ["phone form"]}[workflow]
             assert observed == expected, observed
             if workflow == "relaunch":
                 assert fixture.native.started == 1, "Relaunch must not create another native session"
@@ -197,6 +202,9 @@ def run(workflow):
             elif workflow == "questions":
                 assert fixture.native.task_answers == [{"id": "phone:questions:α", "result": {"answers": {
                     "field-str": {"answers": ["Listed value", "user_note: phone note 🦀"]}}}}], fixture.native.task_answers
+            elif workflow == "form":
+                assert fixture.native.task_answers == [{"id": "phone:form:α", "result": {
+                    "action": "accept", "content": {"count": 5, "enabled": False, "mode": "fr"}}}], fixture.native.task_answers
             assert not fixture.native.errors, fixture.native.errors
             print(f"Actual phone {workflow} screen and native traffic passed: {artifacts}")
     finally:
@@ -205,5 +213,5 @@ def run(workflow):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions"), default="prompt")
+    parser.add_argument("--workflow", choices=("prompt", "controls", "source", "relaunch", "credentials", "tools", "questions", "form"), default="prompt")
     run(parser.parse_args().workflow)

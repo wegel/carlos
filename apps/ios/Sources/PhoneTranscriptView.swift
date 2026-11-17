@@ -3,6 +3,7 @@ import SwiftUI
 
 struct PhoneTranscriptView: View {
     let host: PhoneHostModel
+    let openQuestions: (PhoneApproval, PhoneQuestions) -> Void
     @Environment(PhonePreferences.self) private var preferences
     @State private var position = ScrollPosition(edge: .bottom)
     @State private var following = true
@@ -30,7 +31,7 @@ struct PhoneTranscriptView: View {
                                 .lineSpacing(PhoneTheme.proseLeading).foregroundStyle(PhoneTheme.text)
                         }.padding(.top, 18)
                     }
-                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card).padding(.top, 18) }
+                    ForEach(host.approvals, id: \.id) { card in PhoneApprovalView(host: host, card: card, openQuestions: openQuestions).padding(.top, 18) }
                     ForEach(recoveries, id: \.key) { operation in PhoneRecoveryView(host: host, operation: operation).padding(.top, 18) }
                     Color.clear.frame(height: 1).id("transcript.bottom")
                 }.scrollTargetLayout().frame(width: max(0, geometry.size.width - 32), alignment: .leading)

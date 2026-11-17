@@ -111,16 +111,17 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 - [ ] Complete stable scrolling, running-tool expansion, Markdown/copy, Ralph, native
   on-device dictation and honest permission/unavailable states.
   Update (2026-11-17): the saved-host/token/last-session and connection-screen fixes are
-  committed as23475bb and39b4f70. The next checked phone preview is being built from
-  simulator-checked2327bf4307aa3d527804; the installed app is still old until a signing/
-  install receipt is recorded. Running/completed tool expansion is now implemented
+  committed as23475bb and39b4f70. The signed source2327bf4307aa3d527804 preview is
+  installed on the owner's iPhone; token-preview-install.json records success. Launch
+  was refused only because the phone was locked. Running/completed tool expansion is implemented
   through the existing checked output reader. It retains classified colors and an
   explicit missing-prefix notice, watches running output, closes offscreen reads and
   keeps only the old measured height while refetching. Native11 tests pass onf0b9c5056ba1d93ed13a,
-  tests-20261116T220930.xcresult. The new actual tools workflow79ff6b583d26e8edaf00 is
-  running; it must observe chunk-a before approval/Stop, then the final native chunk-b,
-  preserve expansion through the native outcome and allow collapse/reopen. This is
-  still incomplete until the actual UI and scroll/remaining feature checks pass.
+  tests-20261116T220930.xcresult. The actual tools workflow passes one4569aeb392a5d716e88,
+  ui-tests-20261116T221430.xcresult: chunk-a arrives before approval/Stop, chunk-b follows
+  the actual Stop, and collapse/reopen preserves complete observed output. Tool commit6cf1ced
+  and question commitd6045ba are checked; flat forms now pass their first full simulator
+  flow. Full scrolling, remaining features and the final gates stay incomplete.
   Update (2026-11-17 01:35Z): the actual long-original-source UI workflow passes on
   source5635510dc076454c0a87, ui-tests-20261116T203335.xcresult, local
   phone-e3ad2c7d29a0. All10483884 source bytes match the system clipboard's byte count
@@ -135,6 +136,74 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+Forms UI08 passes on60f84be7db4c644d6cd8, ui-tests-20261116T233112.xcresult,
+local phone-788b8adfbd8d. Root inspected the keyboard-open image: Done is in the top
+bar and every bottom action stays clear. The form keyboard focus/defocus warnings are
+gone from that run; one warning remains during the old connection keyboard toolbar.
+The connection placement fix is checked by keyboard-credentials-01, still running.
+A direct read also found that an integer exceeding u64 could fall through to f64 and
+silently round. Integer inputs now accept exact i64/u64 digits and reject overflow,
+fractional/exponent syntax instead of changing the value. All23 phone tests pass,
+including >u64, below i64 and beyond-safe-float decimal inputs; the daemon still checks
+native schema/range limits. The shared form-reader code remains unchanged since the
+full terminal gate began; only this phone-local numeric encoder changed afterward.
+
+
+Questions UI05 passes onb4d1cb4487bc103e6473, ui-tests-20261116T232528.xcresult,
+local phone-50f78614b6b5. The sheet closes/reopens with its selected choice and exact
+private note, then sends that original native response once. Forms UI07 passes on
+bf5931634d358dedfdc9, ui-tests-20261116T232751.xcresult, local phone-248c716b6411.
+All12 native tests pass without skips on that same source, tests-20261116T232946.xcresult.
+Root inspected all three form screens. The keyboard-open image catches iOS26's floating
+keyboard Done overlapping the bottom action bar. Root moved Done to the top bar and
+added an actual frame check that it stays clear of Submit/Deny/Cancel; form UI08 checks
+that polish. The connection editor gets the same top-bar placement and its own actual
+keyboard screen/frame check. Neither change alters keyboard entry, saved secrets or
+native approval rights. The existing Invalid frame dimension runtime warning remains
+under investigation; its captured system log backtrace has SwiftUICore, SwiftUI and
+UIKit frames, with no app frame. Do not silently call it fixed from a test PASS alone.
+
+
+The first full form terminal gate fails one Claude settings disk-error subcase after
+225 daemon tests: the native fixture records a successful set_model response, but its
+compiled SDK helper does not settle that original request before the operation deadline.
+The isolated unchanged case passes in0.720s (forms-settings-recheck-01.log). Preserve
+forms-terminal-gate-01.log and source-terminal-6csLYG; repeat the full gate without
+changing deadlines. No phone/form mutation or form reader was involved in this case.
+The second gate is forms-terminal-gate-02.log and is still running.
+
+
+The form focus trace on source23a7159681c53e3abd3e shows focus=true, then false
+and field disappear/reappear when the keyboard opens. The sheet was attached to a
+lazy transcript row, which SwiftUI can discard as the keyboard shrinks the visible
+transcript. Root moved the sheet and retained per-card drafts to PhoneSessionView;
+transcript cards now ask that stable parent to open them. Forms UI06 checks this
+change before any further keyboard adapter changes. UI05 remains failed, not evidence
+of a working numeric editor. UI06 passes onbfe41a4a308d14510fdb,
+ui-tests-20261116T232246.xcresult, private local phone-8273bea56ea8. It checks invalid10,
+backend rejection, retained choices, correction5 and exactly one typed native answer
+with false, fr and omitted optional. Root inspected its actual screen: all fields fit,
+choices remain clearly selected, and fixed Submit/Deny/Cancel controls stay visible.
+Temporary focus-only logs were removed after proving the cause. The final form check
+also captures keyboard and rejected-answer screens; question UI05 checks close/reopen
+at the stable parent. No UIKit field replacement or wire change was necessary.
+
+
+Form UI01 fails before a submission: the count field is above the lazy transcript's
+visible area with the composer keyboard open, and XCTest reports an infinite frame
+when it attempts the native scroll-to-visible action. Keep that failure at
+forms-ui-01.log/source020d8e701c12b70b9abf. Move structured fields to a large native
+sheet, with a regular scroll view and fixed Submit/error controls above the keyboard.
+PhoneQuestionDraft retains the original Rust editor and private edits outside the
+sheet, so Close or swipe-dismiss does not clear them. The parent card offers Review
+form/Answer questions; its complete native caption remains under Request details in
+the editor. Backend decisions stay explicit and only native resolution dismisses a
+submitted request. Forms UI02 (source3188d5fb0fdfc5d15db1) and questions UI03 are
+running. The latter now closes/reopens the editor and checks the exact retained note.
+Native12 tests passed on3faf19d6013f3f06e206 at tests-20261116T225237.xcresult before
+this sheet change. All23 phone tests, existing1096 core tests and the new shared form
+description cases pass; full cargo test passes at forms-cargo-test-01.log.
 
 Questions UI02 passes on19fcce42a4d264823b4a at
 ui-tests-20261116T223614.xcresult, local phone-b27be74f8e41. It selects the offered value,
@@ -400,6 +469,22 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Decision (2026-11-17,Root): keep simple offered approval buttons inline, but open
+structured questions/forms in a native sheet. Long interactive forms must not depend
+on a transcript lazy row's estimated frame, and Submit/error controls must remain
+above the keyboard. Retain an explicit draft object in the live card when closing the
+sheet. Close does not send a denial, approval or cancellation. Keep complete request
+details available without filling the main conversation with native thread/turn ids.
+
+Decision (2026-11-17,Root): move the existing flat MCP field description into the pure
+protocol crate and have both the terminal and phone use it. Keep the daemon's complete
+schema validation and backend integer checks authoritative. Do not copy a schema parser
+into Swift, add another form crate or alter the wire format. The native form editor
+captures the original complete schema, maps choice positions to exact original values,
+keeps integer text in Rust and gives optional fields an explicit Include switch so
+omission differs from an empty string/array or false. Disable a card locally while its
+original submission is pending, without blocking Stop or pretending it resolved.
+
 Decision (2026-11-17,Root): bind neutral question fields without asking Swift to encode
 arbitrary native JSON. Capture the original field definitions, keep option values in
 Rust and recheck the original live card before submission. Keep a user's edited field
@@ -511,6 +596,28 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The flat-form checkpoint passes the actual invalid-answer/correction flow and typed
+native callback checks; questions also preserve edits across close/reopen. Native12/12
+passes onbf5931634d358dedfdc9. Form UI08 and keyboard credentials01 prove top-bar Done
+stays clear of bottom actions; credentials01 passes on6a989ed5956b51b33809,
+ui-tests-20261116T233338.xcresult, local phone-f36969e569d7, with no runtime-warning
+node. The earlier form run retained only its old connection-toolbar warning. Root
+inspected all retained form states and the final keyboard layout. Integer overflow
+now rejects locally instead of rounding and all23 phone tests pass. The full terminal
+reader-change gate02 is still running after all225 daemon tests pass. Browser consent,
+remaining screen features, final release/performance evidence and end-only review remain
+unfinished; this is a buildable checkpoint, not EP approval.
+
+
+The native questions checkpoint is committed asd6045ba after12 native/18 Rust tests and
+the actual question-answer workflow. The complete debug terminal gate plus isolated
+Codex contract passes at questions-terminal-gate-01.log, artifacts source-terminal-F8UPH8.
+That gate precedes the new shared form-field helper; repeat the relevant full gate for
+the final form implementation. The existing core/protocol tests pass after moving the
+field reader;23 phone tests pass with typed forms, exact large integers, false, omitted
+versus explicitly empty fields, invalid values and stale schemas. Forms native/UI checks
+are now running, not yet passing evidence. The phone remains on the checked2327 preview.
 
 Running-tool expansion is now committed as6cf1ced after actual UI/native/Rust checks.
 The saved-token/render preview is installed; launch while the physical phone is locked

@@ -1,60 +1,102 @@
-// Keep private answers tied to the original question object while Swift draws native controls.
+// Present native fields in a sheet whose Submit button stays above the keyboard.
 import SwiftUI
 
 struct PhoneQuestionsView: View {
     let host: PhoneHostModel
-    let current: PhoneQuestions
-    let enabled: Bool
-    @State private var editor: PhoneQuestions
-    @State private var fields: [PhoneQuestionField] = []
-    @State private var choices: [String: [UInt32]] = [:]
-    @State private var notes: [String: String] = [:]
-    @State private var checking = true
-    @State private var changed = false
+    let card: String
+    @Bindable var draft: PhoneQuestionDraft
+    @Environment(\.dismiss) private var dismiss
 
-    init(host: PhoneHostModel, questions: PhoneQuestions, enabled: Bool) {
-        self.host = host
-        current = questions
-        self.enabled = enabled
-        _editor = State(initialValue: questions)
+    private var current: PhoneApproval? { host.approvals.first { $0.id == card } }
+    private var questions: PhoneQuestions? {
+        switch current?.input {
+        case .fields(let editor)?, .form(let editor)?: return editor
+        default: return nil
+        }
     }
+    private var enabled: Bool {
+        host.connected && host.transcript?.currentSnapshot == true && current?.active == true &&
+            current?.submitted == false && !host.controlSubmitting && !host.approvalBusy(card)
+    }
+    private var canSubmit: Bool { enabled && !draft.checking && !draft.changed }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            ForEach(fields, id: \.key) { field in
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let current {
+                        Text(current.caption.title).font(PhoneTheme.prose(15, weight: .semibold)).foregroundStyle(PhoneTheme.yellow)
+                        DisclosureGroup("Request details") {
+                            Text(current.caption.details.joined(separator: "\n")).font(PhoneTheme.mono(11.5)).textSelection(.enabled)
+                        }.font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.subtext0)
+                    }
+                    ForEach(draft.fields, id: \.key) { field in fieldEditor(field) }
+                    if draft.checking { ProgressView("Checking request").font(PhoneTheme.prose(13)) }
+                    if draft.changed {
+                        Text("This request changed. Your answers are kept here; review the current request before replying.")
+                            .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.yellow)
+                    }
+                }.padding(16).disabled(!enabled)
+            }
+            .scrollDismissesKeyboard(.interactively).background(PhoneTheme.base)
+            .safeAreaInset(edge: .bottom, spacing: 0) { actions }
+            .navigationTitle(draft.form ? "Complete form" : "Answer questions").navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .confirmationAction) {
+                Button("Close") { dismiss() }.accessibilityLabel("Close without submitting").accessibilityIdentifier("questions.close")
+            } }
+            .task(id: questions.map(ObjectIdentifier.init)) {
+                if let questions { await draft.refresh(current: questions) }
+                else { draft.checking = false; draft.changed = true }
+            }
+            .onChange(of: current == nil) { _, gone in if gone { dismiss() } }
+            .onChange(of: draft.notes) { _, _ in if host.connected { host.error = nil } }
+            .onChange(of: draft.choices) { _, _ in if host.connected { host.error = nil } }
+            .onChange(of: draft.included) { _, _ in if host.connected { host.error = nil } }
+        }
+        .font(PhoneTheme.prose()).foregroundStyle(PhoneTheme.text).tint(PhoneTheme.yellow)
+        .presentationDetents([.large]).presentationDragIndicator(.visible).presentationCornerRadius(22)
+    }
+
+    private func fieldEditor(_ field: PhoneQuestionField) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if draft.form && !field.required {
+                Toggle("Include \(field.title)", isOn: Binding(
+                    get: { draft.included.contains(field.key) },
+                    set: { if $0 { draft.included.insert(field.key) } else { draft.included.remove(field.key) } }
+                )).font(PhoneTheme.prose(14)).tint(PhoneTheme.yellow).accessibilityIdentifier("form.\(field.key).include")
+            }
+            if !draft.form || field.required || draft.included.contains(field.key) {
                 PhoneQuestionFieldView(field: field,
-                    selected: Binding(get: { choices[field.key] ?? [] }, set: { choices[field.key] = $0 }),
-                    text: Binding(get: { notes[field.key] ?? "" }, set: { notes[field.key] = $0 }))
+                    selected: Binding(get: { draft.choices[field.key] ?? [] }, set: { draft.choices[field.key] = $0 }),
+                    text: Binding(get: { draft.notes[field.key] ?? "" }, set: { draft.notes[field.key] = $0 }))
             }
-            if checking { ProgressView("Checking questions").font(PhoneTheme.prose(13)) }
-            if changed {
-                Text("These questions changed. Your answers are kept here; review the current request before replying.")
-                    .font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.yellow)
+        }
+    }
+
+    private var actions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let error = host.error ?? current?.caption.inputError {
+                Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red).accessibilityIdentifier("questions.error")
             }
-            Button {
-                let answers = fields.map { PhoneQuestionAnswer(key: $0.key, selected: choices[$0.key] ?? [], text: notes[$0.key]) }
-                host.answer(editor, answers: answers)
-            } label: {
-                Text("Submit answers").font(PhoneTheme.prose(13, weight: .semibold))
+            Button { host.answer(draft.editor, card: card, answers: draft.answers()) } label: {
+                Text(draft.form ? "Submit form" : "Submit answers").font(PhoneTheme.prose(14, weight: .semibold))
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(PhoneTheme.yellow).foregroundStyle(PhoneTheme.crust)
+                    .background(canSubmit ? PhoneTheme.yellow : PhoneTheme.surface0)
+                    .foregroundStyle(canSubmit ? PhoneTheme.crust : PhoneTheme.overlay1)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+            }.buttonStyle(.plain).disabled(!canSubmit).accessibilityIdentifier("questions.submit")
+            if let current {
+                HStack(spacing: 10) {
+                    ForEach(current.choices.filter { $0 == .deny || $0 == .cancel }, id: \.self) { decision in
+                        Button { host.approve(current, decision: decision) } label: {
+                            Text(decision.label).font(PhoneTheme.prose(13, weight: .semibold))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                        }.buttonStyle(.plain).disabled(!enabled)
+                            .overlay { RoundedRectangle(cornerRadius: 12).stroke(PhoneTheme.surface1, lineWidth: 1) }
+                    }
+                }
             }
-            .buttonStyle(.plain).disabled(!enabled || checking || changed)
-            .accessibilityIdentifier("questions.submit")
-        }
-        .disabled(!enabled)
-        .task(id: ObjectIdentifier(current)) {
-            checking = true
-            let editor = editor, current = current
-            let result = await Task.detached(priority: .userInitiated) {
-                (editor.fields(), editor.sameQuestions(other: current))
-            }.value
-            guard !Task.isCancelled else { return }
-            fields = result.0
-            changed = !result.1
-            checking = false
-        }
+        }.padding(16).background(PhoneTheme.base)
     }
 }
 
@@ -104,17 +146,26 @@ private struct PhoneQuestionFieldView: View {
 
     private var input: some View {
         Group {
-            if field.secret { SecureField("Your answer", text: $text).privacySensitive() }
-            else { TextField(field.notesOnly ? "Add a note" : "Your answer", text: $text, axis: .vertical).lineLimit(1...5) }
+            if field.secret { SecureField("Your answer", text: $text).privacySensitive().focused($editing) }
+            else if field.kind == .integer || field.kind == .number {
+                TextField("Number", text: $text).keyboardType(.numbersAndPunctuation)
+                    .focused($editing).submitLabel(.done).onSubmit { editing = false }
+            } else {
+                TextField(field.notesOnly ? "Add a note" : "Your answer", text: $text, axis: .vertical)
+                    .lineLimit(1...5).focused($editing)
+            }
         }
         .font(PhoneTheme.prose(14)).textInputAutocapitalization(.never).autocorrectionDisabled()
-        .focused($editing).padding(12).frame(minHeight: 44).background(PhoneTheme.crust)
+        .padding(12).frame(minHeight: 44).background(PhoneTheme.crust)
         .clipShape(RoundedRectangle(cornerRadius: 10))
-        .overlay { RoundedRectangle(cornerRadius: 10).stroke(PhoneTheme.surface1, lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: 10).stroke(PhoneTheme.surface1, lineWidth: 1).allowsHitTesting(false) }
+        .contentShape(RoundedRectangle(cornerRadius: 10)).onTapGesture { editing = true }
+        .accessibilityLabel(field.title.isEmpty ? "Your answer" : field.title)
+        .accessibilityHint(field.required ? "Required" : "Optional")
         .accessibilityIdentifier("question.\(field.key).text")
         .toolbar {
             if editing {
-                ToolbarItemGroup(placement: .keyboard) { Spacer(); Button("Done") { editing = false } }
+                ToolbarItem(placement: .topBarLeading) { Button("Done") { editing = false }.accessibilityIdentifier("questions.keyboardDone") }
             }
         }
     }

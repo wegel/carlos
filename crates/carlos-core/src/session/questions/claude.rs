@@ -50,67 +50,12 @@ pub(crate) fn ask_fields(input: &Value) -> Result<Vec<QuestionField>, String> {
 
 /// Describe MCP properties without applying defaults to a draft.
 pub fn mcp_fields(schema: &Value) -> Result<Vec<QuestionField>, String> {
-    let properties = schema["properties"]
-        .as_object()
-        .ok_or("Missing form properties")?;
-    let mut fields = Vec::new();
-    for (name, rule) in properties {
-        let required = schema["required"]
-            .as_array()
-            .is_some_and(|keys| keys.iter().any(|key| key == name));
-        let mut field = QuestionField::new(name, rule.clone(), required);
-        field.options = if rule["type"] == "boolean" {
-            vec![
-                AnswerOption {
-                    value: json!(true),
-                    label: "true".to_string(),
-                    description: String::new(),
-                },
-                AnswerOption {
-                    value: json!(false),
-                    label: "false".to_string(),
-                    description: String::new(),
-                },
-            ]
-        } else {
-            schema_options(if field.multiple { &rule["items"] } else { rule })?
-        };
-        fields.push(field);
-    }
-    Ok(fields)
-}
-
-fn schema_options(rule: &Value) -> Result<Vec<AnswerOption>, String> {
-    if let Some(options) = rule["enum"].as_array() {
-        return options
-            .iter()
-            .enumerate()
-            .map(|(index, value)| {
-                let label = rule["enumNames"][index]
-                    .as_str()
-                    .or(value.as_str())
-                    .ok_or("Non-string choice")?;
-                Ok(AnswerOption {
-                    value: value.clone(),
-                    label: label.to_string(),
-                    description: String::new(),
-                })
-            })
-            .collect();
-    }
-    let options = rule["oneOf"]
-        .as_array()
-        .or_else(|| rule["anyOf"].as_array());
-    Ok(options
-        .map(|options| {
-            options
-                .iter()
-                .map(|option| AnswerOption {
-                    value: option["const"].clone(),
-                    label: option["title"].as_str().unwrap_or("").to_string(),
-                    description: String::new(),
-                })
+    carlos_proto::forms::fields(schema)
+        .map(|fields| {
+            fields
+                .into_iter()
+                .map(QuestionField::from_input_field)
                 .collect()
         })
-        .unwrap_or_default())
+        .map_err(|error| error.to_string())
 }

@@ -52,10 +52,15 @@ fn questions(client: &PhoneClient) -> Arc<PhoneQuestions> {
         .expect("question")
         .input
     {
-        Some(PhoneApprovalInput::Fields { questions }) => questions,
+        Some(PhoneApprovalInput::Fields { questions } | PhoneApprovalInput::Form { questions }) => {
+            questions
+        }
         _ => panic!("expected typed question"),
     }
 }
+
+#[path = "form_question_tests.rs"]
+mod form;
 
 fn answer(selected: Vec<u32>, text: Option<String>) -> Vec<PhoneQuestionAnswer> {
     vec![PhoneQuestionAnswer {

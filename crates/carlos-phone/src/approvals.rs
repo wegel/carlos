@@ -131,7 +131,17 @@ impl PhoneApproval {
                         fields.clone(),
                     ),
                 },
-                ApprovalInput::Form { .. } => PhoneApprovalInput::Form,
+                ApprovalInput::Form { schema } => match PhoneQuestions::form(
+                    owner,
+                    session.clone(),
+                    card.id.clone(),
+                    schema.clone(),
+                ) {
+                    Ok(questions) => PhoneApprovalInput::Form { questions },
+                    Err(error) => PhoneApprovalInput::Unsupported {
+                        reason: error.to_string(),
+                    },
+                },
                 ApprovalInput::Browser { url } => PhoneApprovalInput::Browser { url: url.clone() },
                 ApprovalInput::Unsupported { reason } => PhoneApprovalInput::Unsupported {
                     reason: reason.clone(),

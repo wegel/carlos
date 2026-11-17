@@ -5,6 +5,8 @@ struct PhoneSessionView: View {
     @Bindable var host: PhoneHostModel
     let sessions: () -> Void
     let settings: () -> Void
+    @State private var questionDrafts: [String: PhoneQuestionDraft] = [:]
+    @State private var editing: PhoneQuestionDraft?
 
     private var info: PhoneSession? { host.transcript?.info ?? host.catalog.first { $0.id == host.selected } }
     private var isStop: Bool { info?.activity.phase != .idle && info != nil && host.draft.isEmpty }
@@ -20,12 +22,13 @@ struct PhoneSessionView: View {
             if let error = host.error {
                 HStack {
                     Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
+                        .accessibilityIdentifier("session.error")
                     Spacer()
                     Button { host.error = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                         .accessibilityLabel("Dismiss error")
                 }.padding(.leading, 16).background(PhoneTheme.base).fixedSessionBar()
             }
-            PhoneTranscriptView(host: host)
+            PhoneTranscriptView(host: host, openQuestions: openQuestions)
             if info?.activity.availability == .closed || info?.activity.availability == .unavailable {
                 Button("Reopen session") { host.reopen() }.frame(minHeight: 44)
                     .disabled(!host.connected || host.controlSubmitting).fixedSessionBar()
@@ -34,6 +37,19 @@ struct PhoneSessionView: View {
             composer.fixedSessionBar()
         }
         .background(PhoneTheme.mantle).foregroundStyle(PhoneTheme.text)
+        .sheet(item: $editing) { draft in
+            PhoneQuestionsView(host: host, card: draft.card, draft: draft)
+        }
+        .onChange(of: host.selected) { _, _ in editing = nil; questionDrafts.removeAll() }
+        .onChange(of: host.approvals.map(\.id)) { _, active in
+            questionDrafts = questionDrafts.filter { active.contains($0.key) }
+        }
+    }
+
+    private func openQuestions(card: PhoneApproval, questions: PhoneQuestions) {
+        let draft = questionDrafts[card.id] ?? PhoneQuestionDraft(card: card.id, editor: questions)
+        questionDrafts[card.id] = draft
+        editing = draft
     }
 
     private var header: some View {

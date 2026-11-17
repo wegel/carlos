@@ -47,9 +47,10 @@ struct ConnectionView: View {
                 if existing != nil || store.current != nil {
                     ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { field = nil }
+                if field != nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { field = nil }.accessibilityIdentifier("connection.keyboardDone")
+                    }
                 }
             }
             .font(PhoneTheme.prose()).tint(PhoneTheme.blue)

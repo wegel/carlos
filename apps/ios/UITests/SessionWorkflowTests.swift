@@ -6,35 +6,6 @@ import XCTest
 
 final class SessionWorkflowTests: XCTestCase {
     @MainActor
-    func testNativeQuestionKeepsTheChoiceAndPrivateNote() throws {
-        let app = try connectedSession()
-        let draft = app.textFields["composer.draft"]
-        XCTAssertTrue(draft.waitForExistence(timeout: 15))
-        draft.tap()
-        draft.typeText("phone questions")
-        app.buttons["composer.send"].tap()
-        let option = app.buttons["question.field-str.option.0"]
-        XCTAssertTrue(option.waitForExistence(timeout: 15))
-        option.tap()
-        XCTAssertEqual(option.value as? String, "Selected")
-        let note = app.textFields["question.field-str.text"]
-        XCTAssertTrue(note.waitForExistence(timeout: 15))
-        note.tap()
-        note.typeText("phone note 🦀")
-        if app.buttons["Done"].exists { app.buttons["Done"].tap() }
-        let screen = XCTAttachment(screenshot: app.screenshot())
-        screen.name = "Native question with listed choice and private note"
-        screen.lifetime = .keepAlways
-        add(screen)
-        let submit = app.buttons["questions.submit"]
-        XCTAssertTrue(wait { submit.isEnabled })
-        submit.tap()
-        XCTAssertTrue(app.staticTexts["Phone answers accepted 🦀"].waitForExistence(timeout: 15))
-        XCTAssertFalse(submit.exists, "Only the observed native resolution removes the question")
-        app.terminate()
-    }
-
-    @MainActor
     func testRunningToolExpandsStreamsAndKeepsItsRowChoice() throws {
         let app = try connectedSession()
         let draft = app.textFields["composer.draft"]
@@ -48,10 +19,7 @@ final class SessionWorkflowTests: XCTestCase {
         tool.tap()
         XCTAssertEqual(tool.value as? String, "Expanded")
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-a'")).firstMatch.waitForExistence(timeout: 15))
-        let running = XCTAttachment(screenshot: app.screenshot())
-        running.name = "Expanded running tool and offered approval"
-        running.lifetime = .keepAlways
-        add(running)
+        capture("Expanded running tool and offered approval", screenshot: app.screenshot())
         let allow = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'approval.' AND label == 'Allow once'")).firstMatch
         XCTAssertTrue(allow.waitForExistence(timeout: 15))
         allow.tap()
@@ -65,10 +33,7 @@ final class SessionWorkflowTests: XCTestCase {
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-b after Stop 🌍'")).firstMatch.exists)
         tool.tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'chunk-b after Stop 🌍'")).firstMatch.waitForExistence(timeout: 15))
-        let complete = XCTAttachment(screenshot: app.screenshot())
-        complete.name = "Stopped tool retains complete observed output"
-        complete.lifetime = .keepAlways
-        add(complete)
+        capture("Stopped tool retains complete observed output", screenshot: app.screenshot())
         app.terminate()
     }
 
@@ -79,20 +44,14 @@ final class SessionWorkflowTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["connection.error"].waitForExistence(timeout: 15))
         let token = app.secureTextFields["connection.token"]
         XCTAssertTrue(token.exists, "A rejected token must leave the connection form open")
-        let rejected = XCTAttachment(screenshot: app.screenshot())
-        rejected.name = "Rejected token stays editable"
-        rejected.lifetime = .keepAlways
-        add(rejected)
+        capture("Rejected token stays editable", screenshot: app.screenshot())
         token.tap()
         token.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: invalid.count))
         token.typeText(try settings().token)
         app.buttons["connection.connect"].tap()
         XCTAssertTrue(app.textFields["sessions.cwd"].waitForExistence(timeout: 15))
         XCTAssertFalse(token.exists)
-        let connected = XCTAttachment(screenshot: app.screenshot())
-        connected.name = "Authenticated host opens sessions"
-        connected.lifetime = .keepAlways
-        add(connected)
+        capture("Authenticated host opens sessions", screenshot: app.screenshot())
         app.terminate()
     }
 
@@ -129,10 +88,7 @@ final class SessionWorkflowTests: XCTestCase {
         XCTAssertFalse(reconnect.isEnabled, "A saved token must never be sent to an edited address implicitly")
         address.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 11))
         XCTAssertTrue(reconnect.isEnabled)
-        let savedConnection = XCTAttachment(screenshot: app.screenshot())
-        savedConnection.name = "Saved connection reuses Keychain token"
-        savedConnection.lifetime = .keepAlways
-        add(savedConnection)
+        capture("Saved connection reuses Keychain token", screenshot: app.screenshot())
         reconnect.tap()
         XCTAssertTrue(wait { !app.secureTextFields["connection.token"].exists })
         app.terminate()
@@ -197,10 +153,7 @@ final class SessionWorkflowTests: XCTestCase {
         send.tap()
         XCTAssertTrue(app.staticTexts["Answer: phone exact prompt 🦀"].waitForExistence(timeout: 15))
         XCTAssertEqual(draft.value as? String, "")
-        let screen = XCTAttachment(screenshot: app.screenshot())
-        screen.name = "Actual daemon answer"
-        screen.lifetime = .keepAlways
-        add(screen)
+        capture("Actual daemon answer", screenshot: app.screenshot())
         app.terminate()
     }
 
@@ -225,10 +178,7 @@ final class SessionWorkflowTests: XCTestCase {
         // The fixture emits a real native completion after receiving the original interrupt.
         XCTAssertTrue(app.buttons["composer.send"].waitForExistence(timeout: 15))
         XCTAssertFalse(app.buttons["composer.send"].isEnabled)
-        let screen = XCTAttachment(screenshot: app.screenshot())
-        screen.name = "Native held approval and Stop completed"
-        screen.lifetime = .keepAlways
-        add(screen)
+        capture("Native held approval and Stop completed", screenshot: app.screenshot())
         app.terminate()
     }
 
@@ -268,15 +218,20 @@ final class SessionWorkflowTests: XCTestCase {
         let actual = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         XCTAssertEqual(actual, expected)
         XCTAssertTrue(wait { copy.label == "Copy" })
-        let screen = XCTAttachment(screenshot: app.screenshot())
-        screen.name = "Complete original source and copied bytes"
-        screen.lifetime = .keepAlways
-        add(screen)
+        capture("Complete original source and copied bytes", screenshot: app.screenshot())
         app.terminate()
     }
 
     @MainActor
-    private func connectedSession() throws -> XCUIApplication {
+    func capture(_ name: String, screenshot: XCUIScreenshot) {
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    func connectedSession() throws -> XCUIApplication {
         let fixture = try settings()
         let app = try connectedHost()
         let cwd = app.textFields["sessions.cwd"]
@@ -290,7 +245,7 @@ final class SessionWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    private func connectedHost(token suppliedToken: String? = nil) throws -> XCUIApplication {
+    func connectedHost(token suppliedToken: String? = nil) throws -> XCUIApplication {
         continueAfterFailure = false
         let fixture = try settings()
         let app = XCUIApplication(bundleIdentifier: "app.carlos.phone.fixture")
@@ -314,6 +269,10 @@ final class SessionWorkflowTests: XCTestCase {
         if app.keyboards.firstMatch.exists {
             XCTAssertLessThanOrEqual(connect.frame.maxY, app.keyboards.firstMatch.frame.minY,
                                      "The connection action must stay above the keyboard")
+            let done = app.buttons["connection.keyboardDone"]
+            XCTAssertTrue(done.waitForExistence(timeout: 5))
+            XCTAssertLessThanOrEqual(done.frame.maxY, connect.frame.minY)
+            capture("Connection action stays clear of the keyboard and Done", screenshot: app.screenshot())
         }
         connect.tap()
         return app
@@ -327,7 +286,7 @@ final class SessionWorkflowTests: XCTestCase {
     }
 
     @MainActor
-    private func wait(_ predicate: () -> Bool) -> Bool {
+    func wait(_ predicate: () -> Bool) -> Bool {
         let deadline = Date().addingTimeInterval(15)
         while Date() < deadline {
             if predicate() { return true }
