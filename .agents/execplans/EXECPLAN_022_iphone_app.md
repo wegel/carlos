@@ -34,6 +34,22 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Finish the normal-shell phone reconnect after the owner reports “Daemon
+  rejected this connection.” The normal-shell daemon listens on the expected LAN
+  port and shared Unix socket, but device/list returns no devices. The /var/tmp
+  directory inside this execution environment is private; the earlier handover
+  command pointed the normal shell at a different empty catalogue. Root acknowledges
+  that path error. Copy the original SQLite catalogue with sqlite3.backup into
+  shared tmp/phone-preview-b7744b8/catalog/sessions.sqlite3, mode0600 in a0700 folder,
+  and keep the original untouched. Verify integrity and counts: one session, one
+  device. Copy the existing token privately into tmp/phone-preview-b7744b8/iphone18.token.
+  Receipt: /tmp/carlos-ep022/shared-catalogue-handover.json. Tell the owner to Ctrl+C
+  their foreground daemon and restart the same frozen binary with the shared
+  --state-dir /home/wegel/work/perso/carlos-daemon/tmp/phone-preview-b7744b8/catalog.
+  The Unix socket and192.168.3.11:33731 listener stay the same. Await their restart,
+  then read device/list and authenticate with the unchanged token without starting
+  a native session. Do not signal their normal-shell daemon from here.
+
 - [x] (2026-11-17 14:43Z) Install and launch the owner's requested current app on
   iPhone18 Pro. Normal Release source56e36e29e767c7c9471b is strictly signed at
   previews/56e36e29e767c7c9471b-20261117T144140Z/Carlos.app; executableSHA256
