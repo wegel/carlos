@@ -11,8 +11,18 @@ extension SessionWorkflowTests {
         draft.typeText("phone mode run")
         app.buttons["composer.send"].tap()
         XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 15))
+        let running = app.staticTexts["answer.streaming"].firstMatch
+        XCTAssertTrue(running.waitForExistence(timeout: 15))
+        running.tap()
+        XCTAssertTrue(wait { !app.keyboards.firstMatch.exists }, "A log tap must hide the keyboard without pressing Stop")
+        XCTAssertTrue(app.buttons["composer.stop"].isEnabled, "Hiding the keyboard must keep the response running")
+        XCTAssertEqual(draft.value as? String, "")
         draft.tap()
         draft.typeText("phone steer exact 🌍")
+        running.tap()
+        XCTAssertTrue(wait { !app.keyboards.firstMatch.exists })
+        XCTAssertEqual(draft.value as? String, "phone steer exact 🌍", "A log tap must keep the private draft")
+        draft.tap()
         XCTAssertFalse(app.buttons["composer.stop"].exists, "Stop stays out of the draft's send action")
         XCTAssertEqual(app.buttons["composer.mode"].value as? String, "Steer")
         let done = app.buttons["composer.keyboardDone"]

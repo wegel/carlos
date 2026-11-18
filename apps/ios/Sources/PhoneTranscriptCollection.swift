@@ -17,7 +17,7 @@ struct PhoneTranscriptCollection: UIViewControllerRepresentable {
 }
 
 @MainActor
-final class PhoneTranscriptController: UIViewController, UICollectionViewDelegate, UICollectionViewDataSourcePrefetching {
+final class PhoneTranscriptController: UIViewController, UICollectionViewDelegate, UICollectionViewDataSourcePrefetching, UIGestureRecognizerDelegate {
     private let layout = PhoneTranscriptLayout()
     private lazy var collection = PhoneTranscriptNativeView(frame: .zero, collectionViewLayout: layout)
     private var source: UICollectionViewDiffableDataSource<Int, String>!
@@ -39,6 +39,10 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         collection.delegate = self
         collection.prefetchDataSource = self
         collection.keyboardDismissMode = .interactive
+        let dismiss = UITapGestureRecognizer(target: self, action: #selector(dismissPromptKeyboard))
+        dismiss.cancelsTouchesInView = false
+        dismiss.delegate = self
+        collection.addGestureRecognizer(dismiss)
         collection.showsVerticalScrollIndicator = false
         collection.alwaysBounceVertical = true
         collection.contentInsetAdjustmentBehavior = .never
@@ -53,6 +57,13 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         }
         view = collection
     }
+
+    @objc private func dismissPromptKeyboard() {
+        UIApplication.shared.sendAction(#selector(PhonePromptTextView.dismissComposerKeyboard), to: nil, from: nil, for: nil)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool { true }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()

@@ -85,6 +85,9 @@ final class PhonePromptTextView: UITextView {
         inputAccessoryView = accessory
     }
 
+    // A transcript tap dismisses this editor without resigning a selected source text view.
+    @objc func dismissComposerKeyboard() { _ = resignFirstResponder() }
+
     override func layoutSubviews() { super.layoutSubviews(); idleCaret?.update() }
     override func didMoveToWindow() { super.didMoveToWindow(); idleCaret?.update() }
     override func becomeFirstResponder() -> Bool {
