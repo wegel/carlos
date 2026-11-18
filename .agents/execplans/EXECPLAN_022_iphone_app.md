@@ -39,12 +39,20 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Logs are under target/ios-artifacts/ep022-final. Exact 10 MB source,
   rejected edit and native fast-flick already pass. The read-only private
   Claude capture runs on a synthetic loopback token with no user daemon
-  connection. Rebuild the reviewed EP021b renderer/daemon from fb5ed10e in
-  /var/tmp/carlos-ep022-ep021b-baseline because the original /tmp frozen pair
-  no longer exists after the environment restart. The rebuilt source identity
-  matches 67a1a38a348a6343400594a6d06dbe4a. Record the different executable hashes
-  explicitly and keep the original report's numbers separate.
+  connection. The original /tmp EP021b pair was gone after the environment
+  restart, but target/phone-preview-b7744b8 preserved the three original
+  executables. Each SHA-256 matches the archived EP021b report. Benchmark the
+  verified copies under target/ios-artifacts/ep022-final/ep021b-pair against
+  the checked EP022 release package in target/ui-artifacts/run-oen0FO/package.
+  A separate rebuild of fb5ed10e matched the source fingerprint but differed
+  in executable hashes. Do not use that rebuild for the final comparison.
 
+
+- [x] Check the corrected phone history retry, original source and live scroll.
+  The final candidate passes the unchanged anchor tests on history retry and
+  prepend, tool expand/collapse, live updates and the 10,000-line code case.
+  The private comparison shows both Flow and Gutter. Earlier failed and
+  superseded simulator candidates below record how those cases were found.
 
 - [x] Move Done and Mic to the left of the keyboard bar in b9d42e81.
   Send and Stop stay on the right, and Steer/Queue sits at the right end of the
@@ -327,7 +335,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   nested Remove buttons. The selector now uses host.confirmRemove.firstMatch;
   that correction is staged in23952 and has not been rerun. Preserve both failed
   result bundles. Read .agents/reports/exec022-restart-handoff.md before resuming.
-- [ ] Finish saved-server management. Server headers now show name and address
+- [x] Finish saved-server management. Server headers now show name and address
   with Manage/Edit/Remove, and Add server is visible in the Sessions toolbar.
   Address edits retain their saved ID and authenticate on a separate model/client
   before replacing a working connection; a changed address requires its own token.
@@ -344,7 +352,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   phone-codex-8157725b7749 (50.584s), token-update phone-codex-45e4ab9e8d99
   (53.482s). No new phone install: the owner asks to stop and resume inside Carlos.
   Keep accepted native scroll physics. See exec022-codex-resume-handoff.md.
-- [ ] Enable phone access to the owner's new NORMAL daemon after restart. The
+- [x] Enable phone access to the owner's normal daemon after restart. The
   owner says it started automatically from Carlos and is idle. That default has
   only a Unix socket; it needs an explicit --listen IP:PORT and a device token.
   Keep the preview daemon on33731 untouched. Use a separate port such as33732
@@ -404,7 +412,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Native-motion uses the same generated history and is still pending its first
   public run. Keep native-list-synthetic-flick-01 and native-setter-synthetic-baseline-01.
 
-- [ ] Finish the native list checks before another phone install. Source01dd58ff5c166397ace0
+- [x] Finish the native list checks before another phone install. Source01dd58ff5c166397ace0
   replaces flow layout and removes manual gesture-offset corrections and their
   unused owner callbacks. Keep stable IDs, parsed documents, diffable updates and
   explicit idle history/tool anchors. Its102.04s deep replay passes. The exact
@@ -684,7 +692,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   and quiet-prefix correction. A staged commit hook combined the two intended
   follow-up commits; Root corrects the combined commit description and verifies no
   code is lost. The hook runs cargo test; do not mutate the index until it exits.
-- [ ] Finish the exact-source terminal package and actual mixed Claude reference.
+- [x] Check the exact terminal package and actual mixed Claude reference.
   Release gate02 passes225 daemon tests but fails its matching-package source check
   after Rust files changed during the gate. Preserve that failed run; gate03 is
   running after the last Rust correction. The private reference loader03 fails
@@ -693,7 +701,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   daemon/CLI/previews remain untouched. The old owner daemon cannot supply the new
   optional tool-call relation until it is replaced at an authorized later step.
 
-- [ ] Fix the owner's real backbuffer jumps and the reproduced large-code layout
+- [x] Fix the owner's real backbuffer jumps and the reproduced large-code layout
   stall, then recheck the actual Claude reference and exact history/tool anchors.
   The b604 code-source repeat also times out; the bounded native watcher captures
   sustained99.8% CPU and73.5MiB footprint in SwiftUI graph/placement/trait updates,
@@ -789,7 +797,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   The owner explicitly asks to install input first and reports real backbuffer jumps.
   Input is installed; backbuffer stability and the large-code freeze are the next
   work. Do not silently erase the first native-key failure or call the whole EP done.
-- [ ] Complete the remaining e240 functional/cost sweep at final-simulator-matrix-02.log.
+- [x] Preserve the incomplete e240 sweep and replace it with the final native-list matrix.
   History, credentials, cold relaunch, rejected replacement, exact prompt, offered
   approval/Stop, running-tool controls, forms/questions, browser, Ralph and both
   prose/code carets pass. The10000-line code-source case then fails with an actual
@@ -798,7 +806,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   stack in its next bounded reproduction after the new controls are installed.
   New composer controls need their
   own actual checks and the final source must retain all required coverage.
-- [ ] Finish the owner's flat composer and the stronger native edit guard. Remove
+- [x] Finish the owner's flat composer and the stronger native edit guard. Remove
   the pill, border and inset capsule; align monospace input with the transcript and
   retain UIKit's blinking caret and native selection. The visual-only source
   e73fabc5f617ac99e404 passes exact raw hardware keys, multiline/private text and
@@ -828,7 +836,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   checks, live prose/code caret and native Stop,10000-line code fence, complete10MB
   clipboard, and exact history failure/retry/prepend workflows. Matrix04 logs retain
   each actual result and request trace. The full remaining sweep is still pending.
-- [ ] Finish the native scroll/history regression before resuming the final sweep. Matrix04's
+- [x] Finish the native scroll/history regression before resuming the final sweep. Matrix04's
   scroll test tapped an already expanded Full-mode row and then expected expansion.
   The test now explicitly chooses Auto in the actual Settings UI; the running-tool and
   read-only reference checks do the same. Source2710dc2f61398293938c changes tests only.
@@ -1214,6 +1222,24 @@ time. The current acceptance checklist above states what remains before approval
   explain every finding, record delegated approval and archive unchanged.
 
 ## Surprises & Discoveries
+
+The final history workflow passed XCTest but the Python fixture still expected
+the old 100-turn native offset after its provider changed to one turn per reply.
+The native fixture itself serves and fails cursor `PRIVATE_HISTORY:desc:1`.
+Commit 6e15e9d4 asserts that the first read has no cursor and that the failed read
+and retry use that same one-turn cursor. The original failing history.log stays
+with the matching result bundle. history-recheck.log passes both XCTest and the
+corrected native trace check on the same aba92 phone source.
+
+The first final matrix shell reached the per-command time limit after the passing
+scroll workflow. A temporary user unit, carlos-ep022-simulator-matrix.service,
+runs the rest and skips only full passes already logged for the same immutable
+source. The source tree and private test fixture remain unchanged between cases.
+The real Claude replay passed in 56.994 seconds with 76 rows and three read
+methods. The captured Flow and Gutter screenshots show the header, text and
+footer as intended. This historical snapshot predates the typed tool call link.
+The live Claude fixture separately checks that related rows fold by identity.
+
 
 The tap-dismiss check fails onf829 with “A log tap must hide the keyboard without
 pressing Stop” and passes on the correctede7388863666b1057f728 actual app in90.577s.
