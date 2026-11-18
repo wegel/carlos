@@ -935,6 +935,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   a control's outcome after showing its error. Check 129 rejected controls against
   the generated Rust bridge, then prove Restore and Discard in the actual app.
   Repeat the simulator matrix and install the signed correction before approval.
+  Commit d8c2e16f implemented the lifecycle fix. The simulator's 27 unit tests
+  passed on 81224be9f67c179dd070, including the 129 failures and a fresh prompt.
+  The reconnect test preserved both drafts but its new deletion step ran with
+  the caret at the start. Logs and a screenshot keep the two failed test runs
+  under ep022-review-fix and ep022-recovery-final. The final test taps beyond
+  the draft after the keyboard opens, then deletes before using Restore. The
+  production code is unchanged across those test-only retries. Reconnect passes
+  on 35f2cd499401ff683df5, including the exact restored draft, removal of its
+  recovery card and one original native prompt. The remaining rerun and device
+  receipts will live under target/ios-artifacts/ep022-recovery-checked.
 
 ### Earlier milestone notes
 
