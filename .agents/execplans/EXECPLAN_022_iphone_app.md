@@ -35,6 +35,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Move Done and Mic to the left of the keyboard bar in b9d42e81.
+  Send and Stop stay on the right, and Steer/Queue sits at the right end of the
+  bar. The simulator checked the spacing with both an empty and a typed draft.
+  It also checked tap-to-dismiss, Steer and Queue, exact native send and
+  interrupt requests, and Done closing the keyboard. The screenshot confirms
+  the layout. Workspace Rust tests passed. Signed source 3b1458f90d5c3daeb09c
+  installed and launched on the iPhone 18 Pro on 2026-11-18 at 01:47 UTC.
+  The phone-left-tools mode, keyboard and device install logs are under
+  tmp/phone-handover-tools. The signed app is at
+  ~/carlos-ios-build/previews/3b1458f90d5c3daeb09c-20261118T014638Z/Carlos.app.
 - [x] Add and install tap-to-dismiss on the log in55025fb2. A tap hides the
   composer's keyboard while keeping empty/typed drafts and the running response.
   The native recognizer leaves touches uncancelled and shares recognition with
@@ -2347,6 +2357,13 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The owner found Done too close to Send and Stop on the right of the keyboard.
+Build 3b1458f90d5c3daeb09c puts Done and Mic together on the left. The simulator
+passed the send-mode and keyboard workflows, and the signed build installed and
+launched on the owner's iPhone 18 Pro. EP022 remains open for the wider app
+checks and final review.
+
 
 Latest handoff: the TUI cursor/subscription fixes are checked and installed as
 e3fde; the separate daemon upgrade still waits for every session to become idle.
