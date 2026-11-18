@@ -1,0 +1,82 @@
+# EP022 iPhone app acceptance evidence
+
+The iPhone app uses the same Rust client as the terminal. The daemon owns
+sessions and native backends. Swift owns the interface, WebSocket and Keychain,
+and calls a UniFFI bridge for checked session facts and commands. The bridge
+exports the calls these screens need. Terminal-only panels stay in Rust. A
+future web client can reuse the shared rules through its own bindings.
+
+The phone saves configured servers and reconnects with Keychain credentials.
+Users can send, steer, queue, stop, answer approvals, rename supported sessions
+and explicitly fork from an older prompt. Drafts stay on the device. The app
+reads tool output in bounded pieces and can expand a running tool when it has
+output. Flow and Gutter both use native list scrolling. Done and Mic are on
+the left of the keyboard bar. Tapping the log also hides the keyboard.
+
+## Checked source and release pair
+
+Phone build aba92b522eddbb638cb3 includes the left-side controls from b9d42e81,
+readable fork errors from f065b789 and the large-document prefetch change from
+86c69af4. Commit 6e15e9d4 corrects an assertion in the Linux fixture and leaves
+the phone source unchanged. The simulator and device builds use the owned
+Intel Mac with macOS and Xcode 26.0.1, Rust 1.100.0 and pinned Apple targets.
+
+The checked Linux runtime is e3fde911dc437d90e38e611d97ec5812. The release package
+under target/ui-artifacts/run-oen0FO/package passed 226 daemon and 336 terminal
+cases, the source, selection, ANSI and dictation suites, 23 native Codex and
+10 packaged Claude cases, and the installed Codex contract. The last Swift
+changes did not alter those bytes. Workspace Rust tests and the full debug
+terminal suite passed after the phone changes. The debug gate keeps its 226
+daemon and 336 terminal results under target/ui-artifacts/run-91qvAq.
+
+The live normal daemon runs the checked release. The idle-upgrade receipt
+proves the saved phone token authenticates, the working session is still
+listed and the Mac reaches the LAN listener.
+
+The performance baseline is the original EP021b release, source
+67a1a38a348a6343400594a6d06dbe4a. The preserved target/phone-preview-b7744b8
+executables match all three hashes in exec021b-performance-reviewed.json.
+The paired benchmark uses verified copies in
+target/ios-artifacts/ep022-final/ep021b-pair.
+
+## Phone evidence
+
+On identical 10 MB input, both the previously installed build and the final
+candidate copied every original byte. Sampled peak app RSS fell from 1,138,628
+to 599,580 KiB. This is a simulator UI test and includes XCTest accessibility
+and clipboard work. UIKit keeps regular prefetch for transcripts without a
+rendered Markdown document of at least 1 MiB. The normal flick check passes
+its existing 10% limit against the native scroll view at both speeds.
+Deep scrolling, live tools, history retry and prepend, and the 10,000-line code
+case pass on the same build.
+
+The 76-row real Claude capture ran through the actual connection flow in 56.994
+seconds. The private read-only replay served three admitted reads and received
+no unexpected requests. Both layouts kept the fixed controls painted and older
+text in place. The capture predates the typed link between tool calls and
+results. The current native Claude fixture separately checks that relationship.
+Private conversation data and screenshots stay outside Git.
+
+The initial history run passed XCTest but its harness expected a native offset
+of 100 turns. The fixture now requests one turn per call. The corrected harness
+confirms that the failed read and retry use the same original one-turn cursor.
+The passing rerun and original failure are in target/ios-artifacts/ep022-final
+as history-recheck.log and history.log.
+
+## Build costs and authored size
+
+The unsigned device release app contains 11,959,811 bytes, including a
+9,658,904-byte executable and 2,063,860 bytes of bundled fonts. The generated
+XCFramework has 158,623,678 bytes across its device and dual-architecture
+simulator static archives. Those archives are build inputs. The app includes
+the linked device executable. Generated Swift is 205,503 bytes.
+
+Compared with EP021b, the app adds 4,556 nonblank Swift lines and the Rust phone
+bridge adds 2,240. Shared client code adds 523, Core adds 111, the protocol adds
+103 and the daemon adds 81. The terminal removes 60 and the Claude controller
+stays the same size. The net increase is 7,554 nonblank lines. These counts
+exclude named test modules, test fixtures, generated bindings, resources,
+build scripts and docs. Component totals are in
+target/ios-artifacts/ep022-final/source-count.json.
+
+The remaining final matrix, timings, device install and review are pending.

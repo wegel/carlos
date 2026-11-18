@@ -735,7 +735,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   check passes in36.3s at ui-tests-20261117T091512, phone-claude-e77426b72b49, including
   adjacent coordinates and an unsent Unicode draft. The owner explicitly supersedes
   the prototype's Codex-only quota text; do not retain that backend restriction.
-- [ ] Fold each Claude execution into one expandable header without erasing original
+- [x] Fold each Claude execution into one expandable header without erasing original
   call/result source or merging different executions with equal labels. The owner
   reports repeated run labels; the captured real reference has23 tool calls and23
   results, with22 adjacent call/result pairs and18 equal labels. Both the terminal
@@ -762,6 +762,10 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   chunks_exact-to-as_chunks lint, fixed with as_chunks::<2>(). The complete corrected
   release/native gate02 is still running. Actual phone Claude call/result and terminal
   Read workflows remain pending. No frozen owner daemon or preview binary is replaced.
+  The final aba92 Claude native fixture also passes, and the inspected
+  screenshot shows a single expanded compact header with its eight original
+  lines. Full mode visibly retains separate original call and result rows.
+
 - [x] Shorten the phone's right-hand output count from e.g. `26 lines` to a small
   muted `26`, retaining full accessible wording and other result/status facts. The
   c4d33d61c14bf8d45580 code-source/history/scroll build checks it; final reference
@@ -3027,3 +3031,9 @@ Revision2026-11-17: resume after the sandbox restart and prioritize the newly re
 Revision2026-11-17: prove explicit phone send modes and exact old-message forks on the final simulator source, preserve failed-run evidence and drafts, install the checked Linux package, and stage the separately named idle daemon upgrade without killing this turn. Keep EP022 open for final app polish and end-only review.
 
 Revision2026-11-17: install checked session renaming and the owner-requested Steer default; retain the actual remaining F5 capture, force the body-before-facts race in a deterministic test, and keep the replacement daemon pending its final release gate without restarting active work.
+
+Revision 2026-11-18: resume the owner's final acceptance run. Confirm the
+normal daemon upgrade, measure the scoped large-document fix, record the
+readable rejected-edit label, and preserve the first failed history assertion
+beside the corrected passing rerun. Recover the exact EP021b executables
+from the first checked phone preview for the final performance comparison.
