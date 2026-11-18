@@ -49,8 +49,8 @@ controller together from this package. The rollback receipt lives under
 `~/.local/lib/carlos/backups/20261118T031016Z/install.json`. The running daemon
 still uses e3fde911 and serves the active connection. The final Linux changes
 affect the terminal's wrap count and the test harness. Both daemon builds use
-the same protocol. The compatible package can start on the next normal daemon
-launch without interrupting this turn.
+the same protocol. A daemon launched from the installed terminal will use its
+checked companion binary.
 
 The idle-upgrade receipt proves the saved phone token authenticates, the
 working session is still listed and the Mac reaches the LAN listener.
@@ -63,22 +63,27 @@ target/ios-artifacts/ep022-final/ep021b-pair.
 
 ## Phone evidence
 
-The exact source passed 32 functional simulator workflows, four measuring
-workflows and 26 unit tests. The keyboard check covers Steer, Queue, Send,
-Stop, Done and tapping the log. The signed release installed on the iPhone
-18 Pro. The phone was locked, so iOS denied the automatic launch. The signed
-app and its verification receipt are preserved on the build Mac.
+The initial candidate passed 32 functional simulator workflows, four timing
+workflows and 26 unit tests. The corrected source 35f2cd499401ff683df5 passed
+the complete matrix again and added the 27th unit test. The keyboard check
+covers Steer, Queue, Send, Stop, Done and tapping the log. The report and
+individual receipts live under target/ios-artifacts/ep022-recovery-checked.
 
-On the simulator, the median first responsive frame took 2.138 s. The typing
-test took 1.448 s including XCTest input and assertions, used 1.057 s of CPU
-and reached 66,974 kB of peak physical memory. The scroll interval took 2.350 s
-including gestures and coasting, used 0.693 s of CPU and reached 68,346 kB of
-peak physical memory. A separate twelve-second idle sample showed 0.083% CPU
-and 259,864 KiB RSS. The resident set and XCTest physical memory counters
-measure different aspects of the process. The bridge took a median 82.1 ms
-for a 500-line Rust syntax example and 30.8 ms for 1,000 checked Markdown
-reads. These are simulator measurements. The raw results are under
-target/ios-artifacts/ep022-final.
+The Mac signed and strictly verified 35f2cd499401ff683df5 and installed it on
+the iPhone 18 Pro. It keeps the immutable bundle at
+`previews/35f2cd499401ff683df5-20261118T043152Z/Carlos.app`. The phone was locked,
+so iOS denied the remote launch after confirming the install. The owner can
+open Carlos after unlocking with the saved server credentials.
+
+On the final simulator build, the median first responsive frame took 2.157 s.
+The typing test took 1.439 s including XCTest input and assertions, used
+1.007 s of CPU and reached 66,679 kB of peak physical memory. The scroll
+interval took 2.383 s including gestures and coasting, used 0.703 s of CPU and
+reached 68,198 kB of peak physical memory. A separate twelve-second idle
+sample showed 0.083% CPU and 259,540 KiB RSS. The resident set and XCTest
+physical memory counters measure different aspects of the process. The bridge
+took a median 79.6 ms for a 500-line Rust syntax example and 30.4 ms for 1,000
+checked Markdown reads. The results describe the simulator on the build Mac.
 
 On identical 10 MB input, both the previously installed build and the final
 candidate copied every original byte. Sampled peak app RSS fell from 1,138,628
@@ -104,8 +109,8 @@ as history-recheck.log and history.log.
 
 ## Build costs and authored size
 
-The unsigned device release app contains 11,959,811 bytes, including a
-9,658,904-byte executable and 2,063,860 bytes of bundled fonts. The generated
+The unsigned device release app contains 11,967,163 bytes, including a
+9,666,256-byte executable and 2,063,860 bytes of bundled fonts. The generated
 XCFramework has 158,623,678 bytes across its device and dual-architecture
 simulator static archives. Those archives are build inputs. The app includes
 the linked device executable. Generated Swift is 205,503 bytes.
@@ -129,7 +134,8 @@ paths use the same optimal-fit algorithm. Tests compare word records and
 counted versus painted rows. Code, numbers, ANSI and Unicode keep the general
 word separator.
 
-Fifteen alternating runs on CPU6 compare the original EP021b pair with
+Fifteen alternating runs on CPU6 with `carlos perf-session --synthetic --turns
+1000 --seed 1 --tool-lines 24 --width 160 --height 48` compare the original EP021b pair with
 source a50bd0d31e4fe0da61a4be0cb3d22fdc. Both replayed 6,000 relevant items,
 kept 6,001 messages and rendered 39,347 rows. Median cold replay was
 53.39 to 53.46 ms, inside the original EP016 54.20 ms limit. The median of
@@ -154,3 +160,16 @@ original SHA-256. Median wall time was 115.83 to 116.93 ms over Unix sockets
 and 129.66 to 128.11 ms over WebSockets. Raw distributions, daemon memory
 samples and executable hashes are in linux-perf-review-pair/measurements.json
 under the same artifact root.
+
+## Reviews and approval
+
+Fable 5.2 medium returned PASS WITH ISSUES. It found that the phone's growth
+fits its native UI and that the daemon and shared client can serve the web.
+The app now releases handled private operations, its one major finding.
+Root's follow-up engineering review passed after the whole matrix ran again.
+The review and dispositions are in `exec022-fable-final-review.md`,
+`exec022-engineering-review.md` and `exec022-review-disposition.md`.
+
+Root approves EP022 under the owner's delegated authority on 2026-11-18 UTC.
+The iPhone spike ends here. Keep the memory cost of very large documents and
+whole-window work during streaming in view when extending the phone or web UI.

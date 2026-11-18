@@ -926,7 +926,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   on the iPhone 18 Pro. The Mac keeps it under
   `previews/aba92b522eddbb638cb3-20261118T025518Z/Carlos.app`. iOS rejected the
   remote launch while the device was locked. The previous preview stays available.
-- [ ] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
+- [x] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
   review, resolve findings, record delegated approval and archive unchanged.
   Fable returned PASS WITH ISSUES after the complete frozen-source gate. Both
   reviews found that the phone retains handled private failures until the
@@ -943,8 +943,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   the draft after the keyboard opens, then deletes before using Restore. The
   production code is unchanged across those test-only retries. Reconnect passes
   on 35f2cd499401ff683df5, including the exact restored draft, removal of its
-  recovery card and one original native prompt. The remaining rerun and device
-  receipts will live under target/ios-artifacts/ep022-recovery-checked.
+  recovery card and one original native prompt. The same frozen source passes
+  all 36 simulator workflows and 27 unit tests, including Discard, rename and
+  both native scrolling comparisons. The signed immutable bundle installed on
+  the iPhone 18 Pro. iOS declined launch because it was locked. Final receipts
+  are under target/ios-artifacts/ep022-recovery-checked. Root's follow-up review
+  passed and Root approved under the owner's delegated authority on 2026-11-18 UTC.
 
 ### Earlier milestone notes
 
@@ -2437,6 +2441,29 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+### Final acceptance and end reviews
+
+EP022 is complete on iphone-spike. The owner can open the signed app on the
+iPhone 18 Pro, connect to a saved daemon, work in a session and read its
+history while native iOS scrolling holds the reader's place. The phone's
+checked source is 35f2cd499401ff683df5. The owner's local terminal and daemon
+package is a50bd0d31e4fe0da61a4be0cb3d22fdc, with the active daemon kept
+available during the install. The full Linux gate passed and the paired
+terminal replay stayed inside the original EP016 limit.
+
+The independent Fable 5.2 medium review returned PASS WITH ISSUES. Root's
+engineering pass found the same operation lifecycle defect. The corrected
+phone releases textless failures and exact private drafts the user restored
+or discarded. The final 36-workflow and 27-unit rerun passed. Root's follow-up
+verdict is PASS. Fable's minor findings concern work on very long live
+transcripts, shared approval and Markdown policy for the later web consumer,
+and foreground socket liveness. The full review, decisions and measurements
+are `.agents/reports/exec022-fable-final-review.md`,
+`.agents/reports/exec022-review-disposition.md`,
+`.agents/reports/exec022-engineering-review.md`, and
+`.agents/reports/exec022-final-report.md`. Root approved under the owner's
+grant on 2026-11-18 UTC and archived this plan without further edits.
 
 The owner found Done too close to Send and Stop on the right of the keyboard.
 Build 3b1458f90d5c3daeb09c puts Done and Mic together on the left. The simulator
