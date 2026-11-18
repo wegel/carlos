@@ -50,10 +50,16 @@ extension SessionWorkflowTests {
         XCTAssertEqual(copied, submitted)
         XCTAssertEqual(draft.value as? String, privateText)
         capture("The reopened session keeps the newer draft and recoverable original text", screenshot: app.screenshot())
+        // UIKit can put the caret at the beginning when a text view first focuses.
         draft.tap()
+        let keyboardDone = app.buttons["composer.keyboardDone"]
+        XCTAssertTrue(keyboardDone.waitForExistence(timeout: 5))
+        draft.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
         draft.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: privateText.utf16.count))
-        XCTAssertEqual(draft.value as? String, "")
-        app.buttons["Done"].firstMatch.tap()
+        guard wait({ draft.value as? String == "" }) else {
+            return XCTFail("The test must clear its newer draft before tapping Restore")
+        }
+        keyboardDone.tap()
         XCTAssertTrue(wait { restore.isEnabled && restore.isHittable })
         restore.tap()
         XCTAssertTrue(wait { draft.value as? String == submitted && !restore.exists })
