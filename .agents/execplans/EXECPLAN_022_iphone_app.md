@@ -35,7 +35,7 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Finish checking/installing the body-before-facts ordering repair for the
+- [ ] Confirm activation of the checked body-before-facts ordering repair for the
   owner's remaining F5 report. The actual zmx footer captures InvalidBody while
   a tool source loads (reconnect-07-carlos.txt); it is an ordinary transcript
   placeholder, not a separate viewer. Both live terminals/daemon runfa5890c2.
@@ -48,11 +48,19 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   direct/watch/source/output cases pass after the fix; a caller without a
   session stream must still receive its direct read immediately. The actual
   terminal replacement/byte-order check passes on both pairs; it covers the
-  workflow, while the unit test forces the race. Full release/native checks run
-  in body-order-release-gate-01.log. The earlier pending upgrade helper was
+  workflow, while the unit test forces the race. The complete release/native
+  command exits successfully in body-order-release-gate-01.log: all226 daemon,
+  all334 terminal,23 actual Codex and10 actual Claude cases pass, as do all
+  remaining source/copy/contracts. The checked e77e5a338758f2193504033f0d68e278
+  package is installed asUID1000 after515 hash checks, with backups under
+  ~/.local/lib/carlos/backups/20261117T235501Z. The earlier pending upgrade helper was
   stopped only after verifying it was still Python waiting for idle; the live
-  daemon PID1723001 and its service are untouched. Re-arm the upgrade with the
-  final checked package after checks, not the now-superseded6d95 package.
+  daemon PID1723001 and its service are untouched. The separate helper/checker
+  are now re-armed for the checked immutable e77e package and waiting for all
+  sessions to be idle. The isolated handover proof passes with the same session/
+  grant and zero prompts. End this turn, then inspect the real connectivity
+  receipt before claiming the new daemon is live. Full evidence is in
+  exec022-rename-body-order-handoff.md.
 - [x] (2026-11-17 23:57Z) Add phone Session settings → Rename session through the existing typed
   session/rename command. Keep a separate name draft, close only on actual
   acceptance, retain rejected names and never replay unknown outcomes. Preserve
@@ -70,30 +78,32 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   then explicitly opens a new editor for a successful name. The earlier debug
   gate passes225/226 daemon cases; the known Claude disk outcome timeout remains
   preserved, and that same case passes in all226 final release daemon checks.
-  The remaining release terminal/native checks run againstsourcee77e5a338758f2193504033f0d68e278.
-  No active daemon has been restarted. Final checked install/activation still
-  remain; see exec022-rename-body-order-handoff.md for sources and receipts.
+  All remaining release checks also pass on e77e5a338758f2193504033f0d68e278.
+  The same frozen app passes idle sampling:0.082% CPU,260152KiB peak RSS over
+  12.14s in the owned Intel simulator Fixture app. These are not physical-phone
+  costs. The checked package is installed and its idle upgrade is armed; no
+  active daemon has been restarted. Inspect the real connectivity receipt after
+  this turn; see exec022-rename-body-order-handoff.md for sources and receipts.
 
 - [x] (2026-11-17 23:29Z) Install final phone controls on the exact iPhone18 Pro.
   Source803de11aabdd9e72988f builds Release, passes strict signing and installs
   successfully. Launch is denied only because the phone is locked; the owner
   can open Carlos after unlocking. Executable SHA256 and receipts are recorded
   in exec022-phone-controls-handoff.md. Keep the accepted scrolling unchanged.
-- [ ] Complete the idle daemon upgrade, then inspect its real connectivity proof.
-  The checked6d95ccf1448677ce01b8656d96b11f47 CLI/daemon/helper package is
-  installed asUID1000 with515 hashes verified and backups at
-  ~/.local/lib/carlos/backups/20261117T232124Z. The running daemon remains
-  PID1723001/sourcefa5890c2 and hosts this active turn. Its existing
-  carlos-phone-daemon.service must not be stopped during this turn. The new
-  carlos-phone-controls-daemon.service was armed separately, then stopped while
-  still a verified idle waiter to include the body-order repair. Re-arm with
-  the final checked source after the release gate. It targets the exact old PID/birth and
-  preserves its normal-shell environment, state, socket, config and device
-  grants. The old service recovery plan is pinned to its immutable fa589
-  package. The new checker writes phone-controls/normal-phone-connectivity.json
-  below tmp/phone-handover-tools after activation; do not claim it passed yet.
-  The isolated new-source handover check passes with the same session/device
-  grant and zero native prompts. Ending this turn lets the real update run.
+- [ ] Confirm the real idle daemon upgrade through its authenticated receipt.
+  The current installed CLI/daemon/helper source is e77e5a338758f2193504033f0d68e278,
+  superseding the6d95 staging checkpoint. All515 hashes verify; backups are at
+  ~/.local/lib/carlos/backups/20261117T235501Z. Its immutable package is under
+  ~/.local/lib/carlos/releases/20261117T235501Z-e77e5a338758f2193504033f0d68e278.
+  The running daemon remains PID1723001/sourcefa5890c2 and hosts this turn in
+  carlos-phone-daemon.service. Do not stop that service during this turn. The
+  separate carlos-phone-controls-daemon.service and connectivity checker are
+  armed for e77e and wait for every session to be idle. They preserve the normal
+  shell environment, state, socket, config and saved phone grants. The old
+  service recovery plan remains pinned to its immutable fa589 package. End this
+  turn, then inspect tmp/phone-handover-tools/phone-controls/normal-phone-connectivity.json.
+  A receipt naming e77e must confirm authentication, the current session and
+  LAN reachability before this task can be checked off.
 - [x] Add explicit Steer/Queue choice while work runs and Edit from here on a
   saved user message. Keep Stop only when the main composer is empty, as the
   owner clarified. Resolve an immutable original prompt through its exact row,
@@ -2203,6 +2213,16 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+2026-11-18 final handover checkpoint: the complete release/native command exits
+successfully on e77e5a338758f2193504033f0d68e278, including all226 daemon and
+all334 terminal cases. The checked package is installed with backups and515
+hashes verified. The separate idle-only updater/checker are armed for that
+immutable package; the active fa589 daemon PID1723001 is unchanged. End this
+turn and inspect the real connectivity receipt afterward. The phone already
+runs checked source6cb590365ff8b4e6aa02 with renaming and default Steer. Its25
+native units, rename, send-mode and idle checks pass. No reviewer or EP approval
+has occurred; the whole-EP polish/cost work and end-only reviews remain open.
 
 2026-11-17 23:57Z checkpoint: session renaming and per-draft Steer default are
 implemented, committed, checked in the actual simulator app and installed/launched

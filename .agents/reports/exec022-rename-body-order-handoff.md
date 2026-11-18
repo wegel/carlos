@@ -61,16 +61,24 @@ outcome timeout. That same case passes in the final release run.
 
 The release package source is `e77e5a338758f2193504033f0d68e278`, frozen under
 `target/ui-artifacts/run-q4G1m7/package`. Rust, clippy, architecture, helper,
-launcher and all 226 daemon checks pass. The remaining terminal/native checks
-are still running in `tmp/phone-handover-tools/body-order-release-gate-01.log`.
-The separate checked installer is staged at `tmp/install-carlos-e77e5a33` and
-verifies 515 package hashes plus the prior installed files before any replacement.
+launcher, all 226 daemon checks, all 334 terminal cases, selection/source/
+dictation/ANSI checks, installed Codex contract, 23 actual Codex cases and
+10 packaged Claude cases pass. The complete release command exits successfully
+in `tmp/phone-handover-tools/body-order-release-gate-01.log`. The separate
+installer at `tmp/install-carlos-e77e5a33` verifies 515 package hashes and the
+prior installed files before replacing them.
 The Release phone build, strict signature check, exact iPhone18 Pro install and
 launch all pass. The immutable app is
 `~/carlos-ios-build/previews/6cb590365ff8b4e6aa02-20261117T235553Z/Carlos.app`,
 executable SHA256 `fa1934f388a31123f22bafac8aad525c8f4cd8905b6d384749a1bca16bce70fc`.
-See `phone-rename-device-{build,sign,install}-01.log` for receipts. The new Linux
-package has not yet been installed; its final terminal/native checks still run.
+See `phone-rename-device-{build,sign,install}-01.log` for receipts.
+
+The same frozen simulator Fixture app also passes its idle check with no prompt
+(`phone-codex-fa01cf529c66`, `ui-tests-20261117T190046.xcresult`). Sampling over
+12.14 seconds reports 0.082% CPU and peak RSS 260152 KiB. The raw samples are
+`target/ios-artifacts/phone-rename-final-metrics/idle-metrics.json`. These are
+Intel simulator Fixture figures, not physical-phone battery or Release-memory
+measurements. The full EP cost matrix and large-source memory work remain open.
 
 ## Safe activation
 
@@ -81,9 +89,22 @@ main process was the Python idle waiter, not a daemon. This prevents installing
 the now superseded `6d95` package when the sessions next become idle. The current
 daemon's own crash recovery remains pinned to its immutable fa589 package.
 
-After the final checks, install the new checked CLI/daemon/helper package, point
-the separate handover plan at its immutable package, re-arm the idle waiter and
-checker, then end the turn. The helper must wait for every saved session to be
-idle and preserve the normal shell environment, state, socket, listener config
-and saved phone grant. Only a later authenticated connectivity receipt can prove
-the new daemon is live. EP022 remains open; this report is not its final approval.
+The checked CLI/daemon/helper package is now installed under `~/.local/bin` as
+UID1000. Backups and receipt are
+`~/.local/lib/carlos/backups/20261117T235501Z/install.json`; the immutable new
+package is
+`~/.local/lib/carlos/releases/20261117T235501Z-e77e5a338758f2193504033f0d68e278`.
+The separate handover plan now points to that package. Both idle waiter and
+connectivity checker are re-armed. The first receipt confirms waiting for idle
+on PID1723001, which still owns this active turn; the new waiter is initially
+PID2031509. Do not stop the old daemon's service during this turn.
+
+The isolated new-package handover proof in
+`phone-controls/body-order-idle-handover-proof.json` passes with the same
+session/device grant and zero native prompts. The real helper waits for every
+saved session to be idle and preserves the normal shell environment, state,
+socket, listener config and saved phone grant. End the turn to let it switch.
+Inspect `tmp/phone-handover-tools/phone-controls/normal-phone-connectivity.json`
+on the next turn before claiming the new daemon is live. Existing TUIs may need
+one F5 after the intentional restart. EP022 remains open; this report is not its
+final approval.
