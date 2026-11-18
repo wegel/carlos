@@ -35,18 +35,37 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Run the final simulator matrix on frozen source aba92b522eddbb638cb3.
-  Logs are under target/ios-artifacts/ep022-final. Exact 10 MB source,
-  rejected edit and native fast-flick already pass. The read-only private
+- [x] Run the final simulator matrix on frozen source aba92b522eddbb638cb3.
+  Logs are under target/ios-artifacts/ep022-final. All 32 functional workflows,
+  four simulator measurement workflows and 26 unit tests pass, including the
+  corrected history rerun. The read-only private
   Claude capture runs on a synthetic loopback token with no user daemon
   connection. The original /tmp EP021b pair was gone after the environment
   restart, but target/phone-preview-b7744b8 preserved the three original
   executables. Each SHA-256 matches the archived EP021b report. Benchmark the
   verified copies under target/ios-artifacts/ep022-final/ep021b-pair against
-  the checked EP022 release package in target/ui-artifacts/run-oen0FO/package.
+  the final checked EP022 release package.
   A separate rebuild of fb5ed10e matched the source fingerprint but differed
   in executable hashes. Do not use that rebuild for the final comparison.
 
+- [x] Compare the first checked release package with the original EP021b pair.
+  Fifteen CPU-pinned pairs match all transcript row counts, but median cold
+  replay increased from 53.50 to 60.88 ms. The layout profiles show the
+  extra time in counting assistant, commentary and user text. The follow-up
+  reuses the widths textwrap already measured for general text and computes word
+  boundaries and widths in one pass for runs of ASCII letters, attached closing
+  punctuation and spaces. The painter and optimal-fit algorithm stay the same.
+  Parity tests compare word records and then check counts against painted rows.
+
+- [x] Clear the original EP016 replay limit with the exact EP021b comparison.
+  Fifteen paired CPU6 runs on source a50bd0d31e4fe0da61a4be0cb3d22fdc give
+  53.39 ms for EP021b and 53.46 ms for EP022 with identical counts. EP016's
+  49.27 ms reference allows 54.20 ms. Scroll p95 is 0.70 to 0.69 ms and typing
+  p95 is 0.49 ms for both. Run the release gate on these bytes before installing.
+
+- [x] Wait for a complete line in the socket benchmark's listener startup log.
+  An early read returned an unfinished WebSocket address while the daemon
+  was still writing the log. Wait for the newline before parsing the address.
 
 - [x] Check the corrected phone history retry, original source and live scroll.
   The final candidate passes the unchanged anchor tests on history retry and
@@ -889,22 +908,20 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   file box; the final check also asserts the source starts beside the gutter.
 - [x] Pass the complete release terminal/native checks after the shared gutter move.
   syntax-terminal-release-02.log includes all23 Codex and10 packaged Claude cases.
-- [ ] Pass the final native/keyboard/syntax/restart checks on one frozen source.
-  final-candidate-source points to the current source; final-native-01 and the
-  following final-keyboard/syntax/reconnect-01 logs remain pending.
-- [ ] Repeat the remaining simulator workflows, inspect actual screens and the real
-  captured Claude reference in Flow and Gutter. Preserve owner phone/daemon state.
+- [x] Pass the final native, keyboard, syntax and restart workflows on one frozen
+  phone source. The aba92 matrix includes all four, with logs and their exact
+  source in target/ios-artifacts/ep022-final/workflow-results.json.
+- [x] Repeat the functional simulator workflows and inspect the real Claude
+  capture in Flow and Gutter. All 32 functional workflows pass on the frozen
+  aba92 build, with the history cursor assertion corrected on the same source.
+  The replay and native tool screenshots were inspected separately.
 - [ ] Record final simulator startup/typing/scroll/idle CPU/memory/bridge/size costs,
   frozen CLI perf-session comparisons and authored production growth.
-- [ ] Build/sign/install a new immutable phone preview after the clean simulator gate.
-  The owner separately requested the current progress build now. Source8bcbe1b071c29b677fe6
-  is signed, strictly verified, installed and successfully launched on their specific
-  iPhone18 Pro at12:11UTC. The immutable Mac preview is
-  `previews/8bcbe1b071c29b677fe6-20261117T120943Z/Carlos.app`, executableSHA256
-  2098adbd691688b70eabed0bd5f94ddef533a5aabfae1e027cacd7a348e94ad0.
-  Both install and launch receipts report success. Existing previews and owner
-  daemon/CLI remain untouched. The disclosed failed-history-read jump still needs
-  repair before the final plan-approved build.
+- [x] Build, sign and install the immutable phone preview after the simulator gate.
+  The signed aba92b522eddbb638cb3 release passed strict verification and installed
+  on the iPhone 18 Pro. The Mac keeps it under
+  `previews/aba92b522eddbb638cb3-20261118T025518Z/Carlos.app`. iOS rejected the
+  remote launch while the device was locked. The previous preview stays available.
 - [ ] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
   review, resolve findings, record delegated approval and archive unchanged.
 
