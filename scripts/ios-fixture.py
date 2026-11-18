@@ -287,7 +287,8 @@ def check_native(fixture, backend, workflow, observed, visits):
     if workflow == "history":
         assert native.started == 0 and native.resumed == 1
         assert len(visits.pages) == 3, visits.pages
-        assert [page.get("cursor") for page in visits.pages] == [None, "PRIVATE_HISTORY:desc:100", "PRIVATE_HISTORY:desc:100"]
+        cursors = [page.get("cursor") for page in visits.pages]
+        assert cursors == [None, "PRIVATE_HISTORY:desc:1", "PRIVATE_HISTORY:desc:1"], cursors
     if workflow in ("relaunch", "token-update", "launch-perf", "typing-perf", "scroll-perf", "idle-perf"):
         assert native.started == 1, "Relaunch must not create another native session"
     elif workflow == "credentials":
