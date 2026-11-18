@@ -181,7 +181,8 @@ class Fixture:
             def address():
                 text = (self.root / "daemon.log").read_bytes()[log_start:].decode()
                 prefix = "carlosd: network listening on "
-                return next((line[len(prefix):] for line in text.splitlines() if line.startswith(prefix)), None)
+                return next((line[len(prefix):-1] for line in text.splitlines(keepends=True)
+                             if line.startswith(prefix) and line.endswith("\n")), None)
             self.ws_uri = wait_for(address, "network listener reports its actual bound address")
 
     def stop(self):
