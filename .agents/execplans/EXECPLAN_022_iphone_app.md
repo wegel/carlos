@@ -35,6 +35,17 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [ ] Run the final simulator matrix on frozen source aba92b522eddbb638cb3.
+  Logs are under target/ios-artifacts/ep022-final. Exact 10 MB source,
+  rejected edit and native fast-flick already pass. The read-only private
+  Claude capture runs on a synthetic loopback token with no user daemon
+  connection. Rebuild the reviewed EP021b renderer/daemon from fb5ed10e in
+  /var/tmp/carlos-ep022-ep021b-baseline because the original /tmp frozen pair
+  no longer exists after the environment restart. The rebuilt source identity
+  matches 67a1a38a348a6343400594a6d06dbe4a. Record the different executable hashes
+  explicitly and keep the original report's numbers separate.
+
+
 - [x] Move Done and Mic to the left of the keyboard bar in b9d42e81.
   Send and Stop stay on the right, and Steer/Queue sits at the right end of the
   bar. The simulator checked the spacing with both an empty and a typed draft.
@@ -75,11 +86,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   carlos-body-errors-connectivity-proof.service checks the real saved grant and
   Mac LAN after activation. Receipt currently says waiting-for-idle. Already-open
   TUIs still need a new process to load the frontend fixes.
-- [ ] Confirm the new daemon after all sessions become idle. Keep live2031509
-  running during this turn. The separate body-errors waiter/checker will verify
-  sourcee3fde, the saved phone grant, current logical session and Mac LAN after
-  the clean idle handover. Already-running TUIs need a relaunch for the client
-  code; installing executables cannot update an existing process.
+- [x] Confirm the new daemon after all sessions become idle. The idle upgrade
+  completed and the real daemon now runs source e3fde911dc437d90e38e611d97ec5812
+  under carlos-body-errors-daemon.service. The saved phone token authenticates,
+  all four sessions are listed, the working session is present and the Mac
+  reaches the LAN socket. The receipt is at
+  tmp/phone-handover-tools/body-errors/normal-phone-connectivity.json.
 - [x] Repair the owner's live “output body replaced; restart without a cursor”
   footer in83ef472f. A held direct source read reproduces the exact error on
   checkede77e; corrected actual TUI keeps the replacement tail, private draft and
@@ -185,10 +197,10 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   failed runs, including the gate01 socket-created-before-listen fixture race.
   The fixture now probes an actual connection; focused Grok rechecks pass.
   Full sources, commits, logs, costs and receipts: exec022-phone-controls-handoff.md.
-- [ ] Finish the EP error-label polish: the rejected-fork screenshot proves
-  both drafts survive, but the existing backend error exposes its JSON wrapper.
-  Show the human error message while retaining detailed diagnostics. Preserve
-  Apple hosting-view warning attachments from the passing simulator runs.
+- [x] Show the backend's readable message in a rejected edit. Commit f065b789
+  unwraps only the recognized server-error envelope for the label. The stored
+  operation keeps its original diagnostic. The exact label "Phone branch rejected"
+  and both private drafts pass the actual edit-rejected workflow on aba92b522eddbb638cb3.
 - [x] Reproduce and correct the passive debug scroll assertion59 vs60 offline.
   The46 captured rows isolate one indented ASCII call. The greedy-only ASCII
   counter returns4 lines where the existing painter returns3 at width95/98.
@@ -370,22 +382,16 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   Immutable Mac bundle:previews/de74af3e4ef7529f93d6-20261117T190305Z/Carlos.app.
   Install receipt reports success; auto-launch is denied because the phone is
   locked. The owner can open it normally. No phone recording was started.
-- [ ] Check one bounded large-source memory hypothesis before the final sweep.
-  Separate uncommitted snapshot39c0e5c6fadc2526a385 disables only UIKit prefetch;
-  the working tree and installed de74 keep the proven normal setting. Run the
-  identical source/exact-copy case and sampled RSS observer in no-prefetch-*-01.
-  Use the result to distinguish speculative cache changes from a measured cause.
-
-- [ ] Explain the measured large-source memory cost before final EP approval.
-  The clean de74 10MB original-source/exact-copy workflow passes47.60s, fixture
-  phone-codex-0abdb961c675, but its sampled app RSS peaks1126612KiB and remains
-  1120856KiB just before termination. Keep source-memory-de74...json (176 samples).
-  This is a stress-case app-process RSS sample during actual XCTest/clipboard/
-  accessibility reads, not a normal-session footprint or physical-phone measurement.
-  Candidate799 sampled926036KiB. During the final cost pass, distinguish large
-  text layout/retention from XCTest accessibility work before changing caches.
-  Do not hide this cost or add speculative caching without evidence.
-
+- [x] Measure the large-source workaround and keep ordinary native motion.
+  Commit 86c69af4 disables UIKit prefetch when the retained transcript projects
+  a Markdown document of at least 1 MiB into independent rows. It does not change
+  prefetch during a drag or deceleration. The same 10 MB exact-copy test passes
+  on 3b1458f90d5c3daeb09c and aba92b522eddbb638cb3. Sampled peak simulator process
+  RSS falls from 1,138,628 KiB to 599,580 KiB, with 178 and 179 samples. The
+  candidate also passes both native fast-flick velocities against a plain
+  scroll view. These RSS peaks include the UI test's accessibility and clipboard
+  work and do not quantify physical iPhone memory. The raw samples live in the
+  Mac's device-check/source-memory-<source>.json.
 - [x] Check recorder-free de74 native units19/19 and actual history failure/retry/
   prepend. Live-tool scrolling/expansion also passes95.01s, retaining all2pt limits.
   The native-list-final-gates runner continues with exact10MB source/copy and
@@ -2039,6 +2045,12 @@ how the prior EP's preserved gate handled the same environment. No assertion, de
 permission check or runtime invariant was weakened.
 
 ## Decision Log
+
+Use the prefetch switch only for transcripts with a rendered Markdown document
+of at least 1 MiB. Native speculative layouts drove a measured memory cost with
+the 10 MB fixture. Keep native prefetch for smaller documents and leave UIKit
+in charge of scroll motion. The reader still fetches and copies every byte.
+
 
 The separate UIInputViewController approach failed the actual402pt keyboard-width
 check even after assigning its inputView explicitly (aecfd candidate). Replace
