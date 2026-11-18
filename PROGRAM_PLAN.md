@@ -171,8 +171,7 @@ is written in full. On 2026-11-14, the owner delegated approval of completed EPs
 
 The final EP019b Fable review found that live owners remain allocated until daemon shutdown and closed non-Codex sessions need an explicit recovery command. EP020 must first add a typed session stop/reopen path, with actual multi-client/native tests, before enabling its network listener. Stopping a session releases its owner and native processes while keeping the saved conversation. This is a required first milestone, not optional later cleanup. The review remains `.agents/reports/exec019b-fable-final-review.md`; its final EP019b dispositions belong in the final report.
 
-ExecPlans 009 to 015 remain under `.agents/execplans/`. They predate the daemon split and
-remain outside the completed iPhone spike. A later web client will need its own ExecPlan.
+A later web client will need its own ExecPlan.
 
 
 ## Done ExecPlans
@@ -185,6 +184,18 @@ remain outside the completed iPhone spike. A later web client will need its own 
 - [x] `.agents/done/EXECPLAN_006_claude_exit_plan_mode.md`
 - [x] `.agents/done/EXECPLAN_007_code_quality_bar.md`
 - [x] `.agents/done/EXECPLAN_008_dictation.md`
+
+The owner requested that EP009 through EP015 be archived as written. These plans
+predate the daemon split and retain their original status notes.
+
+- [x] `.agents/done/EXECPLAN_009_claude_sdk_controller.md`
+- [x] `.agents/done/EXECPLAN_010_markdown_table_reflow.md`
+- [x] `.agents/done/EXECPLAN_011_compatible_crate_refresh.md`
+- [x] `.agents/done/EXECPLAN_012_claude_private_subagents.md`
+- [x] `.agents/done/EXECPLAN_013_codex_steer_rewind.md`
+- [x] `.agents/done/EXECPLAN_014_codex_refresh.md`
+- [x] `.agents/done/EXECPLAN_015_codex_history_batching.md`
+
 - [x] `.agents/done/EXECPLAN_016_session_state_split.md` (step 1 of 7 of the daemon split; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_017_core_workspace.md` (step 2 of 7: terminal-free session library; completed 2026-11-13)
 - [x] `.agents/done/EXECPLAN_018_sequenced_events.md` (step 3 of 7: numbered core events and client protocol version 1; completed 2026-11-13)
