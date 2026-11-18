@@ -6,7 +6,7 @@ import threading
 
 
 class DaemonRecorder:
-    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0, defer_source_watch_once=False):
+    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0, defer_source_watch_once=False, defer_subscription_once=False):
         self.source_error_once = source_error_once
         self.source_read_error_after = source_read_error_after
         self.goal_error_once = goal_error_once
@@ -19,6 +19,8 @@ class DaemonRecorder:
         self.held_sources = []
         self.defer_source_watch_once = defer_source_watch_once
         self.deferred_source_watch = None
+        self.defer_subscription_once = defer_subscription_once
+        self.deferred_subscription = None
         self.source_watch_held = threading.Event()
         self.path = path
         self.upstream = upstream
@@ -121,7 +123,12 @@ class DaemonRecorder:
                     if self.stop.is_set():
                         break
                     error = self.source_failure(message) if direction == "client" else None
-                    if direction == "client" and self.defer_source_watch_once and message.get("method") == "entry/source/subscribe":
+                    if direction == "client" and self.defer_subscription_once and message.get("method") == "session/subscribe":
+                        self.defer_subscription_once = False
+                        with self.device_write:
+                            self.deferred_subscription = (source, message["id"])
+                            self.subscription_held.set()
+                    elif direction == "client" and self.defer_source_watch_once and message.get("method") == "entry/source/subscribe":
                         self.defer_source_watch_once = False
                         with self.device_write:
                             self.deferred_source_watch = (source, message["id"])
@@ -209,6 +216,15 @@ class DaemonRecorder:
     def reject_deferred_source_watch(self):
         self.finish_deferred_source_watch({"error":{
             "code":-32012, "message":"output watch was superseded"}})
+
+    def reject_deferred_subscription(self):
+        with self.device_write:
+            device, identity = self.deferred_subscription
+            self.deferred_subscription = None
+            message = {"jsonrpc":"2.0", "id":identity, "error":{
+                "code":-32012, "message":"subscription was superseded"}}
+            self.record("server", message)
+            device.sendall(json.dumps(message).encode()+b"\n")
 
     def finish_deferred_source_watch(self, reply):
         with self.device_write:

@@ -192,6 +192,17 @@ impl Requests {
         });
     }
 
+    pub fn retire_subscriptions(&mut self, session: &SessionId, except: Option<i64>) {
+        self.entries.retain(|id, pending| {
+            let retired = Some(*id) != except
+                && matches!(&pending.kind, Kind::Subscribe(target) if target == session);
+            if retired {
+                self.bytes -= pending.bytes;
+            }
+            !retired
+        });
+    }
+
     pub fn clear(&mut self) {
         self.entries.clear();
         self.bytes = 0;

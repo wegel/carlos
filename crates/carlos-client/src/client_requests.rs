@@ -132,6 +132,8 @@ impl Client {
                 self.needs_watch = false;
             }
             Kind::Subscribe(session) => {
+                self.requests
+                    .retire_subscriptions(&session, Some(outgoing.id));
                 let slot = self.sessions.entry(session).or_insert(Slot {
                     replica: None,
                     wanted: true,
@@ -147,6 +149,7 @@ impl Client {
                 slot.refresh = false;
             }
             Kind::Unsubscribe(session) => {
+                self.requests.retire_subscriptions(&session, None);
                 self.cancel_panel_reads(&session);
                 self.sessions.remove(&session);
                 self.goals.forget(&session);

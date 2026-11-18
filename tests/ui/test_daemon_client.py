@@ -30,15 +30,36 @@ class DaemonClient:
                                 ['snapshot']['info']['availability'] == "ready", "native session ready")
         return fixture, client, session
 
-    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None, goal_error_once=False, source_read_error_after=0, extra_args=None, defer_source_watch_once=False):
+    def attach_daemon(self, fixture, session, name, width=100, source_error_once=False, extra_env=None, goal_error_once=False, source_read_error_after=0, extra_args=None, defer_source_watch_once=False, defer_subscription_once=False):
         directory = self.summary_root() / name
         directory.mkdir(parents=True, exist_ok=True)
-        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once, goal_error_once=goal_error_once, source_read_error_after=source_read_error_after, defer_source_watch_once=defer_source_watch_once)
+        recorder = DaemonRecorder(fixture.root / (name+".sock"), fixture.socket, directory, source_error_once=source_error_once, goal_error_once=goal_error_once, source_read_error_after=source_read_error_after, defer_source_watch_once=defer_source_watch_once, defer_subscription_once=defer_subscription_once)
         self.addCleanup(recorder.close)
         terminal = self.launch(directory=directory, width=width, resume=session,
                                extra_args=["--daemon-socket", str(recorder.path), *(extra_args or [])], extra_env=extra_env)
         terminal.daemon_recorder = recorder
         return terminal
+
+    def test_daemon_replaced_subscription_error_keeps_current_facts_and_private_draft(self):
+        fixture, client, session = self.daemon_session("superseded-session")
+        terminal = self.attach_daemon(fixture, session, "newest", defer_subscription_once=True)
+        recorder = terminal.daemon_recorder
+        terminal.wait(recorder.subscription_held.is_set, "original subscription deliberately pending")
+        terminal.paste("private draft while subscription changes")
+        terminal.wait(lambda: terminal.input_is("private draft while subscription changes"), "private draft ready")
+        terminal.send(b"\x1b[15~")
+        terminal.contains("history-output 9999")
+        terminal.wait(lambda: len(terminal.requests("session/subscribe")) == 2, "explicit replacement subscription")
+        recorder.reject_deferred_subscription()
+        terminal.paste(" survives")
+        terminal.wait(lambda: terminal.input_is("private draft while subscription changes survives"), "typing after retired failure")
+        self.assertNotIn("subscription was superseded", terminal.text)
+        self.assertNotIn("F5 reconnects", terminal.text)
+        self.assertIn("history-output 9999", terminal.text)
+        self.assertEqual(len(terminal.requests("hello")), 1)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(fixture.native.prompts, 0)
+        terminal.snapshot("newest-subscription-keeps-facts-and-draft")
 
     def test_daemon_terminals_keep_drafts_private_while_native_control_releases_a_held_send(self):
         fixture, client, session = self.daemon_session("terminal-control")

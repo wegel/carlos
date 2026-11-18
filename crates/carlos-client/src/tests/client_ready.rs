@@ -6,9 +6,59 @@ use carlos_proto::ids::Sequence;
 use carlos_proto::session::Availability;
 use serde_json::json;
 
-use super::client::{attached, greet, notify, reply};
+use super::client::{attached, greet, notify, reply, subscribe};
 use super::{event, session, snapshot};
 use crate::codec::Incoming;
+
+#[test]
+fn replacing_or_cancelling_a_subscription_retires_its_late_failure() {
+    for cancel in [false, true] {
+        let (mut client, connection) = attached();
+        let older = subscribe(&mut client, connection);
+        if cancel {
+            client
+                .read(connection, Command::Unsubscribe { session: session() })
+                .expect("explicit detach");
+        }
+        let current = subscribe(&mut client, connection);
+        let ignored = client
+            .receive(
+                connection,
+                Incoming::Failure {
+                    id: Some(older.id()),
+                    error: RpcError {
+                        code: -32012,
+                        message: "subscription was superseded".into(),
+                    },
+                },
+            )
+            .expect("retired failure");
+        assert!(ignored.failures.is_empty());
+        assert!(ignored.outgoing.is_empty());
+        assert!(!client.current_session_is_ready(&session()));
+        let _ = reply(
+            &mut client,
+            &current,
+            json!({"kind":"snapshot","snapshot":snapshot()}),
+        );
+        assert!(client.current_session_is_ready(&session()));
+        let failed = subscribe(&mut client, connection);
+        let failure = client
+            .receive(
+                connection,
+                Incoming::Failure {
+                    id: Some(failed.id()),
+                    error: RpcError {
+                        code: -32012,
+                        message: "current subscription refused".into(),
+                    },
+                },
+            )
+            .expect("current failure");
+        assert_eq!(failure.failures.len(), 1);
+        assert!(!client.current_session_is_ready(&session()));
+    }
+}
 
 #[test]
 fn failed_resumed_subscription_stays_blocked_until_an_explicit_successful_retry() {
