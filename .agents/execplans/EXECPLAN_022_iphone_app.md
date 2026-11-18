@@ -35,6 +35,22 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
+- [x] Add and install tap-to-dismiss on the log in55025fb2. A tap hides the
+  composer's keyboard while keeping empty/typed drafts and the running response.
+  The native recognizer leaves touches uncancelled and shares recognition with
+  row gestures; its unique dismissComposerKeyboard action leaves a source text
+  view's own selection alone. The exact UI test fails onf829 and passes on
+  e7388863666b1057f728, along with tool buttons, long-press old-message edit,
+  native fast-flick comparison and all26 units. The required terminal script
+  exits0 again with226 daemon and336 terminal workflows plus the remaining
+  checks (phone-log-dismiss-debug-gate-01.log; artifacts run-mJrlOZ).
+  The verified signed Release app installed successfully on iPhone18Pro at
+  2026-11-18 01:35Z; automatic launch was refused because the phone was locked.
+  Unlock and open Carlos to validate it. Immutable app:
+  ~/carlos-ios-build/previews/e7388863666b1057f728-20261118T013432Z/Carlos.app;
+  executable SHA256cc20fa13527c0933a027ac213038c877dc1a6775edc5496d99fdb458d915f186.
+  Mac device-check/e7388863666b1057f728-install.json records success; -launch.json
+  records Locked. Linux evidence: phone-log-dismiss-device-install-01.log.
 - [x] Install the complete checked cursor/subscription repair package. Release
   gate02 exits0 with Clippy, all Rust tests,226 daemon workflows,336 terminal
   workflows, selection/source/dictation/ANSI checks and23 Codex/10 Claude native
@@ -49,34 +65,37 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   carlos-body-errors-connectivity-proof.service checks the real saved grant and
   Mac LAN after activation. Receipt currently says waiting-for-idle. Already-open
   TUIs still need a new process to load the frontend fixes.
-- [ ] Repair the owner's live “output body replaced; restart without a cursor”
-  footer. A held direct source read reproduces the exact error on checked e77e;
-  corrected debug TUI keeps the replacement tail, draft and one connection,
-  with no sent prompt. Two failing-before unit checks show that failed body reads
-  can outrun their replacement facts and retired body tokens can still leak errors.
-  Carry the owner's sequence with internal body failures and hold them behind
-  the peer's numbered facts, retaining the existing byte charge. Ignore failed
-  requests/resets only when their exact body token has retired. Current errors
-  remain visible. This extension changes the daemon too, unlike the subscription
-  repair alone; after final checks install one new immutable package and arrange
-  a new idle handover from PID2031509 without interrupting the active turn.
-- [ ] Finish the owner's latest phone toolbar/reconnect fixes. Move Mic and the
-  Steer/Queue menu into the existing44pt keyboard Done row, leaving the main
-  composer for text and Send/Stop. UIKit owns the input accessory controller;
-  SwiftUI reuses the existing mic/menu controls. Done and ending active editing
-  keep recognized text and stop voice input. Reconnect is visible on the main
-  error bar and beside a disconnected saved server rather than buried in Manage.
-  Sourcec2fd9db3027cfa37d5b0 passed25 units but failed toolbar placement and
-  reconnect state. Its accessory controller had no attached inputAccessoryView;
-  d93ecf102619cb764004 attached the bar but its hosted controls still kept
-  zero width: the recording shows Mic clipped at the left edge and Done beside
-  it, with no accessible mode button. The next candidate702a0ebd2f87d168653b
-  gives the hosted view the native accessory bounds in layoutSubviews and removes
-  the hosting controller’s extra safe-area handling for this already-sized bar. A reconnect to
-  a stopped session must offer Reopen rather than another reconnect. Run the
-  actual reconnect, voice and hardware keyboard workflows before installation.
-  The owner says restarting the phone app restored its connection; do not claim
-  the underlying session read issue is solved solely by that workaround.
+- [ ] Confirm the new daemon after all sessions become idle. Keep live2031509
+  running during this turn. The separate body-errors waiter/checker will verify
+  sourcee3fde, the saved phone grant, current logical session and Mac LAN after
+  the clean idle handover. Already-running TUIs need a relaunch for the client
+  code; installing executables cannot update an existing process.
+- [x] Repair the owner's live “output body replaced; restart without a cursor”
+  footer in83ef472f. A held direct source read reproduces the exact error on
+  checkede77e; corrected actual TUI keeps the replacement tail, private draft and
+  one connection with no sent prompt. Failed owner body reads now carry their
+  sequence and wait behind replacement facts while retaining their byte charge.
+  The client and terminal ignore failures/resets only for retired body tokens;
+  current read errors remain visible. The complete release gate passes and the
+  checked package is installed; actual daemon activation is the separate item above.
+- [x] Finish and deploy the phone toolbar/reconnect fixes inb89d530b. The plain
+  full-width native accessory holds reusable SwiftUI controls on one44pt row:
+  Steer/Queue at the left, Mic beside Done at the right, with text and Send/Stop
+  above. The mode appears while a response runs and the draft is nonempty.
+  Done stops voice input while retaining recognized text. Reconnect is visible
+  on the session error bar and beside a disconnected saved server; a stopped
+  session offers Reopen. All26 native units and actual send-mode, reconnect,
+  voice and hardware-key workflows pass onf541d8abd51ff71334d4. Root inspected
+  the captured toolbar screenshot. The separately signed Release build installed
+  and launched on iPhone18Pro00008160-0006452001200036 at2026-11-18 01:15Z.
+  Immutable app: ~/carlos-ios-build/previews/f541d8abd51ff71334d4-20261118T011520Z/Carlos.app;
+  executable SHA2564f102b71e92fe939bfb97f57fb27e431dd8ef9bbfb98c865c3fcd45a13755d78.
+  The Mac install/launch receipts are device-check/f541d8abd51ff71334d4-install.json
+  and the corresponding -launch.json. The required final debug terminal script
+  passed in phone-toolbar-debug-gate-01.log; the full release/native gate
+  passed on the unchanged Rust source. The newer tap-dismiss build above now
+  supersedes this successfully deployed toolbar baseline. Earlier failed controller layouts
+  and the disk/cache recovery are preserved in Discoveries and Outcomes.
 - [x] Check and install the superseded-session read repair. A deterministic
   unit and actual terminal check reproduce the exact old error on checkede77e:
   replace a pending subscribe, accept its newer snapshot, then deliver the
@@ -86,9 +105,9 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   All211 shared client checks and the corrected terminal workflow pass. The
   first full release/native gate was deliberately stopped for the newer live
   body-error report; session-subscription-release-gate-01.log is incomplete.
-  This changes frontend reply ownership; do not restart the active daemon merely
-  because the installed package source changes. Already-open TUIs need a new
-  process to load the client fix. No new phone/client package is installed yet.
+  The subscription-only repair needs new client code; the later body-error
+  sequence fence also needs the separate idle daemon upgrade above. Both client
+  packages are now installed, including the phone shared-client fixes.
 - [x] (2026-11-18) Confirm the real daemon update. The saved phone grant
   authenticates to sourcee77e5a338758f2193504033f0d68e278, the current session
   remains present and the Mac can reach the listener. The real proof is
@@ -1180,6 +1199,35 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+The tap-dismiss check fails onf829 with “A log tap must hide the keyboard without
+pressing Stop” and passes on the correctede7388863666b1057f728 actual app in90.577s.
+Both an empty draft during a running response and a typed private draft are checked;
+Steer/Queue and the fixture's exact single intentional interrupt still pass. The
+native tap leaves touches uncancelled and recognizes alongside row gestures. It
+sends only dismissComposerKeyboard to the active responder, so a source text view
+can keep its own first-responder selection. Tools pass in48.687s and old-message edit in84.623s, including long press and
+keeping the main private draft. The native fast-flick comparison also passes in94.552s at both tested
+velocities within10% of ordinary native iOS scrolling. All226 daemon and336
+terminal workflows plus the remaining debug script checks pass again (exit0;
+run-mJrlOZ). The physical Release build is signed and verified at
+~/carlos-ios-build/previews/e7388863666b1057f728-20261118T013432Z/Carlos.app,
+SHA256cc20fa13527c0933a027ac213038c877dc1a6775edc5496d99fdb458d915f186.
+The final26 native units passed in7.147s. The signed e738 app then installed
+successfully on the exact iPhone18Pro. Automatic launch failed only because the
+phone was locked; the owner can unlock and open Carlos. The install and launch
+receipts and the still-pending idle daemon proof are identified in Progress.
+
+
+The native width check failed on8a81: both accessory and hosted view widths were
+0 instead of the actual402pt keyboard width after becomeFirstResponder. This
+confirms the parent accessory, not only SwiftUI content, was unsized. The next
+candidateaecfd3404b0475bd4988 assigns the custom bar to UIInputViewController.inputView
+(the documented primary keyboard view) rather than assigning only its inherited
+UIViewController.view. Run the same native width check first, then the complete
+send-mode/reconnect/voice/keyboard sequence only if it passes. The failing native
+result is builds/8a81bb344750405aa741/tests-20261117T200052.xcresult.
+
+
 The Mac filled its disk while compiling the native keyboard-width check on
 8a81bb344750405aa741, before that check ran. Clear only compiler caches under
 inactive owned Carlos builds (Intermediates.noindex, Index.noindex and
@@ -1982,6 +2030,17 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+The separate UIInputViewController approach failed the actual402pt keyboard-width
+check even after assigning its inputView explicitly (aecfd candidate). Replace
+that controller with a plain UIView inputAccessoryView, matching the original
+working Done bar. A reusable UIHostingConfiguration content view retains the
+existing SwiftUI controls without a custom controller/child-controller tree.
+Native layout gives that content the accessory's actual bounds. Candidatef541d8abd51ff71334d4
+must pass the same real-keyboard width check and all four phone workflows before
+installation. Run the required terminal script again after these keyboard edits;
+phone-toolbar-debug-gate-01.log records that independent check.
+
+
 Carry a sequence only on the internal EngineReply::BodyFailure, preserving the
 existing wire error shape and cursor checks. Retire an error by its exact owned
 body token rather than matching its text. The terminal checks ownership before
@@ -2288,6 +2347,36 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+Latest handoff: the TUI cursor/subscription fixes are checked and installed as
+e3fde; the separate daemon upgrade still waits for every session to become idle.
+The phone's toolbar/reconnect baseline f541 was installed and launched, and the
+owner then requested tap-to-dismiss on the log. That added gesture is checked,
+committed as55025fb2 and installed in signed e738. Its automatic launch was
+refused because the physical phone was locked. Unlock/open the app, relaunch an
+old TUI for its new client code, and check the idle-upgrade connectivity receipt
+on the next turn. EP022 remains open for its wider acceptance/cost matrix and
+end-only reviews; none were run during this work.
+
+
+Candidatef541d8abd51ff71334d4 passes all26 native units, including the real
+keyboard's402pt accessory and hosted-view width. Its actual send-mode flow
+passes in86.307s; the exported screenshot shows Steer at the bar's left, Mic
+beside Done at the right and an unobstructed text/Send area above. The native
+traffic confirms one Steer and one Queue with the intended turn behavior. Its
+actual reconnect flow also passes in42.336s, preserving both private texts,
+using the saved token and requiring explicit Reopen for a stopped session.
+Evidence is phone-toolbar-native-width-04.log, phone-toolbar-send-mode-05.log,
+phone-toolbar-reconnect-05.log and target/ios-artifacts/toolbar-send-mode-05-shots.
+Voice passes in34.061s and hardware/software keyboard controls pass in54.286s
+on the same source, including the actual Done dismissal and native keystrokes.
+The signed physical Release build installed and launched successfully on the
+iPhone18Pro; phone-toolbar-device-install-01.log and the immutable app/receipts
+in Progress identify the exact build. The terminal debug gate then exited0: all226 daemon and336 terminal workflows,
+plus selection/source/dictation/ANSI checks, pass in phone-toolbar-debug-gate-01.log
+(artifacts run-6DS2SW). The owner subsequently requested tap-to-dismiss on the log;
+that newer keyboard change has its own checks recorded above.
+
 
 The live cursor-error repair is committed as83ef472f after the complete debug
 cargo test hook. The exact failing-before/corrected actual TUI checks keep both
