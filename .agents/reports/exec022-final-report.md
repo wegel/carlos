@@ -21,6 +21,14 @@ readable fork errors from f065b789 and the large-document prefetch change from
 the phone source unchanged. The simulator and device builds use the owned
 Intel Mac with macOS and Xcode 26.0.1, Rust 1.100.0 and pinned Apple targets.
 
+The end review found that handled private failures could fill the bounded
+operation store. The correction is d8c2e16f, with the final simulator fixture
+from f168cd31 in phone bundle 35f2cd499401ff683df5. The new Swift bridge test
+rejects 129 textless controls and then successfully admits another prompt.
+The actual app restored an uncertain prompt without resending it. It also
+discarded the retained text of a rejected fork without replacing the main
+draft or sending any native prompt. The Linux package source is unchanged.
+
 The live daemon runs e3fde911dc437d90e38e611d97ec5812. The release package
 under target/ui-artifacts/run-oen0FO/package passed 226 daemon and 336 terminal
 cases, the source, selection, ANSI and dictation suites, 23 native Codex and
@@ -102,13 +110,13 @@ XCFramework has 158,623,678 bytes across its device and dual-architecture
 simulator static archives. Those archives are build inputs. The app includes
 the linked device executable. Generated Swift is 205,503 bytes.
 
-Compared with EP021b, the app adds 4,556 nonblank Swift lines and the Rust phone
+Compared with EP021b, the app adds 4,600 nonblank Swift lines and the Rust phone
 bridge adds 2,240. Shared client code adds 523, Core adds 111, the protocol adds
 103 and the daemon adds 81. The terminal removes 37 and the Claude controller
-stays the same size. The net increase is 7,577 nonblank lines. These counts
+stays the same size. The net increase is 7,621 nonblank lines. These counts
 exclude named test modules, test fixtures, generated bindings, resources,
 build scripts and docs. Component totals are in
-target/ios-artifacts/ep022-final/source-count.json.
+target/ios-artifacts/ep022-recovery-checked/source-count.json.
 
 ## Terminal and daemon measurements
 
