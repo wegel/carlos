@@ -15,6 +15,12 @@ extension SessionWorkflowTests {
         draft.typeText("phone steer exact 🌍")
         XCTAssertFalse(app.buttons["composer.stop"].exists, "Stop stays out of the draft's send action")
         XCTAssertEqual(app.buttons["composer.mode"].value as? String, "Steer")
+        let done = app.buttons["composer.keyboardDone"]
+        let microphone = app.buttons["composer.microphone"]
+        XCTAssertTrue(done.exists && microphone.exists)
+        XCTAssertEqual(microphone.frame.midY, done.frame.midY, accuracy: 2)
+        XCTAssertEqual(app.buttons["composer.mode"].frame.midY, done.frame.midY, accuracy: 2)
+        XCTAssertGreaterThan(done.frame.minY, app.buttons["composer.send"].frame.midY)
         capture("Explicit Steer beside a private draft", screenshot: app.screenshot())
         app.buttons["composer.send"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Steer accepted'")).firstMatch.waitForExistence(timeout: 15))

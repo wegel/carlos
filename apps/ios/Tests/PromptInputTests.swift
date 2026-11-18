@@ -1,9 +1,34 @@
 // Check UIKit command admission and editing callbacks before exercising physical keys in the full app.
+import SwiftUI
 import UIKit
 import XCTest
 @testable import Carlos
 
 final class PromptInputTests: XCTestCase {
+    @MainActor
+    func testKeyboardAccessoryFillsTheNativeKeyboardWidth() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        let controller = UIViewController()
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        let input = PhonePromptTextView(frame: CGRect(x: 16, y: 100, width: 300, height: 44))
+        controller.view.addSubview(input)
+        let accessory = PhoneInputAccessory(content: HStack { Text("Left"); Spacer(); Button("Done") {} })
+        input.prepareKeyboard(accessory: accessory)
+        defer { _ = input.resignFirstResponder(); window.isHidden = true; previous?.makeKeyAndVisible() }
+        XCTAssertTrue(input.becomeFirstResponder())
+        try await Task.sleep(for: .seconds(1))
+        accessory.layoutIfNeeded()
+        let hosted = try XCTUnwrap(accessory.subviews.first)
+        XCTAssertEqual(accessory.bounds.width, window.bounds.width, accuracy: 1)
+        XCTAssertEqual(hosted.bounds.width, window.bounds.width, accuracy: 1)
+        let visible = hosted.convert(hosted.bounds, to: nil)
+        XCTAssertEqual(visible.minX, 0, accuracy: 1)
+        XCTAssertEqual(visible.maxX, window.bounds.width, accuracy: 1)
+    }
+
     func testOldRendersCannotOverwriteNativeKeystrokesOrSelection() async {
         await MainActor.run {
             let input = PhonePromptTextView()

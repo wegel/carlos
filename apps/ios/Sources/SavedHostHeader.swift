@@ -15,12 +15,13 @@ struct SavedHostHeader: View {
                     .accessibilityIdentifier("host.address.\(host.id)")
             }
             Spacer(minLength: 0)
+            if !host.connected {
+                Button("Reconnect") { host.connect() }.frame(minHeight: 44)
+                    .accessibilityIdentifier("host.reconnect.\(host.id)")
+            }
             Menu {
                 Button("Edit connection", systemImage: "pencil", action: edit)
                     .accessibilityIdentifier("host.edit.\(host.id)")
-                if !host.connected {
-                    Button("Reconnect", systemImage: "arrow.clockwise") { host.connect() }
-                }
                 Button("Remove from iPhone", systemImage: "trash", role: .destructive, action: remove)
                     .accessibilityIdentifier("host.remove.\(host.id)")
             } label: {

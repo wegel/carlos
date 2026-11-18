@@ -35,6 +35,11 @@ struct PhoneSessionView: View {
                     Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
                         .accessibilityIdentifier("session.error")
                     Spacer()
+                    if !host.connected || (host.transcript?.currentSnapshot != true && availability != .closed && availability != .unavailable) {
+                        Button("Reconnect") { host.connect() }
+                            .font(PhoneTheme.prose(13, weight: .semibold)).frame(minHeight: 44)
+                            .accessibilityIdentifier("session.reconnect")
+                    }
                     Button { host.error = nil } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                         .accessibilityLabel("Dismiss error")
                 }.padding(.leading, 16).background(PhoneTheme.base).fixedSessionBar()
@@ -112,38 +117,25 @@ struct PhoneSessionView: View {
         .overlay(alignment: .bottom) { Rectangle().fill(PhoneTheme.surface0).frame(height: 1) }
     }
 
+    private func startVoice() {
+        let session = host.selected
+        speech.start { [weak host] text in
+            guard let host, host.selected == session else { return }
+            host.draft += host.draft.isEmpty || host.draft.last?.isWhitespace == true ? text : " " + text
+        }
+    }
+
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 4) {
-            PhonePromptInput(text: Binding(get: { host.draft }, set: { host.editDraft($0) }), replacementVersion: host.draftVersion) {
-                if !sendDisabled && !isStop { speech.cancel(keepText: true); host.send() }
-            }
+            PhonePromptInput(
+                text: Binding(get: { host.draft }, set: { host.editDraft($0) }),
+                replacementVersion: host.draftVersion,
+                send: { if !sendDisabled && !isStop { speech.cancel(keepText: true); host.send() } },
+                endedEditing: { if speech.active { speech.cancel(keepText: true) } },
+                accessory: PhoneComposerTools(host: host, speech: speech, startVoice: startVoice)
+            )
                 .frame(minHeight: 44)
                 .accessibilityLabel("Prompt").accessibilityIdentifier("composer.draft")
-            PhoneMicrophoneButton(speech: speech) {
-                let session = host.selected
-                speech.start { [weak host] text in
-                    guard let host, host.selected == session else { return }
-                    host.draft += host.draft.isEmpty || host.draft.last?.isWhitespace == true ? text : " " + text
-                }
-            }.disabled(host.selected == nil || host.submitting)
-            if info?.activity.canInterrupt == true && !host.draft.isEmpty {
-                Menu {
-                    Picker("Send while running", selection: $host.sendMode) {
-                        Text("Queue for the next turn").tag(PhoneSendMode.queue)
-                        Text("Steer the current response").tag(PhoneSendMode.steer)
-                    }
-                } label: {
-                    HStack(spacing: 3) {
-                        Text(host.sendMode == .steer ? "Steer" : "Queue")
-                        Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
-                    }
-                    .font(PhoneTheme.mono(11)).foregroundStyle(PhoneTheme.subtext1)
-                    .frame(minWidth: 44, minHeight: 44)
-                }
-                .disabled(host.submitting).accessibilityLabel("Send mode")
-                .accessibilityValue(host.sendMode == .steer ? "Steer" : "Queue")
-                .accessibilityIdentifier("composer.mode")
-            }
             Button {
                 if isStop { host.interrupt() } else { speech.cancel(keepText: true); host.send() }
             } label: {

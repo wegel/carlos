@@ -26,12 +26,10 @@ extension SessionWorkflowTests {
         let (_, response) = try await URLSession.shared.data(for: request)
         XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
         XCTAssertTrue(app.staticTexts["session.error"].waitForExistence(timeout: 15))
-        app.buttons["header.sessions"].tap()
-        let reconnect = app.buttons["Reconnect"]
+        let reconnect = app.buttons["session.reconnect"]
         XCTAssertTrue(reconnect.waitForExistence(timeout: 15))
         reconnect.tap()
         XCTAssertTrue(wait { !reconnect.exists })
-        app.navigationBars["Sessions"].buttons["Done"].tap()
         XCTAssertFalse(app.secureTextFields["connection.token"].exists)
         XCTAssertEqual(draft.value as? String, privateText)
         XCTAssertTrue(app.staticTexts["Submitted text retained"].waitForExistence(timeout: 15))
