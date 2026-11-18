@@ -201,6 +201,7 @@ impl Owner {
     }
 
     fn read(&mut self, command: EngineCommand) -> EngineReply {
+        let body = is_body_read(&command);
         let result = match command {
             EngineCommand::Info => Ok(EngineReply::Info {
                 info: self.session.export_info(),
@@ -254,7 +255,18 @@ impl Owner {
             EngineCommand::Outcomes => Ok(EngineReply::Outcomes(self.results.collect())),
             command => self.read_native(command),
         };
-        result.unwrap_or_else(EngineReply::Failure)
+        result.unwrap_or_else(|error| self.read_failure(error, body))
+    }
+
+    fn read_failure(&self, error: RpcError, body: bool) -> EngineReply {
+        if body {
+            EngineReply::BodyFailure {
+                error,
+                seq: self.ring.sequence(),
+            }
+        } else {
+            EngineReply::Failure(error)
+        }
     }
 
     fn updates(&mut self, since: Option<carlos_proto::ids::Sequence>) -> super::EngineUpdate {
@@ -295,6 +307,15 @@ impl Owner {
             .expect("checked history cursor");
         Ok(EngineReply::History(history))
     }
+}
+
+fn is_body_read(command: &EngineCommand) -> bool {
+    matches!(
+        command,
+        EngineCommand::Output { .. }
+            | EngineCommand::Source { .. }
+            | EngineCommand::SourceAt { .. }
+    )
 }
 
 pub(super) fn failure(message: impl Into<String>) -> RpcError {

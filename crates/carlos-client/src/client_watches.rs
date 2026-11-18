@@ -232,6 +232,9 @@ impl Client {
         let Some(token) = self.watches.active.remove(&key) else {
             return;
         };
+        if !self.bodies.contains(&token) {
+            return;
+        }
         self.bodies.close(&token);
         if self.watches.desired.get(&key) == Some(&token) {
             self.watches.desired.remove(&key);

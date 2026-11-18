@@ -238,7 +238,10 @@ impl Client {
                 }
             }
             Incoming::Failure { id, error } => {
-                let pending = id.as_ref().and_then(|id| self.requests.take(id));
+                let pending = id
+                    .as_ref()
+                    .and_then(|id| self.requests.take(id))
+                    .filter(|(_, kind)| self.read_is_current(kind));
                 if pending.is_some() || id.is_none() {
                     self.failed(pending, &error, &mut effects);
                     effects.failures.push(RequestFailure { id, error });

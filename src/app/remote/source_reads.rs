@@ -13,7 +13,11 @@ const SOURCE_PIECE_BYTES: u64 = 64 * 1024;
 
 impl DocumentReads {
     /// Clear only the exact outstanding read before the client checks its reply.
-    pub(in crate::app::remote) fn received(&mut self, incoming: &Incoming) -> Vec<BodyToken> {
+    pub(in crate::app::remote) fn received(
+        &mut self,
+        incoming: &Incoming,
+        client: &Client,
+    ) -> Vec<BodyToken> {
         let (id, failed) = match incoming {
             Incoming::Success { id, .. } => (id, false),
             Incoming::Failure { id: Some(id), .. } => (id, true),
@@ -23,7 +27,7 @@ impl DocumentReads {
         for read in self.reads.values_mut() {
             if read.pending.as_ref() == Some(id) {
                 read.pending = None;
-                if failed {
+                if failed && client.bodies().source(&read.token).is_some() {
                     read.failed = true;
                     retired.push(read.token.clone());
                 }

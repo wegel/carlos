@@ -6,7 +6,7 @@ import threading
 
 
 class DaemonRecorder:
-    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0, defer_source_watch_once=False, defer_subscription_once=False):
+    def __init__(self, path, upstream, root, source_error_once=False, goal_error_once=False, source_read_error_after=0, defer_source_watch_once=False, defer_subscription_once=False, defer_source_read_once=False):
         self.source_error_once = source_error_once
         self.source_read_error_after = source_read_error_after
         self.goal_error_once = goal_error_once
@@ -19,6 +19,9 @@ class DaemonRecorder:
         self.held_sources = []
         self.defer_source_watch_once = defer_source_watch_once
         self.deferred_source_watch = None
+        self.defer_source_read_once = defer_source_read_once
+        self.deferred_source_read = None
+        self.source_read_held = threading.Event()
         self.defer_subscription_once = defer_subscription_once
         self.deferred_subscription = None
         self.source_watch_held = threading.Event()
@@ -133,6 +136,11 @@ class DaemonRecorder:
                         with self.device_write:
                             self.deferred_source_watch = (source, message["id"])
                             self.source_watch_held.set()
+                    elif direction == "client" and self.defer_source_read_once and message.get("method") == "entry/source":
+                        self.defer_source_read_once = False
+                        with self.device_write:
+                            self.deferred_source_read = (source, message["id"])
+                            self.source_read_held.set()
                     elif error is not None:
                         self.record("server", error)
                         with self.device_write:
@@ -216,6 +224,15 @@ class DaemonRecorder:
     def reject_deferred_source_watch(self):
         self.finish_deferred_source_watch({"error":{
             "code":-32012, "message":"output watch was superseded"}})
+
+    def reject_deferred_source_read(self):
+        with self.device_write:
+            device, identity = self.deferred_source_read
+            self.deferred_source_read = None
+            message = {"jsonrpc":"2.0", "id":identity, "error":{
+                "code":-32012, "message":"output body replaced; restart without a cursor"}}
+            self.record("server", message)
+            device.sendall(json.dumps(message).encode()+b"\n")
 
     def reject_deferred_subscription(self):
         with self.device_write:

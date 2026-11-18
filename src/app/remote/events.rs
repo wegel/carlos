@@ -14,7 +14,7 @@ use crate::app::render_input::{is_newline_enter, textarea_input_from_key};
 impl Device {
     pub(super) fn receive(&mut self, link: &mut Transport, incoming: Incoming) -> Result<bool> {
         self.reading.received(&incoming);
-        let failed_sources = self.documents.received(&incoming);
+        let failed_sources = self.documents.received(&incoming, &self.client);
         let was_ready = self.client.session_is_ready(link.connection, &self.session);
         let had_question_facts = self.question_facts_are_current();
         let mut effects = self.client.receive(link.connection, incoming)?;

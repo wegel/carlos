@@ -19,7 +19,7 @@ use super::super::Manager;
 fn source_and_output_replies_wait_for_their_shared_entry_version() {
     for source in [true, false] {
         for watch in [true, false] {
-            check_order(source, watch);
+            check_order(source, watch, false);
         }
     }
 }
@@ -42,7 +42,16 @@ fn direct_body_read_without_a_session_stream_does_not_wait_for_one() {
     assert_eq!(line(&mut BufReader::new(terminal))["id"], 7);
 }
 
-fn check_order(source: bool, watch: bool) {
+#[test]
+fn stale_body_errors_wait_for_their_replacement_facts_too() {
+    for source in [true, false] {
+        for watch in [true, false] {
+            check_order(source, watch, true);
+        }
+    }
+}
+
+fn check_order(source: bool, watch: bool, failed: bool) {
     let root = tempfile::tempdir().expect("private state");
     let guard = File::create(root.path().join("guard")).expect("state guard");
     let mut manager = Manager::new(root.path().into(), None, guard).expect("manager");
@@ -60,8 +69,13 @@ fn check_order(source: bool, watch: bool) {
             generation: 1,
         },
     );
-    let reply = body_reply(source);
-    enqueue(&mut manager, &session, reply, source, watch);
+    enqueue(
+        &mut manager,
+        &session,
+        body_result(source, failed),
+        source,
+        watch,
+    );
     manager.drain_reads();
     assert_eq!(
         manager.reads.len(),
@@ -94,6 +108,20 @@ fn check_order(source: bool, watch: bool) {
     let mut terminal = BufReader::new(terminal);
     assert_eq!(line(&mut terminal), event);
     assert_eq!(line(&mut terminal)["id"], 7);
+}
+
+fn body_result(source: bool, failed: bool) -> EngineReply {
+    if failed {
+        EngineReply::BodyFailure {
+            error: carlos_proto::commands::RpcError {
+                code: -32012,
+                message: "output body replaced; restart without a cursor".into(),
+            },
+            seq: Sequence::new(2),
+        }
+    } else {
+        body_reply(source)
+    }
 }
 
 fn enqueue(

@@ -83,7 +83,9 @@ impl Chunk {
         match (reply, format) {
             (EngineReply::Output(chunk), Format::Normalized) => Ok(Self::Normalized(chunk)),
             (EngineReply::Source(chunk), Format::Source) => Ok(Self::Source(chunk)),
-            (EngineReply::Failure(reason), _) => Err(reason),
+            (EngineReply::Failure(reason) | EngineReply::BodyFailure { error: reason, .. }, _) => {
+                Err(reason)
+            }
             _ => Err(error(-32603, "unexpected body reply")),
         }
     }

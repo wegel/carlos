@@ -243,6 +243,11 @@ pub enum EngineReply {
     History(History),
     Output(OutputChunk),
     Source(carlos_proto::source::SourceChunk),
+    /// Keep a body error behind the same version facts as a successful body read.
+    BodyFailure {
+        error: RpcError,
+        seq: Sequence,
+    },
     Operation(OperationResult),
     Outcomes(Vec<OperationResult>),
     Updates(Box<EngineUpdate>),

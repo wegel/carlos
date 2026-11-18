@@ -54,6 +54,10 @@ fn an_old_watch_reset_before_the_replacement_reply_cannot_close_the_new_read() {
             message: "old watch ended".into(),
         },
     );
+    assert!(
+        reset.failures.is_empty(),
+        "a retired watch cannot report a current failure"
+    );
     assert!(client.bodies().source(&current).is_some());
     assert!(
         reset.outgoing.is_empty(),

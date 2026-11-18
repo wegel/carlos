@@ -10,6 +10,16 @@ use crate::pending::Kind;
 use crate::{BodyToken, ClientError, ConnectionId, LocalText, Outbound};
 
 impl Client {
+    pub(crate) fn read_is_current(&self, kind: &Kind) -> bool {
+        match kind {
+            Kind::Source(target) | Kind::Output(target) => target
+                .token
+                .as_ref()
+                .is_none_or(|token| self.bodies.contains(token)),
+            _ => true,
+        }
+    }
+
     /// Retain a failed write's exact text and close its transport generation without replaying work.
     pub fn write_failed(
         &mut self,

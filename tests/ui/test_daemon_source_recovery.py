@@ -123,6 +123,34 @@ class DaemonSourceRecovery:
         self.assertEqual(len(terminal.requests("hello")), 1, "no reconnect")
         terminal.snapshot("superseded-watch-keeps-replacement-and-draft")
 
+    def test_daemon_terminal_ignores_an_old_cursor_error_after_source_replacement(self):
+        def item(text):
+            return {"type":"commandExecution", "id":"replaced-direct-tool", "command":"cat output",
+                    "status":"completed", "exitCode":0, "aggregatedOutput":text}
+        fixture, client, session = self.running_sources("replaced-direct-read", [item("old output\n" * 5000)])
+        terminal = self.attach_daemon(fixture, session, "replacement-read", defer_source_read_once=True)
+        recorder = terminal.daemon_recorder
+        terminal.wait(recorder.source_read_held.is_set, "original source read deliberately pending")
+        terminal.paste("private draft while output changes")
+        terminal.wait(lambda:terminal.input_is("private draft while output changes"), "private draft ready")
+        async def replace():
+            for link in list(fixture.native.connections):
+                await fixture.native.notify(link,"item/completed",turnId="history-turn",
+                                            item=item("replacement output\n" * 4000 + "NEW DIRECT OUTPUT TAIL\n"))
+        asyncio.run_coroutine_threadsafe(replace(),fixture.native.loop).result(timeout=5)
+        terminal.contains("NEW DIRECT OUTPUT TAIL")
+        recorder.reject_deferred_source_read()
+        terminal.paste(" survives")
+        terminal.wait(lambda:terminal.input_is("private draft while output changes survives"), "draft after late error")
+        self.assertNotIn("output body replaced", terminal.text)
+        self.assertNotIn("Source failed", terminal.text)
+        self.assertNotIn("F5 reconnects", terminal.text)
+        self.assertIn("NEW DIRECT OUTPUT TAIL", terminal.text)
+        self.assertEqual(terminal.requests("session/send"), [])
+        self.assertEqual(len(terminal.requests("hello")), 1)
+        self.assertEqual(fixture.native.prompts, 0)
+        terminal.snapshot("retired-direct-read-error-keeps-current-output-and-draft")
+
     @staticmethod
     def source_history(items):
         return {"id":"native-root", "status":{"type":"idle"}, "model":"fixture-model",

@@ -10,6 +10,57 @@ use crate::tests::client::{attached, reply};
 use crate::tests::{entry_id, session};
 use crate::{BodyToken, Client, ConnectionId, Effects, Outbound};
 
+#[test]
+fn a_direct_read_failure_cannot_survive_its_body_version() {
+    for normalized in [true, false] {
+        let (mut client, connection) = attached();
+        tool(&mut client, connection, 11, 3);
+        let token = open(&mut client, normalized);
+        let old = client.read_body(connection, &token).expect("old body read");
+        tool(&mut client, connection, 12, 4);
+        let ignored = client
+            .receive(
+                connection,
+                Incoming::Failure {
+                    id: Some(old.id()),
+                    error: RpcError {
+                        code: -32012,
+                        message: "output body replaced; restart without a cursor".into(),
+                    },
+                },
+            )
+            .expect("late replaced body error");
+        assert!(ignored.failures.is_empty());
+        assert!(!client.bodies().contains(&token));
+        let current = if normalized {
+            client
+                .bodies_mut()
+                .open_output(session(), entry_id(10), OutputRevision::new(4), None)
+        } else {
+            client
+                .bodies_mut()
+                .open_source(session(), entry_id(10), OutputRevision::new(4))
+        }
+        .expect("replacement body starts fresh");
+        let read = client
+            .read_body(connection, &current)
+            .expect("new body read");
+        let failed = client
+            .receive(
+                connection,
+                Incoming::Failure {
+                    id: Some(read.id()),
+                    error: RpcError {
+                        code: -32012,
+                        message: "current body read failed".into(),
+                    },
+                },
+            )
+            .expect("current failure");
+        assert_eq!(failed.failures.len(), 1);
+    }
+}
+
 fn open(client: &mut Client, normalized: bool) -> BodyToken {
     if normalized {
         client

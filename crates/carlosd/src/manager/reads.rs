@@ -49,6 +49,7 @@ impl Manager {
         let sequence = match reply {
             EngineReply::Source(chunk) => chunk.seq,
             EngineReply::Output(chunk) => chunk.seq,
+            EngineReply::BodyFailure { seq, .. } => *seq,
             _ => return false,
         };
         let waiting = self.peers[&read.peer]
@@ -132,6 +133,7 @@ impl Manager {
             EngineReply::History(history) => self.reply(peer, id, history),
             EngineReply::Output(chunk) => self.reply(peer, id, chunk),
             EngineReply::Source(chunk) => self.reply(peer, id, chunk),
+            EngineReply::BodyFailure { error, .. } => self.fail(peer, id, error),
             EngineReply::Failure(reason) => self.fail(peer, id, reason),
             _ => self.fail(peer, id, error(-32603, "unexpected owner reply")),
         }
