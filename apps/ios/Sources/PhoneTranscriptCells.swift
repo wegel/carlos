@@ -14,6 +14,11 @@ struct PhoneTranscriptCellItem: Identifiable {
     let id: String
     let content: Content
 
+    var containsLargeDocument: Bool {
+        guard case .entry(let item) = content, case .block(let row, _, _, 0) = item.content else { return false }
+        return (row.text.sourceBytes ?? 0) >= 1024 * 1024
+    }
+
     @MainActor
     static func read(host: PhoneHostModel, width: CGFloat, preferences: PhonePreferences) -> [Self] {
         var result: [Self] = []

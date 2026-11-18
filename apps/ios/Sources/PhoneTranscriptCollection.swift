@@ -92,6 +92,10 @@ final class PhoneTranscriptController: UIViewController, UICollectionViewDelegat
         if changedSession || explicitFollow { following = true; anchor = nil }
         let saved = following ? nil : visibleAnchor()
         configuration = next
+        // UIKit's speculative cell layouts retain too much text for unusually large documents.
+        // Keep native prefetch for ordinary history and apply the change only outside a gesture.
+        let prefetch = !next.items.contains(where: \.containsLargeDocument)
+        if collection.isPrefetchingEnabled != prefetch { collection.isPrefetchingEnabled = prefetch }
         items = Dictionary(uniqueKeysWithValues: next.items.map { ($0.id, $0) })
         let ids = next.items.map(\.id)
         let changed = order != ids
