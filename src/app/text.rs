@@ -6,7 +6,8 @@ mod text_trailing;
 #[path = "text_pages.rs"]
 pub(super) mod pages;
 
-use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSeparator, WordSplitter};
+use textwrap::core::Word;
+use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -200,9 +201,8 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
 
     // NoHyphenation leaves each word intact, including the width already measured
     // by the separator.
-    let words = count_word_separator(text, options.word_separator)
-        .find_words(text)
-        .collect::<Vec<_>>();
+    let words = ascii_prose_words(text)
+        .unwrap_or_else(|| options.word_separator.find_words(text).collect());
     if words.is_empty() {
         return 1;
     }
@@ -240,18 +240,29 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
         + line_count
 }
 
-fn count_word_separator(text: &str, unicode: WordSeparator) -> WordSeparator {
+fn ascii_prose_words(mut text: &str) -> Option<Vec<Word<'_>>> {
     // Between ASCII letter runs with attached closing punctuation (LB13),
     // Unicode permits a break only after the run of spaces (LB18, LB28).
     // Keep the Unicode separator for code, numbers, ANSI, and other text.
-    if text.split(' ').all(|word| {
+    let mut words = Vec::new();
+    while !text.is_empty() {
+        let split = text.find(' ').unwrap_or(text.len());
+        let (word, tail) = text.split_at(split);
         let letters = word.trim_end_matches(['.', ',', '!', '?']);
-        (word.is_empty() || !letters.is_empty()) && letters.bytes().all(|b| b.is_ascii_alphabetic())
-    }) {
-        WordSeparator::AsciiSpace
-    } else {
-        unicode
+        if (!word.is_empty() && letters.is_empty())
+            || !letters.bytes().all(|b| b.is_ascii_alphabetic())
+        {
+            return None;
+        }
+        text = tail.trim_start_matches(' ');
+        words.push(Word {
+            word,
+            whitespace: &tail[..tail.len() - text.len()],
+            penalty: "",
+            width: word.len(),
+        });
     }
+    Some(words)
 }
 
 // --- Wrap Metrics ---

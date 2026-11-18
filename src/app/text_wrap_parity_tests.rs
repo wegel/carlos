@@ -29,7 +29,7 @@ fn indented_ascii_calls_use_the_same_word_breaks_for_counting_and_painting() {
 
 #[test]
 fn ascii_prose_uses_the_same_word_breaks_as_the_unicode_separator() {
-    use textwrap::WordSeparator::{AsciiSpace, UnicodeBreakProperties};
+    use textwrap::WordSeparator::UnicodeBreakProperties;
 
     for text in [
         "  Leading   and trailing spaces  ",
@@ -37,10 +37,8 @@ fn ascii_prose_uses_the_same_word_breaks_as_the_unicode_separator() {
         "Multiple... stops,  and empty lines? ",
         "  ",
     ] {
-        let separator = super::count_word_separator(text, UnicodeBreakProperties);
-        assert_eq!(separator, AsciiSpace, "{text:?}");
         assert_eq!(
-            separator.find_words(text).collect::<Vec<_>>(),
+            super::ascii_prose_words(text).expect("ASCII prose"),
             UnicodeBreakProperties.find_words(text).collect::<Vec<_>>(),
             "{text:?}"
         );
@@ -59,11 +57,7 @@ fn ascii_prose_uses_the_same_word_breaks_as_the_unicode_separator() {
         "日本語",
         "\x1b[31mfoo",
     ] {
-        assert_eq!(
-            super::count_word_separator(text, UnicodeBreakProperties),
-            UnicodeBreakProperties,
-            "{text:?}"
-        );
+        assert!(super::ascii_prose_words(text).is_none(), "{text:?}");
     }
 }
 
