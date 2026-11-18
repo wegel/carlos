@@ -35,32 +35,76 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
 
 ## Progress
 
-- [ ] Confirm activation of the checked body-before-facts ordering repair for the
-  owner's remaining F5 report. The actual zmx footer captures InvalidBody while
-  a tool source loads (reconnect-07-carlos.txt); it is an ordinary transcript
-  placeholder, not a separate viewer. Both live terminals/daemon runfa5890c2.
-  Observer06/09 scroll this real session without reproducing it; observer08
-  separately catches queue pressure, which is not claimed as its cause.
-  A deterministic manager test fails before the fix: source/output replies
-  withseq2 are sent before the peer receivesseq2 identifying their new version.
-  Keep those completed reads charged to their original budget until the facts
-  are queued first, and request fresh owner facts while waiting. All four
-  direct/watch/source/output cases pass after the fix; a caller without a
-  session stream must still receive its direct read immediately. The actual
-  terminal replacement/byte-order check passes on both pairs; it covers the
-  workflow, while the unit test forces the race. The complete release/native
-  command exits successfully in body-order-release-gate-01.log: all226 daemon,
-  all334 terminal,23 actual Codex and10 actual Claude cases pass, as do all
-  remaining source/copy/contracts. The checked e77e5a338758f2193504033f0d68e278
-  package is installed asUID1000 after515 hash checks, with backups under
-  ~/.local/lib/carlos/backups/20261117T235501Z. The earlier pending upgrade helper was
-  stopped only after verifying it was still Python waiting for idle; the live
-  daemon PID1723001 and its service are untouched. The separate helper/checker
-  are now re-armed for the checked immutable e77e package and waiting for all
-  sessions to be idle. The isolated handover proof passes with the same session/
-  grant and zero prompts. End this turn, then inspect the real connectivity
-  receipt before claiming the new daemon is live. Full evidence is in
-  exec022-rename-body-order-handoff.md.
+- [x] Install the complete checked cursor/subscription repair package. Release
+  gate02 exits0 with Clippy, all Rust tests,226 daemon workflows,336 terminal
+  workflows, selection/source/dictation/ANSI checks and23 Codex/10 Claude native
+  checks. Sourcee3fde911dc437d90e38e611d97ec5812 is installed as user1000 in
+  ~/.local/bin with all515 package hashes checked; old executables and receipt
+  are under ~/.local/lib/carlos/backups/20261118T004841Z. Immutable new package:
+  ~/.local/lib/carlos/releases/20261118T004841Z-e3fde911dc437d90e38e611d97ec5812.
+  New idle service carlos-body-errors-daemon.service (currently Python waiter
+  PID2191808) targets old daemon2031509 and its exact birth/pidfd, requiring all
+  sessions idle3s before clean SIGTERM. Do not stop the old live service now.
+  Its separate plan/receipt/checker are under tmp/phone-handover-tools/body-errors;
+  carlos-body-errors-connectivity-proof.service checks the real saved grant and
+  Mac LAN after activation. Receipt currently says waiting-for-idle. Already-open
+  TUIs still need a new process to load the frontend fixes.
+- [ ] Repair the owner's live “output body replaced; restart without a cursor”
+  footer. A held direct source read reproduces the exact error on checked e77e;
+  corrected debug TUI keeps the replacement tail, draft and one connection,
+  with no sent prompt. Two failing-before unit checks show that failed body reads
+  can outrun their replacement facts and retired body tokens can still leak errors.
+  Carry the owner's sequence with internal body failures and hold them behind
+  the peer's numbered facts, retaining the existing byte charge. Ignore failed
+  requests/resets only when their exact body token has retired. Current errors
+  remain visible. This extension changes the daemon too, unlike the subscription
+  repair alone; after final checks install one new immutable package and arrange
+  a new idle handover from PID2031509 without interrupting the active turn.
+- [ ] Finish the owner's latest phone toolbar/reconnect fixes. Move Mic and the
+  Steer/Queue menu into the existing44pt keyboard Done row, leaving the main
+  composer for text and Send/Stop. UIKit owns the input accessory controller;
+  SwiftUI reuses the existing mic/menu controls. Done and ending active editing
+  keep recognized text and stop voice input. Reconnect is visible on the main
+  error bar and beside a disconnected saved server rather than buried in Manage.
+  Sourcec2fd9db3027cfa37d5b0 passed25 units but failed toolbar placement and
+  reconnect state. Its accessory controller had no attached inputAccessoryView;
+  d93ecf102619cb764004 attached the bar but its hosted controls still kept
+  zero width: the recording shows Mic clipped at the left edge and Done beside
+  it, with no accessible mode button. The next candidate702a0ebd2f87d168653b
+  gives the hosted view the native accessory bounds in layoutSubviews and removes
+  the hosting controller’s extra safe-area handling for this already-sized bar. A reconnect to
+  a stopped session must offer Reopen rather than another reconnect. Run the
+  actual reconnect, voice and hardware keyboard workflows before installation.
+  The owner says restarting the phone app restored its connection; do not claim
+  the underlying session read issue is solved solely by that workaround.
+- [x] Check and install the superseded-session read repair. A deterministic
+  unit and actual terminal check reproduce the exact old error on checkede77e:
+  replace a pending subscribe, accept its newer snapshot, then deliver the
+  retired subscribe's error. The stale error still paints the footer despite
+  correct current facts. Retire pending subscription ids by session when issuing
+  a replacement or unsubscribe, preserving current errors and readiness guards.
+  All211 shared client checks and the corrected terminal workflow pass. The
+  first full release/native gate was deliberately stopped for the newer live
+  body-error report; session-subscription-release-gate-01.log is incomplete.
+  This changes frontend reply ownership; do not restart the active daemon merely
+  because the installed package source changes. Already-open TUIs need a new
+  process to load the client fix. No new phone/client package is installed yet.
+- [x] (2026-11-18) Confirm the real daemon update. The saved phone grant
+  authenticates to sourcee77e5a338758f2193504033f0d68e278, the current session
+  remains present and the Mac can reach the listener. The real proof is
+  tmp/phone-handover-tools/phone-controls/normal-phone-connectivity.json.
+  IMPORTANT: PID2031509 is now the actual daemon in
+  carlos-phone-controls-daemon.service, not an idle Python waiter. Do not stop
+  that service during this turn, and do not reuse arm-phone-controls.py blindly.
+  carlos-phone-daemon.service is now inactive. Phone token and URL are unchanged.
+
+- [x] Activate the checked body-before-facts repair. Source e77e5a338758f2193504033f0d68e278
+  now serves the normal Unix/LAN endpoints in PID2031509. The saved phone grant
+  authenticates, the current logical session remains present and LAN access is
+  confirmed. Deterministic source/output/direct/watch order tests, all226 daemon,
+  all334 terminal and all actual Codex/Claude checks pass. The race and complete
+  handover evidence remain in exec022-rename-body-order-handoff.md. The later
+  superseded-session error above is a separate frontend read-ownership issue.
 - [x] (2026-11-17 23:57Z) Add phone Session settings → Rename session through the existing typed
   session/rename command. Keep a separate name draft, close only on actual
   acceptance, retain rejected names and never replay unknown outcomes. Preserve
@@ -90,20 +134,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   successfully. Launch is denied only because the phone is locked; the owner
   can open Carlos after unlocking. Executable SHA256 and receipts are recorded
   in exec022-phone-controls-handoff.md. Keep the accepted scrolling unchanged.
-- [ ] Confirm the real idle daemon upgrade through its authenticated receipt.
-  The current installed CLI/daemon/helper source is e77e5a338758f2193504033f0d68e278,
-  superseding the6d95 staging checkpoint. All515 hashes verify; backups are at
-  ~/.local/lib/carlos/backups/20261117T235501Z. Its immutable package is under
-  ~/.local/lib/carlos/releases/20261117T235501Z-e77e5a338758f2193504033f0d68e278.
-  The running daemon remains PID1723001/sourcefa5890c2 and hosts this turn in
-  carlos-phone-daemon.service. Do not stop that service during this turn. The
-  separate carlos-phone-controls-daemon.service and connectivity checker are
-  armed for e77e and wait for every session to be idle. They preserve the normal
-  shell environment, state, socket, config and saved phone grants. The old
-  service recovery plan remains pinned to its immutable fa589 package. End this
-  turn, then inspect tmp/phone-handover-tools/phone-controls/normal-phone-connectivity.json.
-  A receipt naming e77e must confirm authentication, the current session and
-  LAN reachability before this task can be checked off.
+- [x] Confirm the real idle daemon upgrade through its authenticated receipt.
+  The checked e77e package is installed with backups under
+  ~/.local/lib/carlos/backups/20261117T235501Z. The real receipt confirms its
+  source, token, current session and Mac/LAN access. The active daemon is now
+  PID2031509 in carlos-phone-controls-daemon.service. Keep that service alive
+  during this turn. The previous carlos-phone-daemon.service is inactive.
 - [x] Add explicit Steer/Queue choice while work runs and Edit from here on a
   saved user message. Keep Stop only when the main composer is empty, as the
   owner clarified. Resolve an immutable original prompt through its exact row,
@@ -1144,6 +1180,36 @@ time. The current acceptance checklist above states what remains before approval
 
 ## Surprises & Discoveries
 
+The Mac filled its disk while compiling the native keyboard-width check on
+8a81bb344750405aa741, before that check ran. Clear only compiler caches under
+inactive owned Carlos builds (Intermediates.noindex, Index.noindex and
+ModuleCache.noindex), preserving source snapshots, executable products, xcresults,
+recordings and signed immutable previews. The cleanup records exact removed cache
+paths in ~/carlos-ios-build/compiler-cache-cleanup.json. It freed17,760,030,720
+bytes by clearing186 compiler caches; retry the same immutable8a81 width check. The active width check
+creates its own native keyboard and measures both accessory and hosted-view bounds;
+the prior full UI failures remain recorded on c2fd, d93 and702a candidates.
+
+
+The newest live footer was not another transport disconnect. The actual terminal
+fixture retains a direct entry/source read, replaces that tool's output, displays
+its new tail, then delivers the retired read's -32012 error. Checked e77e displays
+“output body replaced; restart without a cursor”; corrected debug keeps the new
+tail and editable private draft with one hello and no sends. The matching owner
+error previously lost the session sequence, unlike a successful body chunk. The
+manager now holds both behind the peer's replacement facts. A separate existing
+watch-reset check also failed when strengthened to reject notices from a retired
+body token; the current-token reset path still reports its real error. Evidence:
+replaced-body-order-before-01.log, replaced-body-client-before-01.log,
+replaced-body-reset-before-01.log, replaced-body-terminal-before-01.log and
+replaced-body-terminal-after-01.log under tmp/phone-handover-tools. Both complete
+client/daemon test sets pass in replaced-body-after-02.log, and commit83ef472f
+passed the full debug cargo test hook. Release gate01 passed Clippy and the Rust
+release tests/build, then failed because BUN_BINARY was relative when a helper
+changed directories. Gate02 uses the same baseline Bun by absolute path; no code
+was changed for that environment correction.
+
+
 2026-11-17 rename/body order: the actual F5 footer remains InvalidBody onfa589,
 despite the prior watch cancellation fix. A deterministic manager check exposes
 a second race: a body query can finish before the independent owner-facts query
@@ -1916,6 +1982,15 @@ permission check or runtime invariant was weakened.
 
 ## Decision Log
 
+Carry a sequence only on the internal EngineReply::BodyFailure, preserving the
+existing wire error shape and cursor checks. Retire an error by its exact owned
+body token rather than matching its text. The terminal checks ownership before
+marking a document read failed; the shared client checks it before surfacing an
+error, so phone and terminal callers share the same rule. Preserve unowned/current
+read errors. This completes the earlier successful-body ordering repair without
+adding a protocol version, retry loop or timeout exception.
+
+
 2026-11-17, later owner instruction: Steer must default while work runs. This
 supersedes the earlier Queue-default decision below. Queue applies only to the
 current private draft; clearing/sending it restores Steer and saved Queue
@@ -2213,6 +2288,21 @@ against the whole source; keep code bytes, nested emphasis, table cells and list
 Literal user/reasoning text uses the same block reader without Markdown interpretation.
 
 ## Outcomes & Retrospective
+
+The live cursor-error repair is committed as83ef472f after the complete debug
+cargo test hook. The exact failing-before/corrected actual TUI checks keep both
+replacement output and private text, without a new greeting or send. A paired
+perf-session --synthetic --turns1000 --seed1 run on checkede77e and candidatee3fde
+retains6001 messages/39347 rendered lines: scroll p95 0.85/0.68ms, typing p95
+0.66/0.49ms and append p95 0.55/0.54ms. This is a timing smoke check alongside the
+running terminal suite, not a claimed speedup; reported RSS is unavailable (zero).
+The plain reports are replaced-body-perf-before.txt/after.txt. Candidatee3fde's
+515 package hashes and preserved installed executables passed the staged installer
+check. The complete release/native gate02 then exited0, and the package was
+installed under user1000 with backup20261118T004841Z. The new separate idle
+waiter/checker units now target old daemon2031509; activation is still pending
+while this turn runs. The phone toolbar remains under test and is not installed.
+
 
 2026-11-18 final handover checkpoint: the complete release/native command exits
 successfully on e77e5a338758f2193504033f0d68e278, including all226 daemon and
