@@ -6,8 +6,7 @@ mod text_trailing;
 #[path = "text_pages.rs"]
 pub(super) mod pages;
 
-use textwrap::word_splitters::split_words;
-use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSplitter};
+use textwrap::{wrap as wrap_text, Options as WrapOptions, WordSeparator, WordSplitter};
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
@@ -183,9 +182,6 @@ pub(super) fn wrap_natural_count_by_cells(text: &str, width: usize) -> usize {
     } else {
         text
     };
-    if text.is_ascii() && text.len() <= width {
-        return 1;
-    }
     if visual_width(text) <= width {
         return 1;
     }
@@ -202,14 +198,17 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
         .break_words(false)
         .word_splitter(WordSplitter::NoHyphenation);
 
-    let words = options.word_separator.find_words(text);
-    let broken_words = split_words(words, &options.word_splitter).collect::<Vec<_>>();
-    if broken_words.is_empty() {
+    // NoHyphenation leaves each word intact, including the width already measured
+    // by the separator.
+    let words = count_word_separator(text, options.word_separator)
+        .find_words(text)
+        .collect::<Vec<_>>();
+    if words.is_empty() {
         return 1;
     }
 
     let line_widths = [width];
-    let wrapped_words = options.wrap_algorithm.wrap(&broken_words, &line_widths);
+    let wrapped_words = options.wrap_algorithm.wrap(&words, &line_widths);
 
     let mut line_count = 0usize;
     let mut last_metrics: Option<(usize, usize)> = None;
@@ -239,6 +238,20 @@ fn wrap_natural_count_slow_by_cells(text: &str, width: usize) -> usize {
 
     additional_lines_for_trailing_spaces(text, width, last_line_width, last_trailing_spaces)
         + line_count
+}
+
+fn count_word_separator(text: &str, unicode: WordSeparator) -> WordSeparator {
+    // Between ASCII letter runs with attached closing punctuation (LB13),
+    // Unicode permits a break only after the run of spaces (LB18, LB28).
+    // Keep the Unicode separator for code, numbers, ANSI, and other text.
+    if text.split(' ').all(|word| {
+        let letters = word.trim_end_matches(['.', ',', '!', '?']);
+        (word.is_empty() || !letters.is_empty()) && letters.bytes().all(|b| b.is_ascii_alphabetic())
+    }) {
+        WordSeparator::AsciiSpace
+    } else {
+        unicode
+    }
 }
 
 // --- Wrap Metrics ---

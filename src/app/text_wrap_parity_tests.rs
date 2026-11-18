@@ -28,6 +28,46 @@ fn indented_ascii_calls_use_the_same_word_breaks_for_counting_and_painting() {
 }
 
 #[test]
+fn ascii_prose_uses_the_same_word_breaks_as_the_unicode_separator() {
+    use textwrap::WordSeparator::{AsciiSpace, UnicodeBreakProperties};
+
+    for text in [
+        "  Leading   and trailing spaces  ",
+        "First, then a second sentence. Have you tried it?! Yes!",
+        "Multiple... stops,  and empty lines? ",
+        "  ",
+    ] {
+        let separator = super::count_word_separator(text, UnicodeBreakProperties);
+        assert_eq!(separator, AsciiSpace, "{text:?}");
+        assert_eq!(
+            separator.find_words(text).collect::<Vec<_>>(),
+            UnicodeBreakProperties.find_words(text).collect::<Vec<_>>(),
+            "{text:?}"
+        );
+        for width in 1..=text.len() {
+            assert_eq!(
+                wrap_natural_count_by_cells(text, width),
+                wrap_natural_by_cells(text, width).len(),
+                "width={width}, text={text:?}"
+            );
+        }
+    }
+    for text in [
+        "abc . def",
+        "abc.def",
+        "obligation 123",
+        "日本語",
+        "\x1b[31mfoo",
+    ] {
+        assert_eq!(
+            super::count_word_separator(text, UnicodeBreakProperties),
+            UnicodeBreakProperties,
+            "{text:?}"
+        );
+    }
+}
+
+#[test]
 fn lazy_tool_rows_keep_the_exact_painted_height_for_indented_calls() {
     let rows = [Message {
         id: EntryId::from_wire(
