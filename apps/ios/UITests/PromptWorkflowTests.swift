@@ -11,6 +11,8 @@ extension SessionWorkflowTests {
         draft.typeText("phone mode run")
         app.buttons["composer.send"].tap()
         XCTAssertTrue(app.buttons["composer.stop"].waitForExistence(timeout: 15))
+        XCTAssertLessThan(app.buttons["composer.keyboardDone"].frame.maxX, app.buttons["composer.stop"].frame.minX)
+        XCTAssertLessThan(app.buttons["composer.microphone"].frame.maxX, app.buttons["composer.stop"].frame.minX)
         let running = app.staticTexts["answer.streaming"].firstMatch
         XCTAssertTrue(running.waitForExistence(timeout: 15))
         running.tap()
@@ -31,6 +33,9 @@ extension SessionWorkflowTests {
         XCTAssertEqual(microphone.frame.midY, done.frame.midY, accuracy: 2)
         XCTAssertEqual(app.buttons["composer.mode"].frame.midY, done.frame.midY, accuracy: 2)
         XCTAssertGreaterThan(done.frame.minY, app.buttons["composer.send"].frame.midY)
+        XCTAssertLessThan(done.frame.maxX, microphone.frame.minX)
+        XCTAssertLessThan(microphone.frame.maxX, app.buttons["composer.mode"].frame.minX)
+        XCTAssertLessThan(microphone.frame.maxX, app.buttons["composer.send"].frame.minX)
         capture("Explicit Steer beside a private draft", screenshot: app.screenshot())
         app.buttons["composer.send"].tap()
         XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Steer accepted'")).firstMatch.waitForExistence(timeout: 15))

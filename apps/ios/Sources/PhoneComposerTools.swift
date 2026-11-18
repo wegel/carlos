@@ -9,6 +9,17 @@ struct PhoneComposerTools: View {
 
     var body: some View {
         HStack(spacing: 8) {
+            Button {
+                speech.cancel(keepText: true)
+                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+            } label: {
+                Text("Done").font(.system(size: 14, weight: .semibold)).frame(minWidth: 56, minHeight: 44)
+            }
+            .foregroundStyle(PhoneTheme.blue).accessibilityLabel("Hide keyboard")
+            .accessibilityIdentifier("composer.keyboardDone")
+            PhoneMicrophoneButton(speech: speech, start: startVoice)
+                .disabled(host.selected == nil || host.submitting)
+            Spacer(minLength: 0)
             if host.transcript?.info.activity.canInterrupt == true && !host.draft.isEmpty {
                 Menu {
                     Picker("Send while running", selection: Binding(get: { host.sendMode }, set: { host.sendMode = $0 })) {
@@ -25,17 +36,6 @@ struct PhoneComposerTools: View {
                 .accessibilityLabel("Send mode").accessibilityValue(host.sendMode == .steer ? "Steer" : "Queue")
                 .accessibilityIdentifier("composer.mode")
             }
-            Spacer(minLength: 0)
-            PhoneMicrophoneButton(speech: speech, start: startVoice)
-                .disabled(host.selected == nil || host.submitting)
-            Button {
-                speech.cancel(keepText: true)
-                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-            } label: {
-                Text("Done").font(.system(size: 14, weight: .semibold)).frame(minWidth: 56, minHeight: 44)
-            }
-            .foregroundStyle(PhoneTheme.blue).accessibilityLabel("Hide keyboard")
-            .accessibilityIdentifier("composer.keyboardDone")
         }
         .padding(.horizontal, 12).frame(maxWidth: .infinity).frame(height: 44).background(PhoneTheme.mantle).ignoresSafeArea()
     }
