@@ -10,7 +10,7 @@ struct PhoneRecoveryView: View {
             Text("Submitted text retained").font(PhoneTheme.prose(13, weight: .semibold))
             Text(operation.text ?? "").font(PhoneTheme.prose()).textSelection(.enabled)
             HStack {
-                Button { host.draft = operation.text ?? "" } label: {
+                Button { host.restoreDraft(operation.key) } label: {
                     Text("Restore to empty draft").font(PhoneTheme.prose(13, weight: .medium))
                         .frame(minHeight: 44).padding(.horizontal, 10).contentShape(Rectangle())
                 }
@@ -19,6 +19,13 @@ struct PhoneRecoveryView: View {
                 .disabled(!host.draft.isEmpty).accessibilityIdentifier("recovery.restore.\(operation.key)")
                 Spacer(minLength: 8)
                 PhoneCopyButton(source: .inline(operation.text ?? ""), identifier: "recovery.copy.\(operation.key)")
+                Button(role: .destructive) { host.discardDraft(operation.key) } label: {
+                    Text("Discard").font(PhoneTheme.prose(13, weight: .medium))
+                        .frame(minHeight: 44).padding(.horizontal, 10).contentShape(Rectangle())
+                }
+                .foregroundStyle(PhoneTheme.red)
+                .accessibilityLabel("Discard retained text")
+                .accessibilityIdentifier("recovery.discard.\(operation.key)")
             }
             Text("Check the outcome before sending it again.").font(PhoneTheme.prose(13))
                 .foregroundStyle(PhoneTheme.overlay2)

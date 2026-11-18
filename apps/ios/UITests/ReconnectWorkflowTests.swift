@@ -50,6 +50,13 @@ extension SessionWorkflowTests {
         XCTAssertEqual(copied, submitted)
         XCTAssertEqual(draft.value as? String, privateText)
         capture("The reopened session keeps the newer draft and recoverable original text", screenshot: app.screenshot())
+        draft.tap()
+        draft.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: privateText.utf16.count))
+        XCTAssertEqual(draft.value as? String, "")
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(wait { restore.isEnabled && restore.isHittable })
+        restore.tap()
+        XCTAssertTrue(wait { draft.value as? String == submitted && !restore.exists })
         app.terminate()
     }
 }

@@ -86,6 +86,11 @@ extension SessionWorkflowTests {
         app.buttons["edit.close"].tap()
         XCTAssertEqual(app.textViews["composer.draft"].value as? String, "keep original composer")
         XCTAssertTrue(app.staticTexts["Original answer before branch"].exists)
+        let discard = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'recovery.discard.'")).firstMatch
+        XCTAssertTrue(discard.waitForExistence(timeout: 15))
+        discard.tap()
+        XCTAssertTrue(wait { !restore.exists })
+        XCTAssertEqual(app.textViews["composer.draft"].value as? String, "keep original composer")
         app.terminate()
     }
 

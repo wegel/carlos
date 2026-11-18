@@ -173,7 +173,10 @@ final class PhoneHostModel: Identifiable {
         inlineDocuments.removeAllObjects()
         approvals = []
         approvalRequests = [:]
-        if let old, old != session {
+        if let old {
+            for operation in operations.values where operation.session == old {
+                if case .accepted = operation.state { forgetHandledOperation(operation.key) }
+            }
             transport.command({ try $0.unsubscribe(session: old) }, completion: report)
         }
         transport.command({ try $0.subscribe(session: session) }, completion: report)
@@ -324,14 +327,51 @@ final class PhoneHostModel: Identifiable {
             followRequest = UUID()
         }
         switch operation.state {
-        case .accepted where !operation.needsEcho:
-            echoAnchors.removeValue(forKey: operation.key)
-            operations.removeValue(forKey: operation.key)
-            operationOrder.removeAll { $0 == operation.key }
-            let key = operation.key
-            transport.read({ try $0.forgetOperation(operation: key) }, completion: report)
-        case .rejected(let message), .uncertain(let message): if !renaming { error = message }
+        case .accepted where !operation.needsEcho || operation.session != selected:
+            forgetHandledOperation(operation.key)
+        case .rejected(let message), .uncertain(let message):
+            if !renaming { error = message }
+            if operation.text == nil {
+                approvalRequests = approvalRequests.filter { _, request in
+                    if case .operation(let key) = request { return key != operation.key }
+                    return true
+                }
+                forgetHandledOperation(operation.key)
+            }
         default: break
+        }
+    }
+
+    func restoreDraft(_ key: String) {
+        guard draft.isEmpty, let text = retainedText(key) else { return }
+        draft = text
+        forgetHandledOperation(key)
+    }
+
+    func discardDraft(_ key: String) {
+        guard retainedText(key) != nil else { return }
+        forgetHandledOperation(key)
+    }
+
+    private func retainedText(_ key: String) -> String? {
+        guard let selected, let operation = operations[key], operation.session == selected else { return nil }
+        switch operation.state {
+        case .rejected, .uncertain: return operation.text
+        default: return nil
+        }
+    }
+
+    private func forgetHandledOperation(_ key: String) {
+        transport.read({ try $0.forgetOperation(operation: key) }) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                echoAnchors.removeValue(forKey: key)
+                operations.removeValue(forKey: key)
+                operationOrder.removeAll { $0 == key }
+                contentChanged()
+            case .failure(let failure): error = PhoneFailureMessage.describe(failure)
+            }
         }
     }
 
@@ -351,6 +391,7 @@ final class PhoneHostModel: Identifiable {
             creating = false
         case .rejected(let message), .uncertain(let message):
             error = message
+            creation = nil
             creating = false
         case .pending, .queued: break
         }
