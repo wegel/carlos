@@ -5,11 +5,12 @@ remote Mac over SSH. The development machine runs Linux and cannot run Xcode.
 The same Mac builds the owner's other iOS projects, so carlos keeps its own
 directory and its own simulator there.
 
-EP022 is in progress. `apps/ios` contains the native session screen and actual
-simulator tests; `crates/carlos-phone` binds the shared client calls those screens
-need. The app can connect, select/create sessions, send prompts, show Markdown,
-copy original answers and answer offered approvals. The active ExecPlan records
-the remaining features and checks before the app can be called complete.
+EP022 is complete. `apps/ios` contains the native session screen and simulator
+tests. `crates/carlos-phone` binds the shared client calls those screens need.
+The app can manage saved servers, choose or create a session, read its full
+history, send, steer, queue or stop a turn, and answer offered approvals. The
+final signed build and simulator checks are in
+`.agents/reports/exec022-final-report.md`.
 
 The app saves each host's token in this device's Keychain and keeps the selected
 host and session in preferences. Reopening reuses the token. In a saved host's

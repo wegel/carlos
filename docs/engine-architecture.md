@@ -1,10 +1,10 @@
 # Engine architecture: daemon and clients
 
-Status: EP016 through EP021b are complete and approved. The terminal runs through the daemon;
-local/network access and the shared checked panel readers pass their final checks and reviews.
-Root approved EP021b under the owner's grant on2026-11-16 at20:33:35 UTC. PROGRAM_PLAN.md
-records the exact source/evidence and the separate restrictions on installation, merging
-and pushing. EP022 is active for the actual UniFFI/Swift/iPhone consumer.
+EP016 through EP022 are complete and approved. The terminal and the native
+iPhone app both run through the daemon. The phone calls the shared client
+through a narrow UniFFI bridge. The final report records tests, build identities,
+measured costs and the path for a later web client. See
+`.agents/reports/exec022-final-report.md` and `PROGRAM_PLAN.md`.
 
 This note records the design for splitting `carlos` into a daemon and several
 clients, and the reasons. Update it when a decision changes. Keep raw logs out.
@@ -210,7 +210,7 @@ Claude's SDK can still scan/import the complete file before its first archive wi
 7. EP020, complete and approved under delegated authority: explicit stop/reopen releases owner slots while preserving saved conversations/private results; opt-in authenticated WebSockets share the same manager. Final source6a31fd059ad6f8f0e7e92b1f001bc765 passes complete gates and matched measurements. Both final Fable reviews and all remaining limits are in `.agents/reports/exec020-final-report.md`.
 8. EP021a: share panel read/paging rules in carlos-client, remove terminal copies and make daemon command admission exhaustive. Add the non-blocking partial-progress stall test and truthful write-return diagnostic label. Complete: `.agents/done/EXECPLAN_021a_shared_panel_reads.md`.
 9. EP021b, complete and approved: native history windows, real Grok approval choices and accurate compact tool facts. `.agents/done/EXECPLAN_021b_native_phone_data.md` and `.agents/reports/exec021b-final-report.md` record corrected full gate06, fresh measurements and final review decisions.
-10. EP022, active: UniFFI bindings, iOS packaging and the actual SwiftUI iPhone app. Execute `.agents/execplans/EXECPLAN_022_iphone_app.md` on the owned remote Mac; see `docs/ios-build.md`.
+10. EP022 is complete. The native SwiftUI app uses generated UniFFI bindings and the shared Rust client. See `.agents/done/EXECPLAN_022_iphone_app.md` for the checks and `docs/ios-build.md` for the build commands.
 
 Only the next ExecPlan is written in full. Each later plan is written when the
 plan before it ends, because its details depend on what that plan finds.

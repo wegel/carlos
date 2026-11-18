@@ -86,13 +86,12 @@ PASS WITH ISSUES and Root's final engineering PASS. Runtime6de40a2, source
 failed/cancelled gate and decision are `.agents/reports/exec021b-*`.
 The unchanged archive SHA256 is58df8613825d47d1e869b5940e9cf2368d6903fd7f2387a689acd533b18300bb.
 
-The active next incomplete plan is `.agents/execplans/EXECPLAN_022_iphone_app.md`,
-now written in full. Build the actual SwiftUI iPhone app with a narrow generated UniFFI
-interface to carlos-client. Prove a small real Swift caller and owned simulator build
-first, then implement the specified screens and real socket workflows. Keep Root direct,
-no developer subagents, no intermediate reviewers and no routine human approval gate.
-Read docs/ios-build.md and tmp/main-screen.md before writing app code. Use only the owned
-Mac directory/simulator and leave its global Rust default and other projects untouched.
+EP022 completes the iPhone spike. The SwiftUI app uses a narrow generated UniFFI
+interface to carlos-client. Source 35f2cd499401ff683df5 passed the 36 simulator workflows
+and 27 Swift unit tests and installed on the iPhone 18 Pro. The final Linux release and
+paired performance checks also passed. Root approved EP022 on 2026-11-18 UTC under the
+owner's delegated authority after the end reviews and the private operation cleanup.
+See the archived plan and `.agents/reports/exec022-final-report.md` for the evidence.
 
 The first iPhone binding must follow the screens in tmp/main-screen.md section11,
 rather than mirror every public Rust method. Export only session listing/lifecycle,
@@ -104,7 +103,8 @@ lines added/deleted per native feature and removes replaced paths. Correctness a
 supported data take precedence over an arbitrary line quota. Phone-specific cache and ABI
 error policies wait for the real EP022 facade. Version1 remains provisional.
 
-Keep main, the installed binary and all frozen owner preview packages unchanged.
+Keep main and all frozen owner preview packages unchanged. Installing the normal binary
+requires the owner's authorization and a checked package.
 On2026-11-17 the owner explicitly requests using this branch as their normal local
 Carlos and installing under~/.local/bin. That request authorizes a matching checked
 CLI/daemon/helper install with backups; it does not authorize a daemon restart,
@@ -171,8 +171,8 @@ is written in full. On 2026-11-14, the owner delegated approval of completed EPs
 
 The final EP019b Fable review found that live owners remain allocated until daemon shutdown and closed non-Codex sessions need an explicit recovery command. EP020 must first add a typed session stop/reopen path, with actual multi-client/native tests, before enabling its network listener. Stopping a session releases its owner and native processes while keeping the saved conversation. This is a required first milestone, not optional later cleanup. The review remains `.agents/reports/exec019b-fable-final-review.md`; its final EP019b dispositions belong in the final report.
 
-ExecPlans 009 to 015 remain under `.agents/execplans/`. Their status was not reviewed when the
-daemon split started. They remain outside the iPhone spike; its next step is EP022.
+ExecPlans 009 to 015 remain under `.agents/execplans/`. They predate the daemon split and
+remain outside the completed iPhone spike. A later web client will need its own ExecPlan.
 
 
 ## Done ExecPlans
@@ -203,3 +203,8 @@ On2026-11-16 the owner explicitly requested pushing the current branch upstream.
 - [x] `.agents/done/EXECPLAN_021b_native_phone_data.md` (approved under delegated authority
   on2026-11-16 at20:33:35 UTC; corrected full gate06, fresh exact-pair evidence and final
   engineering/Fable decisions recorded; archived plan unchanged)
+
+- [x] `.agents/done/EXECPLAN_022_iphone_app.md` (approved under delegated authority
+  on 2026-11-18 UTC. All final gates, both end reviews and the signed phone install
+  are in `.agents/reports/exec022-final-report.md`. The archive matches the approved
+  plan SHA-256 `34a0c1f3f2a98f8f14873e102e2413594367a885bded50b5b5b8253b19e14808`.)
