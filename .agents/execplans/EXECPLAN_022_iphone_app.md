@@ -915,8 +915,12 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   capture in Flow and Gutter. All 32 functional workflows pass on the frozen
   aba92 build, with the history cursor assertion corrected on the same source.
   The replay and native tool screenshots were inspected separately.
-- [ ] Record final simulator startup/typing/scroll/idle CPU/memory/bridge/size costs,
-  frozen CLI perf-session comparisons and authored production growth.
+- [x] Record final simulator startup, typing, scroll, idle CPU, memory, bridge
+  and size costs, the frozen CLI comparison and authored production growth.
+  The report records the paired daemon timings and exact release gate in
+  run-YWgEbR. The 226 daemon and 336 terminal cases, installed Codex contract,
+  23 native Codex and 10 packaged Claude cases pass. All 515 package hashes
+  verify. The running daemon was kept available while the final checks ran.
 - [x] Build, sign and install the immutable phone preview after the simulator gate.
   The signed aba92b522eddbb638cb3 release passed strict verification and installed
   on the iPhone 18 Pro. The Mac keeps it under
@@ -924,6 +928,13 @@ structure. The phone must not link `carlos-core` or ship a backend/helper proces
   remote launch while the device was locked. The previous preview stays available.
 - [ ] Run Root engineering and the single end-only Fable5.2 medium whole-roadmap
   review, resolve findings, record delegated approval and archive unchanged.
+  Fable returned PASS WITH ISSUES after the complete frozen-source gate. Both
+  reviews found that the phone retains handled private failures until the
+  bounded store refuses new work. Restore now releases the copied recovery
+  record, Discard explicitly releases a retained draft, and the phone releases
+  a control's outcome after showing its error. Check 129 rejected controls against
+  the generated Rust bridge, then prove Restore and Discard in the actual app.
+  Repeat the simulator matrix and install the signed correction before approval.
 
 ### Earlier milestone notes
 

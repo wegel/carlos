@@ -29,6 +29,21 @@ changes did not alter those bytes. Workspace Rust tests and the full debug
 terminal suite passed after the phone changes. The debug gate keeps its 226
 daemon and 336 terminal results under target/ui-artifacts/run-91qvAq.
 
+The final Linux build, a50bd0d31e4fe0da61a4be0cb3d22fdc, passed that full
+release gate again under target/ui-artifacts/run-YWgEbR. The command was
+`bash scripts/test.sh --release --codex-contract --claude-contract` with the
+pinned Bun directory on PATH and BUN_BINARY pointing to its executable.
+The terminal binary matches the measured bytes and all 515 package hashes
+verify. The final socket timing uses this package's actual daemon binary.
+
+The owner-local install updated `~/.local/bin/carlos`, `carlosd` and the Claude
+controller together from this package. The rollback receipt lives under
+`~/.local/lib/carlos/backups/20261118T031016Z/install.json`. The running daemon
+still uses e3fde911 and serves the active connection. The final Linux changes
+affect the terminal's wrap count and the test harness. Both daemon builds use
+the same protocol. The compatible package can start on the next normal daemon
+launch without interrupting this turn.
+
 The idle-upgrade receipt proves the saved phone token authenticates, the
 working session is still listed and the Mac reaches the LAN listener.
 
@@ -121,3 +136,13 @@ The socket timing harness waits for a full newline-terminated address after
 binding port zero. The first run read the log partway through that line and
 tried to connect to a truncated hostname. The final run uses the same fixture
 for both packages.
+
+Three runs of 1,000 admissions per socket type gave median per-run p95 of
+0.618 to 0.612 ms on Unix sockets and 0.793 to 0.799 ms on WebSockets.
+Time to bind the fixture listener was 2.38 to 2.19 ms on Unix sockets and
+2.35 to 2.39 ms on WebSockets. Every idle sample used zero process CPU ticks.
+Three exact 10,092,544-byte source transfers per socket type verified the
+original SHA-256. Median wall time was 115.83 to 116.93 ms over Unix sockets
+and 129.66 to 128.11 ms over WebSockets. Raw distributions, daemon memory
+samples and executable hashes are in linux-perf-review-pair/measurements.json
+under the same artifact root.
