@@ -77,7 +77,7 @@ extension SessionWorkflowTests {
         app.buttons["edit.send"].tap()
         let failure = app.staticTexts["edit.error"]
         XCTAssertTrue(failure.waitForExistence(timeout: 15))
-        XCTAssertTrue(failure.label.contains("Phone branch rejected"))
+        XCTAssertEqual(failure.label, "Phone branch rejected")
         let restore = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'recovery.restore.'")).firstMatch
         XCTAssertTrue(restore.waitForExistence(timeout: 15))
         XCTAssertFalse(restore.isEnabled, "A failed edit must not replace a different draft")

@@ -10,4 +10,18 @@ enum PhoneFailureMessage {
             return message
         }
     }
+
+    // Keep the operation's original error intact for diagnostics.
+    static func describeForkFailure(_ diagnostic: String) -> String {
+        let prefix = "server returned error: "
+        guard diagnostic.hasPrefix(prefix),
+              let error = try? JSONDecoder().decode(ServerError.self, from: Data(diagnostic.dropFirst(prefix.count).utf8)),
+              !error.message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return diagnostic }
+        return error.message
+    }
+
+    private struct ServerError: Decodable {
+        let code: Int
+        let message: String
+    }
 }

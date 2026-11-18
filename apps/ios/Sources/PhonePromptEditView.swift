@@ -24,7 +24,7 @@ struct PhonePromptEditView: View {
                     .disabled(!editor.loaded || editor.sending || editor.operation != nil)
                     .accessibilityIdentifier("edit.draft")
                 if let error = editor.error {
-                    Text(error).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
+                    Text(PhoneFailureMessage.describeForkFailure(error)).font(PhoneTheme.prose(13)).foregroundStyle(PhoneTheme.red)
                         .accessibilityIdentifier("edit.error")
                 }
                 if let operation = editor.operation {
